@@ -10,6 +10,14 @@ import incidentRoutes from './routes/incidentRoutes.js';
 import dashboardRoutes from './routes/dashboardRoutes.js';
 import simulationRoutes from './routes/simulationRoutes.js';
 import riskRoutes from './routes/riskRoutes.js';
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+import aiAgentRoutes from './routes/aiAgentRoutes.js';
+=======
+>>>>>>> dfa4e20a1cd9f5b8556979c77109897349e97a81
+>>>>>>> 168437ca7514200b7e0b6c836faa005c17b892a0
+>>>>>>> dee32f819f7bd924b1f3956228861914422034dd
 
 const app = express();
 
@@ -34,6 +42,14 @@ app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/incidents/dashboard', dashboardRoutes);
 app.use('/api/simulation', simulationRoutes);
 app.use('/api/risk', riskRoutes);
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+app.use('/api/agent', aiAgentRoutes);
+=======
+>>>>>>> dfa4e20a1cd9f5b8556979c77109897349e97a81
+>>>>>>> 168437ca7514200b7e0b6c836faa005c17b892a0
+>>>>>>> dee32f819f7bd924b1f3956228861914422034dd
 
 // Health Check Route
 app.get('/', (req, res) => {
