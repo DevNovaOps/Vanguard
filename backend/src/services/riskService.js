@@ -1,14 +1,10 @@
-<<<<<<< HEAD
 import incidentService from './incidentService.js';
-=======
 import RiskScore from '../models/RiskScore.js';
->>>>>>> dfa4e20a1cd9f5b8556979c77109897349e97a81
 import RailwayNode from '../models/RailwayNode.js';
 import { logAudit } from '../utils/auditLogger.js';
 
 export const riskService = {
   /**
-<<<<<<< HEAD
    * Evaluate risk score for a transit node based on current readings or updates.
    * If risk exceeds threshold (High/Critical), automatically triggers incident creation.
    * Medium risk can optionally trigger incidents if specified.
@@ -68,7 +64,10 @@ export const riskService = {
       severity,
       incidentCreated: !!incident,
       incident
-=======
+    };
+  },
+
+  /**
    * Helper to calculate mock/fallback risk for a node based on status
    */
   generateFallbackRisk(node) {
@@ -245,7 +244,6 @@ export const riskService = {
       highestRiskNode,
       criticalNodes,
       riskDistribution
->>>>>>> dfa4e20a1cd9f5b8556979c77109897349e97a81
     };
   }
 };
