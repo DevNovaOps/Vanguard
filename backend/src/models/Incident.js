@@ -2,23 +2,23 @@ import mongoose from 'mongoose';
 
 const incidentSchema = new mongoose.Schema(
   {
-    incidentNumber: {
+    incidentId: {
       type: String,
       unique: true,
       trim: true,
       index: true
     },
-    sensorId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'Sensor',
-      required: [true, 'Sensor reference is required'],
-      index: true
-    },
     nodeId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: 'TransitNode',
-      required: [true, 'Transit Node reference is required'],
+      ref: 'RailwayNode',
+      required: [true, 'Railway Node reference is required'],
       index: true
+    },
+    riskScore: {
+      type: Number,
+      required: [true, 'Risk score is required'],
+      min: [0, 'Risk score must be at least 0'],
+      max: [100, 'Risk score cannot exceed 100']
     },
     severity: {
       type: String,
@@ -26,14 +26,8 @@ const incidentSchema = new mongoose.Schema(
         values: ['Low', 'Medium', 'High', 'Critical'],
         message: 'Severity must be Low, Medium, High, or Critical'
       },
-      required: [true, 'Incident severity is required'],
+      required: [true, 'Severity is required'],
       index: true
-    },
-    riskScore: {
-      type: Number,
-      min: [0, 'Risk score must be at least 0'],
-      max: [100, 'Risk score cannot exceed 100'],
-      required: [true, 'Risk score is required']
     },
     title: {
       type: String,
@@ -48,39 +42,61 @@ const incidentSchema = new mongoose.Schema(
     status: {
       type: String,
       enum: {
-        values: ['Open', 'Investigating', 'Mitigated', 'Resolved', 'Closed'],
-        message: 'Status must be Open, Investigating, Mitigated, Resolved, or Closed'
+        values: ['Open', 'Investigating', 'Mitigating', 'Resolved', 'Closed'],
+        message: 'Status must be Open, Investigating, Mitigating, Resolved, or Closed'
       },
       default: 'Open',
       index: true
     },
-    reportedAt: {
-      type: Date,
-      default: Date.now
+    assignedTeam: {
+      type: String,
+      default: null
     },
-    resolvedAt: {
-      type: Date
-    },
-    assignedTo: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'User',
+    source: {
+      type: String,
+      enum: {
+        values: ['Telemetry', 'Compliance', 'Simulation', 'Manual', 'Agent'],
+        message: 'Source must be Telemetry, Compliance, Simulation, Manual, or Agent'
+      },
+      required: [true, 'Source type is required'],
       index: true
     }
   },
   {
-    timestamps: true
+    timestamps: true,
+    toJSON: { virtuals: true },
+    toObject: { virtuals: true }
   }
 );
 
+// Virtual properties to match the frontend column requirements
+incidentSchema.virtual('id').get(function () {
+  return this.incidentId;
+});
+
+incidentSchema.virtual('asset').get(function () {
+  if (this.nodeId && typeof this.nodeId === 'object') {
+    return this.nodeId.nodeCode;
+  }
+  return null;
+});
+
+incidentSchema.virtual('assetName').get(function () {
+  if (this.nodeId && typeof this.nodeId === 'object') {
+    return this.nodeId.nodeName;
+  }
+  return 'Unknown Asset';
+});
+
 // Pre-save hook: Generate dynamic incident identifier (e.g. INC-20260609-F3C2)
 incidentSchema.pre('save', async function (next) {
-  if (!this.incidentNumber) {
+  if (!this.incidentId) {
     const today = new Date();
     const dateStr = today.getFullYear().toString() +
                     (today.getMonth() + 1).toString().padStart(2, '0') +
                     today.getDate().toString().padStart(2, '0');
     const randomPart = Math.random().toString(36).substring(2, 6).toUpperCase();
-    this.incidentNumber = `INC-${dateStr}-${randomPart}`;
+    this.incidentId = `INC-${dateStr}-${randomPart}`;
   }
   next();
 });

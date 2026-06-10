@@ -3,6 +3,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import app from './app.js';
 import connectDB from './config/db.js';
+import { initSocket } from './config/socket.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -19,8 +20,12 @@ const server = app.listen(PORT, () => {
   console.log(`[VANGUARD-SERVER] Running in ${process.env.NODE_ENV} mode on port ${PORT}`);
 });
 
+// Initialize Socket.IO
+initSocket(server);
+
 // Graceful shutdown on critical signals
 process.on('unhandledRejection', (err) => {
   console.error(`[SYSTEM-ERROR] Unhandled Promise Rejection: ${err.message}`);
   server.close(() => process.exit(1));
 });
+

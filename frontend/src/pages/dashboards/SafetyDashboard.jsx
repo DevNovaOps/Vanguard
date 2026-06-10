@@ -1,43 +1,91 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { PieChart, Pie, Cell, ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
 import { motion } from 'framer-motion';
 import KPICard from '../../components/common/KPICard';
 import ChartCard from '../../components/common/ChartCard';
 import StatusBadge from '../../components/common/StatusBadge';
-import { complianceTrendData, incidentSeverityData } from '../../data/mockData';
+import { complianceTrendData } from '../../data/mockData';
 import { complianceService } from '../../utils/complianceService';
+import { incidentService } from '../../utils/incidentService';
 import { timeAgo } from '../../utils/helpers';
-import { FileText, CheckCircle } from 'lucide-react';
+import { FileText, CheckCircle, AlertOctagon } from 'lucide-react';
+import { io } from 'socket.io-client';
 
 export default function SafetyDashboard() {
   const [violations, setViolations] = useState([]);
   const [stats, setStats] = useState(null);
+  const [incidents, setIncidents] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const fetchSafetyData = async () => {
-      try {
-        const vRes = await complianceService.getViolations({ limit: 5 });
-        if (vRes.success) {
-          setViolations(vRes.violations);
-        }
-        const sRes = await complianceService.getDashboardStats();
-        if (sRes.success) {
-          setStats(sRes.stats);
-        }
-      } catch (err) {
-        console.error('[SAFETY-DASHBOARD] Fetch failed:', err);
-      } finally {
-        setLoading(false);
+  const fetchSafetyData = useCallback(async () => {
+    try {
+      const vRes = await complianceService.getViolations({ limit: 5 });
+      if (vRes.success) {
+        setViolations(vRes.violations);
       }
-    };
-    fetchSafetyData();
+      const sRes = await complianceService.getDashboardStats();
+      if (sRes.success) {
+        setStats(sRes.stats);
+      }
+      const iRes = await incidentService.getIncidents();
+      if (iRes.success && iRes.data) {
+        setIncidents(iRes.data);
+      }
+    } catch (err) {
+      console.error('[SAFETY-DASHBOARD] Fetch failed:', err);
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    fetchSafetyData();
+  }, [fetchSafetyData]);
+
+  // Socket.IO real-time updates
+  useEffect(() => {
+    const socket = io();
+
+    const handleUpdate = () => {
+      fetchSafetyData();
+    };
+
+    socket.on('incident:create', handleUpdate);
+    socket.on('incident:update', handleUpdate);
+    socket.on('incident:resolve', handleUpdate);
+    socket.on('incident:close', handleUpdate);
+
+    return () => {
+      socket.disconnect();
+    };
+  }, [fetchSafetyData]);
 
   const totalOpenViolations = stats ? (stats.violations.open + stats.violations.investigating) : 0;
   const complianceScore = stats
     ? (stats.violations.open > 0 ? (100 - stats.violations.open * 12.5).toFixed(1) + '%' : '100.0%')
     : '100.0%';
+
+  // Aggregate incident severity distribution dynamically
+  const lowCount = incidents.filter(i => i.severity === 'Low').length;
+  const mediumCount = incidents.filter(i => i.severity === 'Medium').length;
+  const highCount = incidents.filter(i => i.severity === 'High').length;
+  const criticalCount = incidents.filter(i => i.severity === 'Critical').length;
+
+  const liveIncidentSeverityData = [
+    { name: 'Low', value: lowCount || 0, color: '#059669' },
+    { name: 'Medium', value: mediumCount || 0, color: '#D97706' },
+    { name: 'High', value: highCount || 0, color: '#F97316' },
+    { name: 'Critical', value: criticalCount || 0, color: '#DC2626' }
+  ];
+
+  // If there are no incidents, show a default empty layout or mock distribution for visual aid
+  const hasIncidentData = lowCount + mediumCount + highCount + criticalCount > 0;
+  const pieData = hasIncidentData ? liveIncidentSeverityData : [
+    { name: 'Low', value: 1, color: '#059669' },
+    { name: 'Medium', value: 1, color: '#D97706' },
+    { name: 'High', value: 1, color: '#F97316' },
+    { name: 'Critical', value: 1, color: '#DC2626' }
+  ];
 
   const liveSafetyKPIs = [
     { label: 'Compliance Score', value: complianceScore, trend: stats?.violations.open > 0 ? '-1.8%' : '+0.5%', trendDir: stats?.violations.open > 0 ? 'down' : 'up', color: totalOpenViolations > 0 ? 'amber' : 'green', icon: 'Shield' },
@@ -95,11 +143,11 @@ export default function SafetyDashboard() {
 
         {/* Incident Severity */}
         <div className="col-4">
-          <ChartCard title="Incident Severity" subtitle="Distribution by severity level">
+          <ChartCard title="Incident Severity" subtitle={hasIncidentData ? "Distribution by severity level" : "No active incidents (showing scale)"}>
             <ResponsiveContainer width="100%" height={200}>
               <PieChart>
-                <Pie data={incidentSeverityData} cx="50%" cy="50%" innerRadius={50} outerRadius={80} paddingAngle={4} dataKey="value" stroke="none">
-                  {incidentSeverityData.map((entry, i) => (
+                <Pie data={pieData} cx="50%" cy="50%" innerRadius={50} outerRadius={80} paddingAngle={4} dataKey="value" stroke="none">
+                  {pieData.map((entry, i) => (
                     <Cell key={i} fill={entry.color} />
                   ))}
                 </Pie>
@@ -107,10 +155,10 @@ export default function SafetyDashboard() {
               </PieChart>
             </ResponsiveContainer>
             <div style={{ display: 'flex', justifyContent: 'center', gap: '0.75rem', flexWrap: 'wrap', marginTop: '0.5rem' }}>
-              {incidentSeverityData.map(item => (
+              {liveIncidentSeverityData.map(item => (
                 <div key={item.name} style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: 'var(--text-xs)', color: 'var(--text-secondary)' }}>
                   <div style={{ width: 8, height: 8, borderRadius: '50%', background: item.color, boxShadow: `0 0 6px ${item.color}40` }} />
-                  {item.name}
+                  {item.name} ({item.value})
                 </div>
               ))}
             </div>

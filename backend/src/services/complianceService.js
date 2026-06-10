@@ -2,6 +2,7 @@ import ComplianceRule from '../models/ComplianceRule.js';
 import ComplianceViolation from '../models/ComplianceViolation.js';
 import RailwayNode from '../models/RailwayNode.js';
 import { logAudit } from '../utils/auditLogger.js';
+import incidentService from './incidentService.js';
 
 /**
  * Service handling Compliance Engine business logic
@@ -297,6 +298,25 @@ export const complianceService = {
             status: 'Open'
           });
           violationsCreated.push(violation);
+
+          // Calculate risk score based on rule severity
+          let riskScore = 25;
+          if (rule.severity === 'Medium') riskScore = 50;
+          else if (rule.severity === 'High') riskScore = 75;
+          else if (rule.severity === 'Critical') riskScore = 95;
+
+          try {
+            await incidentService.createIncident({
+              nodeId,
+              riskScore,
+              title: `Compliance Breach: ${rule.ruleCode} at ${node.nodeName}`,
+              description: `Compliance Violation detected on sensor ${sensorType} for rule ${rule.ruleCode} (${rule.standard}). Actual value ${value} is outside target limit.`,
+              source: 'Compliance',
+              status: 'Open'
+            });
+          } catch (err) {
+            console.error(`[COMPLIANCE-INCIDENT-TRIGGER-ERROR] Failed to trigger incident: ${err.message}`);
+          }
         }
       }
     }

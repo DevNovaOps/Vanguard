@@ -1,13 +1,14 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import DataTable from '../../components/common/DataTable';
 import StatusBadge from '../../components/common/StatusBadge';
 import SearchInput from '../../components/common/SearchInput';
 import Modal from '../../components/common/Modal';
-import Timeline from '../../components/common/Timeline';
 import ChartCard from '../../components/common/ChartCard';
-import { incidents } from '../../data/mockData';
+import LoadingSpinner from '../../components/common/LoadingSpinner';
+import { incidentService } from '../../utils/incidentService';
 import { timeAgo, MaxHeap } from '../../utils/helpers';
 import { AlertCircle, ArrowUpDown } from 'lucide-react';
+import { io } from 'socket.io-client';
 
 const columns = [
   { key: 'id', label: 'Incident ID', render: (v) => <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)' }}>{v}</span> },
@@ -18,7 +19,7 @@ const columns = [
     <span style={{ fontWeight: 'var(--font-bold)', color: v >= 80 ? 'var(--color-danger)' : v >= 50 ? 'var(--color-warning)' : 'var(--text-primary)' }}>{v}</span>
   )},
   { key: 'status', label: 'Status', render: (v) => <StatusBadge status={v} /> },
-  { key: 'assignedTeam', label: 'Team', render: (v) => <span className="badge badge-primary">Team {v}</span> },
+  { key: 'assignedTeam', label: 'Team', render: (v) => <span className="badge badge-primary">{v ? `Team ${v}` : 'Unassigned'}</span> },
   { key: 'createdAt', label: 'Created', render: (v) => <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-tertiary)' }}>{timeAgo(v)}</span> },
 ];
 
@@ -26,17 +27,95 @@ export default function IncidentManagement() {
   const [search, setSearch] = useState('');
   const [severityFilter, setSeverityFilter] = useState('all');
   const [selectedIncident, setSelectedIncident] = useState(null);
+  const [incidents, setIncidents] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  // Fetch incidents from backend
+  const fetchIncidents = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const res = await incidentService.getIncidents();
+      if (res.success && res.data) {
+        setIncidents(res.data);
+      }
+    } catch (err) {
+      console.error('[INCIDENT-PAGE] Fetch failed:', err);
+      setError(err.message || 'Failed to load incidents');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // Fetch on mount
+  useEffect(() => {
+    fetchIncidents();
+  }, [fetchIncidents]);
+
+  // Hook up Socket.IO listeners
+  useEffect(() => {
+    const socket = io();
+
+    socket.on('connect', () => {
+      console.log('[SOCKET] Connected to real-time incident stream');
+    });
+
+    const handleCreate = (newInc) => {
+      // Find full node reference dynamically or just append
+      setIncidents((prev) => {
+        const exists = prev.find(i => i.incidentId === newInc.incidentId || i._id === newInc._id);
+        if (exists) {
+          return prev.map(i => (i.incidentId === newInc.incidentId || i._id === newInc._id) ? newInc : i);
+        }
+        return [newInc, ...prev];
+      });
+      // Fetch fresh list to populate populated node fields if needed
+      fetchIncidents();
+    };
+
+    const handleUpdate = (updatedInc) => {
+      setIncidents((prev) => {
+        return prev.map(i => (i.incidentId === updatedInc.incidentId || i._id === updatedInc._id) ? updatedInc : i);
+      });
+      setSelectedIncident((curr) => {
+        if (curr && (curr.incidentId === updatedInc.incidentId || curr._id === updatedInc._id)) {
+          return updatedInc;
+        }
+        return curr;
+      });
+      fetchIncidents();
+    };
+
+    socket.on('incident:create', handleCreate);
+    socket.on('incident:update', handleUpdate);
+    socket.on('incident:resolve', handleUpdate);
+    socket.on('incident:close', handleUpdate);
+
+    return () => {
+      socket.disconnect();
+    };
+  }, [fetchIncidents]);
 
   // Max Heap prioritization
   const heapPrioritized = useMemo(() => {
     const heap = new MaxHeap();
-    incidents.forEach(inc => heap.insert(inc));
+    incidents.forEach(inc => {
+      // Ensure it has dynamic/getter fields
+      const formatted = {
+        ...inc,
+        id: inc.incidentId,
+        asset: inc.nodeId?.nodeCode || '',
+        assetName: inc.nodeId?.nodeName || 'Unknown Asset'
+      };
+      heap.insert(formatted);
+    });
     return heap.toArray();
-  }, []);
+  }, [incidents]);
 
   const filtered = heapPrioritized.filter(inc => {
-    if (severityFilter !== 'all' && inc.severity !== severityFilter) return false;
-    if (search && !inc.title.toLowerCase().includes(search.toLowerCase()) && !inc.id.toLowerCase().includes(search.toLowerCase())) return false;
+    if (severityFilter !== 'all' && inc.severity?.toLowerCase() !== severityFilter.toLowerCase()) return false;
+    if (search && !inc.title?.toLowerCase().includes(search.toLowerCase()) && !inc.id?.toLowerCase().includes(search.toLowerCase())) return false;
     return true;
   });
 
@@ -57,19 +136,23 @@ export default function IncidentManagement() {
       {/* Heap Visualization */}
       <ChartCard title="Max Heap Priority Queue" subtitle="Incidents ordered by risk score (highest priority first)" className="animate-slide-up" style={{ marginBottom: '1.5rem' }}>
         <div style={{ display: 'flex', gap: '0.5rem', overflowX: 'auto', padding: '0.5rem 0' }}>
-          {heapPrioritized.map((inc, i) => (
-            <div key={inc.id} className="animate-slide-up" style={{
-              minWidth: '140px', padding: '0.75rem', background: 'var(--bg-tertiary)',
-              borderRadius: 'var(--radius-lg)', textAlign: 'center', flexShrink: 0,
-              borderTop: `3px solid ${inc.riskScore >= 80 ? 'var(--color-danger)' : inc.riskScore >= 50 ? 'var(--color-warning)' : 'var(--color-success)'}`,
-              animationDelay: `${i * 50}ms`
-            }}>
-              <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-tertiary)' }}>Priority #{i + 1}</div>
-              <div style={{ fontSize: 'var(--text-xl)', fontWeight: 'var(--font-bold)', color: inc.riskScore >= 80 ? 'var(--color-danger)' : 'var(--text-primary)' }}>{inc.riskScore}</div>
-              <div style={{ fontSize: 'var(--text-xs)', fontFamily: 'var(--font-mono)', marginTop: '4px' }}>{inc.id}</div>
-              <StatusBadge status={inc.severity} />
-            </div>
-          ))}
+          {heapPrioritized.length === 0 ? (
+            <div style={{ padding: '1rem', color: 'var(--text-tertiary)', textAlign: 'center', width: '100%' }}>No active incidents in queue</div>
+          ) : (
+            heapPrioritized.map((inc, i) => (
+              <div key={inc.id || inc._id} className="animate-slide-up" style={{
+                minWidth: '140px', padding: '0.75rem', background: 'var(--bg-tertiary)',
+                borderRadius: 'var(--radius-lg)', textAlign: 'center', flexShrink: 0,
+                borderTop: `3px solid ${inc.riskScore >= 80 ? 'var(--color-danger)' : inc.riskScore >= 50 ? 'var(--color-warning)' : 'var(--color-success)'}`,
+                animationDelay: `${i * 50}ms`
+              }}>
+                <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-tertiary)' }}>Priority #{i + 1}</div>
+                <div style={{ fontSize: 'var(--text-xl)', fontWeight: 'var(--font-bold)', color: inc.riskScore >= 80 ? 'var(--color-danger)' : 'var(--text-primary)' }}>{inc.riskScore}</div>
+                <div style={{ fontSize: 'var(--text-xs)', fontFamily: 'var(--font-mono)', marginTop: '4px' }}>{inc.id}</div>
+                <StatusBadge status={inc.severity} />
+              </div>
+            ))
+          )}
         </div>
       </ChartCard>
 
@@ -84,12 +167,24 @@ export default function IncidentManagement() {
         </select>
       </div>
 
-      <DataTable
-        data={filtered}
-        columns={columns}
-        exportFilename="incidents"
-        onRowClick={(row) => setSelectedIncident(row)}
-      />
+      {loading && incidents.length === 0 ? (
+        <div style={{ display: 'flex', justifyContent: 'center', padding: '3rem' }}>
+          <LoadingSpinner size="lg" />
+        </div>
+      ) : error && incidents.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--color-danger)' }}>
+          <AlertCircle size={48} style={{ margin: '0 auto 1rem' }} />
+          <p>{error}</p>
+          <button className="btn btn-secondary btn-sm" onClick={fetchIncidents} style={{ marginTop: '1rem' }}>Retry</button>
+        </div>
+      ) : (
+        <DataTable
+          data={filtered}
+          columns={columns}
+          exportFilename="incidents"
+          onRowClick={(row) => setSelectedIncident(row)}
+        />
+      )}
 
       <Modal isOpen={!!selectedIncident} onClose={() => setSelectedIncident(null)} title="Incident Details" size="lg">
         {selectedIncident && (
@@ -106,7 +201,7 @@ export default function IncidentManagement() {
               {[
                 ['Asset', selectedIncident.assetName],
                 ['Risk Score', selectedIncident.riskScore + '/100'],
-                ['Assigned Team', `Team ${selectedIncident.assignedTeam}`],
+                ['Assigned Team', selectedIncident.assignedTeam ? `Team ${selectedIncident.assignedTeam}` : 'Unassigned'],
                 ['Status', <StatusBadge key="s" status={selectedIncident.status} />],
                 ['Created', timeAgo(selectedIncident.createdAt)],
                 ['Priority', `#${heapPrioritized.indexOf(selectedIncident) + 1}`],

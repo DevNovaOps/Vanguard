@@ -1,11 +1,14 @@
+import { useState, useEffect, useCallback } from 'react';
 import { BarChart, Bar, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
 import { motion } from 'framer-motion';
 import KPICard from '../../components/common/KPICard';
 import ChartCard from '../../components/common/ChartCard';
 import StatusBadge from '../../components/common/StatusBadge';
-import { operatorKPIs, incidents, sensors, routes } from '../../data/mockData';
+import { operatorKPIs as mockKPIs, sensors, routes } from '../../data/mockData';
+import { incidentService } from '../../utils/incidentService';
 import { timeAgo } from '../../utils/helpers';
 import { Eye, AlertCircle, ArrowUpRight } from 'lucide-react';
+import { io } from 'socket.io-client';
 
 const sensorByType = ['temperature', 'vibration', 'pressure', 'gas', 'power', 'signal'].map(type => ({
   type: type.charAt(0).toUpperCase() + type.slice(1),
@@ -14,6 +17,59 @@ const sensorByType = ['temperature', 'vibration', 'pressure', 'gas', 'power', 's
 }));
 
 export default function OperatorDashboard() {
+  const [incidents, setIncidents] = useState([]);
+  const [stats, setStats] = useState(null);
+
+  const fetchIncidentsAndStats = useCallback(async () => {
+    try {
+      const res = await incidentService.getIncidents();
+      if (res.success && res.data) {
+        setIncidents(res.data);
+      }
+      const statsRes = await incidentService.getDashboardStats();
+      if (statsRes.success && statsRes.data) {
+        setStats(statsRes.data);
+      }
+    } catch (err) {
+      console.error('[OPERATOR-DASHBOARD] Fetch failed:', err);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchIncidentsAndStats();
+  }, [fetchIncidentsAndStats]);
+
+  // Hook up Socket.IO
+  useEffect(() => {
+    const socket = io();
+
+    const handleUpdate = () => {
+      fetchIncidentsAndStats();
+    };
+
+    socket.on('incident:create', handleUpdate);
+    socket.on('incident:update', handleUpdate);
+    socket.on('incident:resolve', handleUpdate);
+    socket.on('incident:close', handleUpdate);
+
+    return () => {
+      socket.disconnect();
+    };
+  }, [fetchIncidentsAndStats]);
+
+  // Merge live incident counts with mock KPIs
+  const currentIncidentsCount = stats ? stats.openIncidents : incidents.filter(i => i.status !== 'Closed').length;
+
+  const liveKPIs = mockKPIs.map(kpi => {
+    if (kpi.label === 'Current Incidents') {
+      return {
+        ...kpi,
+        value: currentIncidentsCount
+      };
+    }
+    return kpi;
+  });
+
   return (
     <div>
       <div className="page-header">
@@ -27,7 +83,7 @@ export default function OperatorDashboard() {
       </div>
 
       <div className="kpi-grid" style={{ gridTemplateColumns: 'repeat(5, 1fr)' }}>
-        {operatorKPIs.map((kpi, i) => (
+        {liveKPIs.map((kpi, i) => (
           <KPICard key={kpi.label} {...kpi} delay={i * 80} />
         ))}
       </div>
@@ -109,27 +165,35 @@ export default function OperatorDashboard() {
                   </tr>
                 </thead>
                 <tbody>
-                  {incidents.slice(0, 5).map(inc => (
-                    <tr key={inc.id}>
-                      <td style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)' }}>{inc.id}</td>
-                      <td><StatusBadge status={inc.severity} dot /></td>
-                      <td style={{ fontWeight: 'var(--font-medium)' }}>{inc.title}</td>
-                      <td>{inc.assetName}</td>
-                      <td>
-                        <span style={{
-                          fontWeight: 'var(--font-bold)',
-                          color: inc.riskScore >= 80 ? 'var(--color-danger)' : inc.riskScore >= 50 ? 'var(--color-warning)' : 'var(--text-primary)',
-                          textShadow: inc.riskScore >= 80 ? '0 0 8px rgba(220,38,38,0.3)' : 'none',
-                        }}>{inc.riskScore}</span>
-                      </td>
-                      <td><StatusBadge status={inc.status} /></td>
-                      <td style={{ fontSize: 'var(--text-xs)', color: 'var(--text-tertiary)' }}>{timeAgo(inc.createdAt)}</td>
-                      <td>
-                        <button className="btn btn-ghost btn-sm"><Eye size={14} /></button>
-                        <button className="btn btn-ghost btn-sm"><ArrowUpRight size={14} /></button>
+                  {incidents.length === 0 ? (
+                    <tr>
+                      <td colSpan="8" style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-tertiary)' }}>
+                        No active incidents recorded in queue
                       </td>
                     </tr>
-                  ))}
+                  ) : (
+                    incidents.slice(0, 5).map(inc => (
+                      <tr key={inc._id || inc.incidentId}>
+                        <td style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)' }}>{inc.incidentId || inc._id}</td>
+                        <td><StatusBadge status={inc.severity} dot /></td>
+                        <td style={{ fontWeight: 'var(--font-medium)' }}>{inc.title}</td>
+                        <td>{inc.nodeId?.nodeName || 'Unknown Asset'}</td>
+                        <td>
+                          <span style={{
+                            fontWeight: 'var(--font-bold)',
+                            color: inc.riskScore >= 80 ? 'var(--color-danger)' : inc.riskScore >= 50 ? 'var(--color-warning)' : 'var(--text-primary)',
+                            textShadow: inc.riskScore >= 80 ? '0 0 8px rgba(220,38,38,0.3)' : 'none',
+                          }}>{inc.riskScore}</span>
+                        </td>
+                        <td><StatusBadge status={inc.status} /></td>
+                        <td style={{ fontSize: 'var(--text-xs)', color: 'var(--text-tertiary)' }}>{timeAgo(inc.createdAt)}</td>
+                        <td>
+                          <button className="btn btn-ghost btn-sm" title="View"><Eye size={14} /></button>
+                          <button className="btn btn-ghost btn-sm" title="Action"><ArrowUpRight size={14} /></button>
+                        </td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>

@@ -1,3 +1,4 @@
+import { useState, useEffect, useCallback } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -7,6 +8,8 @@ import {
   ChevronLeft, ChevronRight, Users
 } from 'lucide-react';
 import VanguardARCIcon from '../common/VanguardARCIcon';
+import { incidentService } from '../../utils/incidentService';
+import { io } from 'socket.io-client';
 
 const NAV_GROUPS = [
   {
@@ -57,6 +60,36 @@ const navItemVariants = {
 export default function Sidebar({ collapsed, onToggle }) {
   const { hasPermission } = useAuth();
   const location = useLocation();
+  const [badgeCounts, setBadgeCounts] = useState({ incidents: 0 });
+
+  const fetchBadgeCounts = useCallback(async () => {
+    try {
+      const statsRes = await incidentService.getDashboardStats();
+      if (statsRes.success && statsRes.data) {
+        setBadgeCounts({ incidents: statsRes.data.openIncidents });
+      }
+    } catch (err) {
+      console.error('[SIDEBAR-BADGE] Failed to fetch badge counts:', err);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchBadgeCounts();
+
+    const socket = io();
+    const handleUpdate = () => {
+      fetchBadgeCounts();
+    };
+
+    socket.on('incident:create', handleUpdate);
+    socket.on('incident:update', handleUpdate);
+    socket.on('incident:resolve', handleUpdate);
+    socket.on('incident:close', handleUpdate);
+
+    return () => {
+      socket.disconnect();
+    };
+  }, [fetchBadgeCounts]);
 
   const isActive = (path) => {
     if (path === '/dashboard') return location.pathname.startsWith('/dashboard');
@@ -122,8 +155,8 @@ export default function Sidebar({ collapsed, onToggle }) {
                         <item.icon size={18} className="nav-item-icon" />
                       </motion.div>
                       <span className="nav-item-text">{item.label}</span>
-                      {item.badgeKey === 'incidents' && (
-                        <span className="nav-item-badge nav-item-text">3</span>
+                      {item.badgeKey === 'incidents' && badgeCounts.incidents > 0 && (
+                        <span className="nav-item-badge nav-item-text">{badgeCounts.incidents}</span>
                       )}
                     </motion.div>
                   </NavLink>

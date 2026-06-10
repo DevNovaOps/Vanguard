@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useCallback, useRef } from 'react';
+import { api } from '../utils/api.js';
 
 const SimulationContext = createContext(null);
 
@@ -52,12 +53,20 @@ export function SimulationProvider({ children }) {
     }, step.duration);
   }, [addEvent]);
 
-  const startSimulation = useCallback(() => {
+  const startSimulation = useCallback(async () => {
     if (isRunning) return;
     setIsRunning(true);
     setCurrentStep(0);
     setCompletedSteps([]);
     addEvent({ type: 'simulation-start', title: 'Failure Simulation Started', description: 'Initiating 9-step failure cascade simulation...', severity: 'info' });
+    
+    // Call backend to trigger database events (persistence & socket emit)
+    try {
+      await api.post('/api/simulation/trigger', {});
+    } catch (err) {
+      console.error('[SIMULATION] Failed to trigger backend failure simulation:', err);
+    }
+
     setTimeout(() => runStep(0), 500);
   }, [isRunning, runStep, addEvent]);
 
