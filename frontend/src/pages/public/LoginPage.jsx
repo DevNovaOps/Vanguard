@@ -38,9 +38,24 @@ const AUTH_PARTICLES = Array.from({ length: 15 }, (_, i) => ({
   delay: Math.random() * 4,
 }));
 
+const SUGGESTED_EMAILS = [
+  'admin123@gmail.com',
+  'arjun@vanguardarc.in',
+  'priya@vanguardarc.in',
+  'rajesh@vanguardarc.in',
+  'sneha@vanguardarc.in',
+  'operator@vanguardarc.in',
+  'safety@vanguardarc.in',
+  'manager@vanguardarc.in'
+];
+
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [emailPlaceholder] = useState(() => {
+    const randomIndex = Math.floor(Math.random() * SUGGESTED_EMAILS.length);
+    return SUGGESTED_EMAILS[randomIndex];
+  });
   const [focusedField, setFocusedField] = useState(null);
   const [error, setError] = useState(null);
   const { login } = useAuth();
@@ -187,7 +202,7 @@ export default function LoginPage() {
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="admin123@gmail.com"
+              placeholder={emailPlaceholder}
               onFocus={() => setFocusedField('email')}
               onBlur={() => setFocusedField(null)}
             />
