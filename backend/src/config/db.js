@@ -4,6 +4,7 @@ import User from '../models/User.js';
 import RailwayNode from '../models/RailwayNode.js';
 import RailwayConnection from '../models/RailwayConnection.js';
 import ComplianceRule from '../models/ComplianceRule.js';
+import riskService from '../services/riskService.js';
 
 // Setup DNS servers to Google DNS for reliable SRV lookup
 dns.setServers(['8.8.8.8', '8.8.4.4']);
@@ -157,6 +158,8 @@ const connectDB = async () => {
     await seedDemoUsers();
     await seedInfrastructure();
     await seedComplianceRules();
+    await riskService.calculateAllRisks();
+    console.log('[VANGUARD-DB] Initial global risk scores calculated.');
   } catch (error) {
     console.error(`[VANGUARD-DB] Error establishing MongoDB Connection: ${error.message}`);
     process.exit(1);

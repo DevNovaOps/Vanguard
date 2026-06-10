@@ -6,6 +6,7 @@ import nodeRoutes from './routes/nodeRoutes.js';
 import connectionRoutes from './routes/connectionRoutes.js';
 import topologyRoutes from './routes/topologyRoutes.js';
 import complianceRoutes from './routes/complianceRoutes.js';
+import riskRoutes from './routes/riskRoutes.js';
 
 const app = express();
 
@@ -25,6 +26,7 @@ app.use('/api/nodes', nodeRoutes);
 app.use('/api/connections', connectionRoutes);
 app.use('/api/network', topologyRoutes);
 app.use('/api/compliance', complianceRoutes);
+app.use('/api/risk', riskRoutes);
 
 // Health Check Route
 app.get('/', (req, res) => {
