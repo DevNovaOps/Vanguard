@@ -7,6 +7,7 @@ import connectionRoutes from './routes/connectionRoutes.js';
 import topologyRoutes from './routes/topologyRoutes.js';
 import complianceRoutes from './routes/complianceRoutes.js';
 import riskRoutes from './routes/riskRoutes.js';
+import aiAgentRoutes from './routes/aiAgentRoutes.js';
 
 const app = express();
 
@@ -27,6 +28,7 @@ app.use('/api/connections', connectionRoutes);
 app.use('/api/network', topologyRoutes);
 app.use('/api/compliance', complianceRoutes);
 app.use('/api/risk', riskRoutes);
+app.use('/api/agent', aiAgentRoutes);
 
 // Health Check Route
 app.get('/', (req, res) => {
