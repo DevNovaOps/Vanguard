@@ -1,9 +1,14 @@
 import dotenv from 'dotenv';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import app from './app.js';
 import connectDB from './config/db.js';
 
-// Load environmental variables
-dotenv.config();
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Load environmental variables relative to the server script location
+dotenv.config({ path: path.resolve(__dirname, '../.env') });
 
 // Establish Database Connection
 connectDB();

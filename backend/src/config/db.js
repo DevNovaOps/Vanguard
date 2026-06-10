@@ -1,7 +1,12 @@
+import dns from 'dns';
 import mongoose from 'mongoose';
 import User from '../models/User.js';
 import RailwayNode from '../models/RailwayNode.js';
 import RailwayConnection from '../models/RailwayConnection.js';
+import ComplianceRule from '../models/ComplianceRule.js';
+
+// Setup DNS servers to Google DNS for reliable SRV lookup
+dns.setServers(['8.8.8.8', '8.8.4.4']);
 
 const seedDemoUsers = async () => {
   try {
@@ -92,12 +97,66 @@ const seedInfrastructure = async () => {
   }
 };
 
+const seedComplianceRules = async () => {
+  try {
+    const rules = [
+      {
+        ruleCode: 'API617-TEMP',
+        standard: 'API 617',
+        sensorType: 'Temperature',
+        minValue: 0,
+        maxValue: 120,
+        severity: 'High',
+        description: 'Centrifugal compressor temperature compliance thresholds according to the API 617 engineering standards.'
+      },
+      {
+        ruleCode: 'RDSO-SPEC',
+        standard: 'RDSO',
+        sensorType: 'Vibration',
+        minValue: 0,
+        maxValue: 15,
+        severity: 'Critical',
+        description: 'Vibration tolerances for locomotive chassis structure per RDSO compliance specifications.'
+      },
+      {
+        ruleCode: 'IEC-61850',
+        standard: 'IEC 61850',
+        sensorType: 'Voltage',
+        minValue: 220,
+        maxValue: 240,
+        severity: 'Medium',
+        description: 'Voltage deviation limits for power utility automation equipment defined under standard IEC-61850.'
+      },
+      {
+        ruleCode: 'UIC-714',
+        standard: 'UIC 714',
+        sensorType: 'Pressure',
+        minValue: 2,
+        maxValue: 8,
+        severity: 'Critical',
+        description: 'Pneumatic braking system pressure boundaries for rolling stock compliance standard UIC 714.'
+      }
+    ];
+
+    for (const rule of rules) {
+      const exists = await ComplianceRule.findOne({ ruleCode: rule.ruleCode });
+      if (!exists) {
+        await ComplianceRule.create(rule);
+        console.log(`[VANGUARD-DB] Seeded compliance rule: ${rule.ruleCode}`);
+      }
+    }
+  } catch (error) {
+    console.error(`[VANGUARD-DB] Failed to seed compliance rules: ${error.message}`);
+  }
+};
+
 const connectDB = async () => {
   try {
     const conn = await mongoose.connect(process.env.MONGO_URI);
     console.log(`[VANGUARD-DB] MongoDB Connected: ${conn.connection.host}`);
     await seedDemoUsers();
     await seedInfrastructure();
+    await seedComplianceRules();
   } catch (error) {
     console.error(`[VANGUARD-DB] Error establishing MongoDB Connection: ${error.message}`);
     process.exit(1);

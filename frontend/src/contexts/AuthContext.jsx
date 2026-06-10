@@ -12,9 +12,9 @@ const ROLES = {
 
 const ROLE_PERMISSIONS = {
   admin: ['dashboard', 'railway-network', 'telemetry', 'infrastructure', 'risk-analysis', 'compliance', 'incidents', 'autonomous-agent', 'mitigation', 'audit-logs', 'webhooks', 'reports', 'settings', 'user-approvals'],
-  operator: ['dashboard', 'railway-network', 'telemetry', 'infrastructure', 'incidents', 'mitigation', 'reports'],
+  operator: ['dashboard', 'railway-network', 'telemetry', 'infrastructure', 'compliance', 'incidents', 'mitigation', 'reports'],
   safety_officer: ['dashboard', 'compliance', 'risk-analysis', 'incidents', 'mitigation', 'audit-logs', 'reports'],
-  manager: ['dashboard', 'railway-network', 'risk-analysis', 'reports', 'settings'],
+  manager: ['dashboard', 'railway-network', 'compliance', 'risk-analysis', 'reports', 'settings'],
 };
 
 const DEMO_USERS = {

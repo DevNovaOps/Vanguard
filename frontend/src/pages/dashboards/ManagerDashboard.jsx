@@ -1,8 +1,10 @@
+import { useState, useEffect } from 'react';
 import { AreaChart, Area, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid, BarChart, Bar } from 'recharts';
 import { motion } from 'framer-motion';
 import KPICard from '../../components/common/KPICard';
 import ChartCard from '../../components/common/ChartCard';
-import { managerKPIs, riskTrendData, complianceTrendData } from '../../data/mockData';
+import { riskTrendData, complianceTrendData } from '../../data/mockData';
+import { complianceService } from '../../utils/complianceService';
 import { Download } from 'lucide-react';
 
 const businessImpact = [
@@ -15,6 +17,51 @@ const businessImpact = [
 ];
 
 export default function ManagerDashboard() {
+  const [stats, setStats] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchManagerData = async () => {
+      try {
+        const res = await complianceService.getDashboardStats();
+        if (res.success) {
+          setStats(res.stats);
+        }
+      } catch (err) {
+        console.error('[MANAGER-DASHBOARD] Fetch failed:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchManagerData();
+  }, []);
+
+  const totalOpenViolations = stats ? (stats.violations.open + stats.violations.investigating) : 0;
+  const complianceScore = stats
+    ? (stats.violations.open > 0 ? (100 - stats.violations.open * 12.5).toFixed(1) + '%' : '100.0%')
+    : '100.0%';
+
+  const liveManagerKPIs = [
+    { label: 'Infra Health', value: '91.3%', trend: '+0.7%', trendDir: 'up', color: 'green', icon: 'Heart' },
+    { label: 'Network Availability', value: '98.5%', trend: '-0.5%', trendDir: 'down', color: 'teal', icon: 'Wifi' },
+    { label: 'Downtime Prevented', value: '47.2h', trend: '+8.3h', trendDir: 'up', color: 'blue', icon: 'Clock' },
+    { label: 'Predicted Failures', value: 12, trend: '+3', trendDir: 'down', color: 'amber', icon: 'TrendingUp' },
+    { label: 'Compliance Score', value: complianceScore, trend: stats?.violations.open > 0 ? '-1.8%' : '+0.5%', trendDir: stats?.violations.open > 0 ? 'down' : 'up', color: totalOpenViolations > 0 ? 'amber' : 'green', icon: 'Shield' },
+    { label: 'Cost Savings', value: '₹4.2Cr', trend: '+₹0.8Cr', trendDir: 'up', color: 'green', icon: 'IndianRupee' },
+    { label: 'Auto Actions', value: 156, trend: '+23', trendDir: 'up', color: 'teal', icon: 'Bot' }
+  ];
+
+  const liveComplianceTrendData = complianceTrendData.map(item => {
+    if (item.month === 'Jun') {
+      return {
+        ...item,
+        score: stats ? Math.round(stats.violations.open > 0 ? (100 - stats.violations.open * 12.5) : 100) : item.score,
+        violations: stats ? stats.violations.total : item.violations
+      };
+    }
+    return item;
+  });
+
   return (
     <div>
       <div className="page-header">
@@ -30,12 +77,12 @@ export default function ManagerDashboard() {
       </div>
 
       <div className="kpi-grid" style={{ gridTemplateColumns: 'repeat(4, 1fr)' }}>
-        {managerKPIs.slice(0, 4).map((kpi, i) => (
+        {liveManagerKPIs.slice(0, 4).map((kpi, i) => (
           <KPICard key={kpi.label} {...kpi} delay={i * 80} />
         ))}
       </div>
       <div className="kpi-grid" style={{ gridTemplateColumns: 'repeat(3, 1fr)', marginTop: '-0.5rem' }}>
-        {managerKPIs.slice(4).map((kpi, i) => (
+        {liveManagerKPIs.slice(4).map((kpi, i) => (
           <KPICard key={kpi.label} {...kpi} delay={(i + 4) * 80} />
         ))}
       </div>
@@ -100,7 +147,7 @@ export default function ManagerDashboard() {
         <div className="col-12">
           <ChartCard title="Compliance Overview" subtitle="Monthly compliance scores and violation counts">
             <ResponsiveContainer width="100%" height={220}>
-              <BarChart data={complianceTrendData}>
+              <BarChart data={liveComplianceTrendData}>
                 <defs>
                   <linearGradient id="compBar" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="0%" stopColor="var(--color-primary-400)" stopOpacity={0.9} />
