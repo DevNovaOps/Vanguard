@@ -1,9 +1,9 @@
 import Incident from '../models/Incident.js';
 import RailwayNode from '../models/RailwayNode.js';
-import { logAudit } from '../utils/auditLogger.js';
 import { getIO } from '../config/socket.js';
 import mongoose from 'mongoose';
 import incidentPriorityService from './incidentPriorityService.js';
+import auditService from './auditService.js';
 
 // Helper to determine severity based on risk score
 export const calculateSeverity = (riskScore) => {
@@ -78,29 +78,25 @@ export const incidentService = {
       incident = await Incident.findById(incident._id).populate('nodeId');
 
       // Log Audit Log
-      await logAudit({
-        req,
-        module: 'Incident',
-        action: 'Incident Updated',
-        description: `Updated active incident ${incident.incidentId} for node ${node.nodeName} with risk score ${riskScore}`,
-        metadata: { incidentId: incident.incidentId, nodeId }
-      });
+      await auditService.logIncidentUpdated(req, incident);
 
       // Log Priority Audits
       if (isEscalation) {
-        await logAudit({
+        await auditService.logEvent({
           req,
           module: 'Incident',
           action: 'Incident Escalated',
           description: `Incident ${incident.incidentId} escalated from risk score ${oldRisk} to ${riskScore}`,
+          severity: 'Warning',
           metadata: { incidentId: incident.incidentId, oldRisk, newRisk: riskScore }
         });
       } else {
-        await logAudit({
+        await auditService.logEvent({
           req,
           module: 'Incident',
           action: 'Priority Updated',
           description: `Priority rank updated for incident ${incident.incidentId} (new risk score: ${riskScore})`,
+          severity: 'Info',
           metadata: { incidentId: incident.incidentId, riskScore }
         });
       }
@@ -128,20 +124,15 @@ export const incidentService = {
       incident = await Incident.findById(newIncident._id).populate('nodeId');
 
       // Log Audit Log
-      await logAudit({
-        req,
-        module: 'Incident',
-        action: 'Incident Created',
-        description: `Created new incident ${incident.incidentId} for node ${node.nodeName} with severity ${severity}`,
-        metadata: { incidentId: incident.incidentId, nodeId }
-      });
+      await auditService.logIncidentCreated(req, incident);
 
       // Log Audit for Incident Prioritized
-      await logAudit({
+      await auditService.logEvent({
         req,
         module: 'Incident',
         action: 'Incident Prioritized',
         description: `Incident ${incident.incidentId} prioritized in queue with risk score ${riskScore}`,
+        severity: severity === 'Critical' ? 'Critical' : 'Warning',
         metadata: { incidentId: incident.incidentId, riskScore, severity }
       });
 
@@ -226,29 +217,25 @@ export const incidentService = {
     await incident.save();
     incident = await Incident.findById(incident._id).populate('nodeId');
 
-    await logAudit({
-      req,
-      module: 'Incident',
-      action: 'Incident Updated',
-      description: `Updated incident properties for ${incident.incidentId}`,
-      metadata: { incidentId: incident.incidentId, updateData }
-    });
+    await auditService.logIncidentUpdated(req, incident);
 
     // Log Priority Audits
     if (isEscalation) {
-      await logAudit({
+      await auditService.logEvent({
         req,
         module: 'Incident',
         action: 'Incident Escalated',
         description: `Incident ${incident.incidentId} escalated from risk score ${oldRisk} to ${updateData.riskScore}`,
+        severity: 'Warning',
         metadata: { incidentId: incident.incidentId, oldRisk, newRisk: updateData.riskScore }
       });
     } else if (updateData.riskScore !== undefined) {
-      await logAudit({
+      await auditService.logEvent({
         req,
         module: 'Incident',
         action: 'Priority Updated',
         description: `Priority rank updated for incident ${incident.incidentId} (new risk score: ${updateData.riskScore})`,
+        severity: 'Info',
         metadata: { incidentId: incident.incidentId, riskScore: updateData.riskScore }
       });
     }
@@ -283,13 +270,7 @@ export const incidentService = {
     await incident.save();
     incident = await Incident.findById(incident._id).populate('nodeId');
 
-    await logAudit({
-      req,
-      module: 'Incident',
-      action: 'Incident Resolved',
-      description: `Resolved incident ${incident.incidentId}`,
-      metadata: { incidentId: incident.incidentId }
-    });
+    await auditService.logIncidentResolved(req, incident);
 
     emitIncidentSocketEvent('incident:resolve', incident);
 
@@ -321,11 +302,12 @@ export const incidentService = {
     await incident.save();
     incident = await Incident.findById(incident._id).populate('nodeId');
 
-    await logAudit({
+    await auditService.logEvent({
       req,
       module: 'Incident',
       action: 'Incident Closed',
       description: `Closed incident ${incident.incidentId}`,
+      severity: 'Info',
       metadata: { incidentId: incident.incidentId }
     });
 
@@ -359,11 +341,12 @@ export const incidentService = {
     await incident.save();
     incident = await Incident.findById(incident._id).populate('nodeId');
 
-    await logAudit({
+    await auditService.logEvent({
       req,
       module: 'Incident',
       action: 'Incident Assigned',
       description: `Assigned incident ${incident.incidentId} to Team ${teamName}`,
+      severity: 'Info',
       metadata: { incidentId: incident.incidentId, assignedTeam: teamName }
     });
 

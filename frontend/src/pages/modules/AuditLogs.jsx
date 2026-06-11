@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import DataTable from '../../components/common/DataTable';
 import StatusBadge from '../../components/common/StatusBadge';
 import SearchInput from '../../components/common/SearchInput';
-import { auditLogs } from '../../data/mockData';
-import { formatDateTime, timeAgo } from '../../utils/helpers';
+import { formatDateTime } from '../../utils/helpers';
 import { FileText } from 'lucide-react';
+import { auditService } from '../../utils/auditService.js';
+import { io } from 'socket.io-client';
 
 const columns = [
   { key: 'id', label: 'ID', render: (v) => <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)' }}>{v}</span> },
@@ -16,17 +17,94 @@ const columns = [
   { key: 'details', label: 'Details', render: (v) => <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', maxWidth: '200px', display: 'block' }} className="text-truncate">{v}</span> },
 ];
 
+const AVAILABLE_MODULES = [
+  'Authentication',
+  'Compliance',
+  'Risk',
+  'Incident',
+  'Mitigation',
+  'AutonomousAgent',
+  'Simulation',
+  'Webhook'
+];
+
 export default function AuditLogs() {
   const [search, setSearch] = useState('');
   const [moduleFilter, setModuleFilter] = useState('all');
+  const [logs, setLogs] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  const modules = [...new Set(auditLogs.map(l => l.module))];
+  const fetchLogs = async () => {
+    setLoading(true);
+    try {
+      const params = {};
+      if (search) params.search = search;
+      if (moduleFilter !== 'all') params.module = moduleFilter;
+      // Get a large batch so client-side pagination works smoothly on recent ledger records
+      params.limit = 1000;
 
-  const filtered = auditLogs.filter(log => {
-    if (moduleFilter !== 'all' && log.module !== moduleFilter) return false;
-    if (search && !log.action.toLowerCase().includes(search.toLowerCase()) && !log.user.toLowerCase().includes(search.toLowerCase()) && !log.details.toLowerCase().includes(search.toLowerCase())) return false;
-    return true;
-  });
+      const res = await auditService.getAuditLogs(params);
+      if (res.success && res.data && res.data.logs) {
+        const mapped = res.data.logs.map(log => ({
+          id: log.auditId,
+          action: log.action,
+          user: log.username || 'System',
+          module: log.module,
+          result: log.severity === 'Critical' ? 'Violation' : (log.severity === 'Warning' ? 'Warning' : 'Success'),
+          timestamp: log.timestamp || log.createdAt,
+          details: log.description
+        }));
+        setLogs(mapped);
+      }
+    } catch (err) {
+      console.error('[AUDIT-LOGS-FETCH-ERROR] Failed to fetch logs:', err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchLogs();
+  }, [search, moduleFilter]);
+
+  useEffect(() => {
+    const socket = io();
+    socket.on('connect', () => {
+      console.log('[SOCKET] Connected to real-time audit logs stream');
+    });
+
+    socket.on('audit:create', (newLog) => {
+      setLogs(prev => {
+        // Prevent duplicate logs from being added
+        if (prev.some(l => l.id === newLog.auditId)) return prev;
+
+        const mapped = {
+          id: newLog.auditId,
+          action: newLog.action,
+          user: newLog.user || 'System',
+          module: newLog.module,
+          result: newLog.result,
+          timestamp: newLog.timestamp,
+          details: newLog.details
+        };
+
+        // Validate filters before appending to local state
+        if (moduleFilter !== 'all' && newLog.module !== moduleFilter) return prev;
+        if (search && 
+            !newLog.action.toLowerCase().includes(search.toLowerCase()) && 
+            !newLog.user.toLowerCase().includes(search.toLowerCase()) && 
+            !newLog.details.toLowerCase().includes(search.toLowerCase())) {
+          return prev;
+        }
+
+        return [mapped, ...prev];
+      });
+    });
+
+    return () => {
+      socket.disconnect();
+    };
+  }, [search, moduleFilter]);
 
   return (
     <div>
@@ -41,11 +119,17 @@ export default function AuditLogs() {
         <SearchInput value={search} onChange={setSearch} placeholder="Search logs..." />
         <select className="select" style={{ width: 'auto' }} value={moduleFilter} onChange={e => setModuleFilter(e.target.value)}>
           <option value="all">All Modules</option>
-          {modules.map(m => <option key={m} value={m}>{m}</option>)}
+          {AVAILABLE_MODULES.map(m => <option key={m} value={m}>{m}</option>)}
         </select>
       </div>
 
-      <DataTable data={filtered} columns={columns} pageSize={12} exportFilename="audit_logs" />
+      {loading && logs.length === 0 ? (
+        <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-secondary)' }}>
+          Loading audit logs from security ledger...
+        </div>
+      ) : (
+        <DataTable data={logs} columns={columns} pageSize={12} exportFilename="audit_logs" />
+      )}
     </div>
   );
 }

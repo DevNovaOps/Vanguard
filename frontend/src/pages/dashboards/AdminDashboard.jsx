@@ -5,7 +5,9 @@ import KPICard from '../../components/common/KPICard';
 import ChartCard from '../../components/common/ChartCard';
 import Timeline from '../../components/common/Timeline';
 import StatusBadge from '../../components/common/StatusBadge';
-import { adminKPIs, systemHealthData, riskTrendData, auditLogs, webhooks } from '../../data/mockData';
+import { adminKPIs, systemHealthData, riskTrendData, webhooks } from '../../data/mockData';
+import { auditService } from '../../utils/auditService.js';
+import { io } from 'socket.io-client';
 import { formatDateTime, timeAgo } from '../../utils/helpers';
 import { useSimulation } from '../../contexts/SimulationContext';
 import { Plus, Users, FileText, Play, Settings, Activity, Shield, AlertTriangle, Zap, Bot, LayoutDashboard } from 'lucide-react';
@@ -28,6 +30,50 @@ export default function AdminDashboard() {
   const [usersList, setUsersList] = useState([]);
   const [loadingUsers, setLoadingUsers] = useState(false);
   const [usersError, setUsersError] = useState(null);
+  const [recentAudits, setRecentAudits] = useState([]);
+  const [auditStats, setAuditStats] = useState(null);
+
+  const fetchDashboardAuditData = async () => {
+    try {
+      const logsRes = await auditService.getAuditLogs({ limit: 5 });
+      if (logsRes.success && logsRes.data && logsRes.data.logs) {
+        const mapped = logsRes.data.logs.map(log => ({
+          id: log.auditId,
+          title: log.action,
+          description: `${log.username || 'System'} — ${log.module}`,
+          time: timeAgo(log.timestamp || log.createdAt),
+          dotColor: log.severity === 'Critical' ? 'danger' : (log.severity === 'Warning' ? 'warning' : 'success'),
+        }));
+        setRecentAudits(mapped);
+      }
+
+      const statsRes = await auditService.getDashboardAuditStats();
+      if (statsRes.success) {
+        setAuditStats(statsRes.data);
+      }
+    } catch (err) {
+      console.error('[ADMIN-DASHBOARD-AUDIT-ERROR]', err.message);
+    }
+  };
+
+  useEffect(() => {
+    fetchDashboardAuditData();
+  }, []);
+
+  useEffect(() => {
+    const socket = io();
+    socket.on('connect', () => {
+      console.log('[SOCKET] Connected to Admin Dashboard audit logs stream');
+    });
+
+    socket.on('audit:create', () => {
+      fetchDashboardAuditData();
+    });
+
+    return () => {
+      socket.disconnect();
+    };
+  }, []);
 
   const fetchUsers = async () => {
     setLoadingUsers(true);
@@ -97,13 +143,7 @@ export default function AdminDashboard() {
     return () => clearInterval(interval);
   }, []);
 
-  const recentAudits = auditLogs.slice(0, 5).map(log => ({
-    id: log.id,
-    title: log.action,
-    description: `${log.user} — ${log.module}`,
-    time: timeAgo(log.timestamp),
-    dotColor: log.result === 'Success' ? 'success' : 'danger',
-  }));
+  // recentAudits is now populated from component state
 
   return (
     <div>
@@ -128,9 +168,24 @@ export default function AdminDashboard() {
       </div>
 
       <div className="kpi-grid" style={{ gridTemplateColumns: 'repeat(4, 1fr)' }}>
-        {adminKPIs.slice(0, 4).map((kpi, i) => (
-          <KPICard key={kpi.label} {...kpi} delay={i * 80} />
-        ))}
+        {(() => {
+          const displayKPIs = [
+            adminKPIs[0],
+            adminKPIs[1],
+            adminKPIs[2],
+            {
+              label: 'Critical Audits',
+              value: auditStats ? auditStats.criticalEvents : 0,
+              trend: auditStats ? `${auditStats.warningEvents} Warnings` : '0 Warnings',
+              trendDir: 'down',
+              color: 'red',
+              icon: 'AlertTriangle'
+            }
+          ];
+          return displayKPIs.map((kpi, i) => (
+            <KPICard key={kpi.label} {...kpi} delay={i * 80} />
+          ));
+        })()}
       </div>
 
       {showUserManagement ? (

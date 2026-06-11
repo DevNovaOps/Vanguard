@@ -1,6 +1,7 @@
 import { validationResult } from 'express-validator';
 import User from '../models/User.js';
 import generateToken from '../utils/generateToken.js';
+import auditService from '../services/auditService.js';
 
 /**
  * @desc    Register a new user
@@ -22,6 +23,15 @@ export const registerUser = async (req, res, next) => {
     // Check if user already exists
     const userExists = await User.findOne({ email });
     if (userExists) {
+      // Log failed registration attempt (e.g. duplicate email)
+      await auditService.logEvent({
+        req,
+        action: 'LOGIN_FAILED', // Treat registration failure due to duplicate as warning
+        module: 'Authentication',
+        description: `Failed registration attempt for duplicate email: ${email}`,
+        severity: 'Warning',
+        metadata: { email }
+      });
       return res.status(400).json({
         success: false,
         message: 'A user with this email address already exists'
@@ -36,6 +46,19 @@ export const registerUser = async (req, res, next) => {
       role,
       department,
       permissions
+    });
+
+    // Log user registered
+    await auditService.logEvent({
+      req,
+      userId: user._id,
+      username: user.name,
+      role: user.role,
+      action: 'USER_REGISTERED',
+      module: 'Authentication',
+      description: `New user registered: ${user.name} (${user.email}) as ${user.role}`,
+      severity: 'Info',
+      metadata: { userId: user._id, role: user.role, permissions: user.permissions }
     });
 
     res.status(201).json({
@@ -78,6 +101,7 @@ export const loginUser = async (req, res, next) => {
 
     // Validate credentials
     if (!user || !(await user.comparePassword(password))) {
+      await auditService.logLogin(req, user || { email }, false, 'Invalid credentials');
       return res.status(401).json({
         success: false,
         message: 'Invalid credentials'
@@ -86,11 +110,15 @@ export const loginUser = async (req, res, next) => {
 
     // Validate active status
     if (!user.isActive) {
+      await auditService.logLogin(req, user, false, 'Account deactivated or pending approval');
       return res.status(403).json({
         success: false,
         message: 'Your account has been deactivated. Contact your administrator.'
       });
     }
+
+    // Log Login Success
+    await auditService.logLogin(req, user, true);
 
     res.status(200).json({
       success: true,
@@ -142,6 +170,18 @@ export const getUserProfile = async (req, res, next) => {
  */
 export const logoutUser = async (req, res, next) => {
   try {
+    if (req.user) {
+      await auditService.logLogout(req, req.user);
+    } else {
+      await auditService.logEvent({
+        req,
+        action: 'USER_LOGOUT',
+        module: 'Authentication',
+        description: 'User logged out (token cleared)',
+        severity: 'Info'
+      });
+    }
+
     res.status(200).json({
       success: true,
       message: 'Successfully logged out. Please remove authorization tokens client-side.'
@@ -176,6 +216,17 @@ export const getAllUsers = async (req, res, next) => {
 export const approveAllUsers = async (req, res, next) => {
   try {
     const result = await User.updateMany({ isActive: false }, { isActive: true });
+    
+    // Log approvals/role status
+    await auditService.logEvent({
+      req,
+      action: 'ROLE_UPDATED',
+      module: 'Authentication',
+      description: `Approved all pending users access. Count: ${result.modifiedCount}`,
+      severity: 'Info',
+      metadata: { modifiedCount: result.modifiedCount }
+    });
+
     res.status(200).json({
       success: true,
       message: `Successfully approved all pending users`,
@@ -197,6 +248,20 @@ export const approveUser = async (req, res, next) => {
     if (!user) {
       return res.status(404).json({ success: false, message: 'User not found' });
     }
+
+    // Log approval/role update event
+    await auditService.logEvent({
+      req,
+      userId: user._id,
+      username: user.name,
+      role: user.role,
+      action: 'ROLE_UPDATED',
+      module: 'Authentication',
+      description: `User role/access approved: ${user.email} as ${user.role}`,
+      severity: 'Info',
+      metadata: { userId: user._id, role: user.role, permissions: user.permissions }
+    });
+
     res.status(200).json({
       success: true,
       message: 'User approved successfully',
@@ -218,6 +283,17 @@ export const rejectUser = async (req, res, next) => {
     if (!user) {
       return res.status(404).json({ success: false, message: 'User not found' });
     }
+
+    // Log rejection event
+    await auditService.logEvent({
+      req,
+      action: 'ROLE_UPDATED', // Role updated/removed
+      module: 'Authentication',
+      description: `User registration rejected and deleted: ${user.email}`,
+      severity: 'Warning',
+      metadata: { email: user.email, name: user.name, role: user.role }
+    });
+
     res.status(200).json({
       success: true,
       message: 'User rejected and removed successfully'

@@ -3,6 +3,7 @@ import ComplianceViolation from '../models/ComplianceViolation.js';
 import RailwayNode from '../models/RailwayNode.js';
 import { logAudit } from '../utils/auditLogger.js';
 import incidentService from './incidentService.js';
+import auditService from './auditService.js';
 
 /**
  * Service handling Compliance Engine business logic
@@ -79,11 +80,12 @@ export const complianceService = {
     const rule = await ComplianceRule.create(ruleData);
 
     // Write audit log
-    await logAudit({
+    await auditService.logEvent({
       req,
       module: 'Compliance',
-      action: 'CREATE_RULE',
+      action: 'Rule Created',
       description: `Created new compliance rule: ${rule.ruleCode}`,
+      severity: 'Info',
       metadata: { ruleId: rule._id, ruleCode: rule.ruleCode }
     });
 
@@ -106,11 +108,12 @@ export const complianceService = {
     }
 
     // Write audit log
-    await logAudit({
+    await auditService.logEvent({
       req,
       module: 'Compliance',
-      action: 'UPDATE_RULE',
+      action: 'Rule Updated',
       description: `Updated compliance rule: ${rule.ruleCode}`,
+      severity: 'Info',
       metadata: { ruleId: rule._id, ruleCode: rule.ruleCode, updateData }
     });
 
@@ -134,11 +137,12 @@ export const complianceService = {
     }
 
     // Write audit log
-    await logAudit({
+    await auditService.logEvent({
       req,
       module: 'Compliance',
-      action: 'SOFT_DELETE_RULE',
+      action: 'Rule Deleted',
       description: `Soft deleted compliance rule: ${rule.ruleCode}`,
+      severity: 'Warning',
       metadata: { ruleId: rule._id, ruleCode: rule.ruleCode }
     });
 
@@ -299,6 +303,15 @@ export const complianceService = {
           });
           violationsCreated.push(violation);
 
+          // Log Compliance Violation
+          await auditService.logComplianceViolation(null, {
+            _id: violation._id,
+            nodeId,
+            actualValue: value,
+            severity: rule.severity,
+            ruleId: { ruleCode: rule.ruleCode }
+          });
+
           // Calculate risk score based on rule severity
           let riskScore = 25;
           if (rule.severity === 'Medium') riskScore = 50;
@@ -319,6 +332,18 @@ export const complianceService = {
           }
         }
       }
+    }
+
+    // Log general Compliance Validation if no violations were created
+    if (violationsCreated.length === 0) {
+      await auditService.logEvent({
+        req: null,
+        action: 'Compliance Validation',
+        module: 'Compliance',
+        description: `Compliance validation passed for sensor ${sensorType} at node ${node.nodeName}. Value: ${value}`,
+        severity: 'Info',
+        metadata: { nodeId, sensorType, value }
+      });
     }
 
     return violationsCreated;

@@ -5,6 +5,7 @@ import RiskScore from '../models/RiskScore.js';
 import RailwayNode from '../models/RailwayNode.js';
 import { logAudit } from '../utils/auditLogger.js';
 import incidentService from './incidentService.js';
+import auditService from './auditService.js';
 
 export const riskService = {
   /**
@@ -17,6 +18,11 @@ export const riskService = {
     if (!node) {
       throw new Error(`Railway Node with ID ${nodeId} not found`);
     }
+
+    // Retrieve previous risk scores to determine changes
+    const previousRiskRecord = await RiskScore.findOne({ nodeId });
+    const previousScore = previousRiskRecord ? previousRiskRecord.totalRisk : 0;
+    const previousLevel = previousRiskRecord ? previousRiskRecord.riskLevel : 'Low';
 
     // Determine if we should trigger an incident
     // Low: 0-30 -> No incident
@@ -39,14 +45,40 @@ export const riskService = {
 
     console.log(`[RISK-ENGINE] Node ${node.nodeName} evaluated. Risk score: ${riskScore} (${severity}). Trigger incident: ${shouldCreateIncident}`);
 
-    // Log the risk calculation in audit logs
-    await logAudit({
-      req,
-      module: 'Compliance', // Mapping to Compliance/Risk modules in audit logs
-      action: 'Risk Recalculation',
-      description: `Risk score for node ${node.nodeName} calculated as ${riskScore}/100`,
-      metadata: { nodeId, riskScore, severity }
+    // 1. Log Risk Calculation
+    await auditService.logRiskCalculation(req, {
+      nodeId,
+      nodeName: node.nodeName,
+      previousScore,
+      currentScore: riskScore,
+      riskLevel: severity
     });
+
+    // 2. Log Risk Level Changed if applicable
+    if (previousLevel !== severity) {
+      await auditService.logEvent({
+        req,
+        module: 'Risk',
+        action: 'Risk Level Changed',
+        description: `Risk level for node ${node.nodeName} changed from ${previousLevel} to ${severity}`,
+        severity: severity === 'Critical' ? 'Critical' : (severity === 'High' ? 'Warning' : 'Info'),
+        metadata: { nodeId, nodeName: node.nodeName, previousLevel, currentLevel: severity, previousScore, currentScore: riskScore }
+      });
+    }
+
+    // 3. Log Risk Threshold Breached if applicable (e.g. crossing to High or Critical)
+    const wasSafe = previousLevel === 'Low' || previousLevel === 'Medium';
+    const isDangerous = severity === 'High' || severity === 'Critical';
+    if (wasSafe && isDangerous) {
+      await auditService.logEvent({
+        req,
+        module: 'Risk',
+        action: 'Risk Threshold Breached',
+        description: `Safety risk threshold breached at node ${node.nodeName}! Current score: ${riskScore}/100 (${severity})`,
+        severity: severity === 'Critical' ? 'Critical' : 'Warning',
+        metadata: { nodeId, nodeName: node.nodeName, previousScore, currentScore: riskScore, riskLevel: severity }
+      });
+    }
 
     let incident = null;
     if (shouldCreateIncident) {
@@ -159,11 +191,12 @@ export const riskService = {
     }
 
     // Record audit log
-    await logAudit({
+    await auditService.logEvent({
       req,
-      module: 'Mitigation', // Using allowed audit module from AuditLog schema
-      action: 'RISK_RECALCULATION',
+      module: 'Risk',
+      action: 'Risk Calculation',
       description: `Triggered global risk scores recalculation for ${count} nodes`,
+      severity: 'Info',
       metadata: { count }
     });
 

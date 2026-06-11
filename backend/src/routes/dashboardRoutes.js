@@ -1,5 +1,5 @@
 import express from 'express';
-import { getDashboardIncidents } from '../controllers/dashboardController.js';
+import { getDashboardIncidents, getDashboardAudit } from '../controllers/dashboardController.js';
 import { authenticateUser } from '../middleware/authMiddleware.js';
 import { authorizeRoles } from '../middleware/roleMiddleware.js';
 
@@ -10,6 +10,13 @@ router.get(
   authenticateUser,
   authorizeRoles('Admin', 'SafetyOfficer', 'Operator', 'Manager'),
   getDashboardIncidents
+);
+
+router.get(
+  '/audit',
+  authenticateUser,
+  authorizeRoles('Admin', 'SafetyOfficer', 'Operator', 'Manager'),
+  getDashboardAudit
 );
 
 export default router;

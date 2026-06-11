@@ -1,3 +1,4 @@
+import auditRoutes from './routes/auditRoutes.js';
 import express from 'express';
 import cors from 'cors';
 import morgan from 'morgan';
@@ -12,6 +13,7 @@ import simulationRoutes from './routes/simulationRoutes.js';
 import riskRoutes from './routes/riskRoutes.js';
 import aiAgentRoutes from './routes/aiAgentRoutes.js';
 import mitigationRoutes from './routes/mitigationRoutes.js';
+
 
 const app = express();
 
@@ -36,12 +38,11 @@ app.use('/api/mitigations', mitigationRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/incidents/dashboard', dashboardRoutes);
 app.use('/api/simulation', simulationRoutes);
+app.use('/api/audit', auditRoutes);
 
 
 app.use('/api/risk', riskRoutes);
-
 app.use('/api/agent', aiAgentRoutes);
-
 
 // Health Check Route
 app.get('/', (req, res) => {

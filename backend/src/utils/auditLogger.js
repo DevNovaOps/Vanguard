@@ -1,32 +1,45 @@
-import AuditLog from '../models/AuditLog.js';
+import auditService from '../services/auditService.js';
 
 /**
- * Creates an audit log entry.
- * Runs asynchronously and catches its own errors so audit failures don't disrupt core operations.
- */
-export const logAudit = async ({ req, userId, module, action, description, metadata }) => {
-  try {
-    let resolvedUserId = userId;
-    let ipAddress = null;
+   * Bridge existing logAudit calls to the new auditService
+   */
+export const logAudit = async ({ req, userId, module, action, description, metadata, severity }) => {
+  let resolvedSeverity = severity;
 
-    if (req) {
-      if (!resolvedUserId && req.user) {
-        resolvedUserId = req.user._id;
-      }
-      ipAddress = (req.headers && req.headers['x-forwarded-for']) || (req.socket && req.socket.remoteAddress) || null;
+  if (!resolvedSeverity) {
+    const act = (action || '').toLowerCase();
+    const desc = (description || '').toLowerCase();
+
+    if (
+      act.includes('violation') ||
+      act.includes('breach') ||
+      act.includes('critical') ||
+      desc.includes('critical') ||
+      desc.includes('violation')
+    ) {
+      resolvedSeverity = 'Critical';
+    } else if (
+      act.includes('warn') ||
+      act.includes('escalat') ||
+      act.includes('fail') ||
+      desc.includes('warn') ||
+      desc.includes('fail')
+    ) {
+      resolvedSeverity = 'Warning';
+    } else {
+      resolvedSeverity = 'Info';
     }
-
-    await AuditLog.create({
-      userId: resolvedUserId,
-      module,
-      action,
-      description,
-      ipAddress,
-      metadata: metadata || {}
-    });
-  } catch (error) {
-    console.error(`[AUDIT-LOG-ERROR] Failed to record audit log: ${error.message}`);
   }
+
+  return auditService.logEvent({
+    req,
+    userId,
+    module,
+    action,
+    description,
+    metadata,
+    severity: resolvedSeverity
+  });
 };
 
 export default logAudit;

@@ -1,9 +1,9 @@
 import Mitigation from '../models/Mitigation.js';
 import Incident from '../models/Incident.js';
 import RailwayNode from '../models/RailwayNode.js';
-import { logAudit } from '../utils/auditLogger.js';
 import { getIO } from '../config/socket.js';
 import mongoose from 'mongoose';
+import auditService from './auditService.js';
 
 // Helper to emit Socket.IO events safely
 const emitMitigationSocketEvent = (eventName, mitigation) => {
@@ -145,11 +145,12 @@ export const mitigationService = {
     }
 
     // Log Audit
-    await logAudit({
+    await auditService.logEvent({
       req,
       module: 'Mitigation',
       action: 'Mitigation Created',
       description: `Created mitigation ${populated.mitigationId} (${action}) for node ${node.nodeName}`,
+      severity: severity === 'Critical' ? 'Critical' : 'Warning',
       metadata: { mitigationId: populated.mitigationId, nodeId, incidentId }
     });
 
@@ -206,15 +207,25 @@ export const mitigationService = {
       .populate('executedBy', 'name email role');
 
     // Audit Log
-    let actionName = 'Status Updated';
-    if (status === 'Failed') actionName = 'Mitigation Failed';
-    else if (status === 'Cancelled') actionName = 'Mitigation Cancelled';
+    let actionName = 'Mitigation Updated';
+    let severityLevel = 'Info';
+    if (status === 'Failed') {
+      actionName = 'Mitigation Failed';
+      severityLevel = 'Critical';
+    } else if (status === 'Cancelled') {
+      actionName = 'Mitigation Cancelled';
+    } else if (status === 'InProgress') {
+      actionName = 'Mitigation Approved';
+    } else if (status === 'Executed' || status === 'Completed') {
+      actionName = 'Mitigation Executed';
+    }
 
-    await logAudit({
+    await auditService.logEvent({
       req,
       module: 'Mitigation',
       action: actionName,
       description: `Updated mitigation ${populated.mitigationId} status from ${oldStatus} to ${status}`,
+      severity: severityLevel,
       metadata: { mitigationId: populated.mitigationId, oldStatus, newStatus: status }
     });
 
@@ -276,11 +287,12 @@ export const mitigationService = {
       .populate('executedBy', 'name email role');
 
     // Audit Log
-    await logAudit({
+    await auditService.logEvent({
       req,
       module: 'Mitigation',
       action: 'Mitigation Executed',
       description: `Executed mitigation ${populated.mitigationId} (${populated.action}) on node ${populated.targetName}`,
+      severity: 'Info',
       metadata: { mitigationId: populated.mitigationId }
     });
 

@@ -1,4 +1,5 @@
 import Incident from '../models/Incident.js';
+import auditService from '../services/auditService.js';
 
 /**
  * @desc    Get dashboard incident statistics
@@ -34,6 +35,24 @@ export const getDashboardIncidents = async (req, res, next) => {
         criticalIncidents,
         resolvedIncidents
       }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * @desc    Get dashboard audit statistics
+ * @route   GET /api/dashboard/audit
+ * @access  Private
+ */
+export const getDashboardAudit = async (req, res, next) => {
+  try {
+    const stats = await auditService.getAuditStatistics();
+    res.status(200).json({
+      success: true,
+      message: 'Dashboard audit statistics retrieved successfully',
+      data: stats
     });
   } catch (error) {
     next(error);

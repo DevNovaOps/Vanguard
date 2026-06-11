@@ -55,7 +55,7 @@ const loginValidationRules = [
 router.post('/register', registerValidationRules, registerUser);
 router.post('/login', loginValidationRules, loginUser);
 router.get('/profile', authenticateUser, getUserProfile);
-router.post('/logout', logoutUser);
+router.post('/logout', authenticateUser, logoutUser);
 
 // Admin user approval/rejection endpoints
 router.get('/users', authenticateUser, authorizeRoles('Admin'), getAllUsers);
