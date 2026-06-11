@@ -13,6 +13,7 @@ import simulationRoutes from './routes/simulationRoutes.js';
 import riskRoutes from './routes/riskRoutes.js';
 import aiAgentRoutes from './routes/aiAgentRoutes.js';
 import mitigationRoutes from './routes/mitigationRoutes.js';
+import webhookRoutes from './routes/webhookRoutes.js';
 
 
 const app = express();
@@ -39,6 +40,7 @@ app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/incidents/dashboard', dashboardRoutes);
 app.use('/api/simulation', simulationRoutes);
 app.use('/api/audit', auditRoutes);
+app.use('/api/webhooks', webhookRoutes);
 
 
 app.use('/api/risk', riskRoutes);

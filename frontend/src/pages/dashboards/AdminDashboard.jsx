@@ -7,6 +7,7 @@ import Timeline from '../../components/common/Timeline';
 import StatusBadge from '../../components/common/StatusBadge';
 import { adminKPIs, systemHealthData, riskTrendData, webhooks } from '../../data/mockData';
 import { auditService } from '../../utils/auditService.js';
+import { webhookService } from '../../utils/webhookService.js';
 import { io } from 'socket.io-client';
 import { formatDateTime, timeAgo } from '../../utils/helpers';
 import { useSimulation } from '../../contexts/SimulationContext';
@@ -32,6 +33,8 @@ export default function AdminDashboard() {
   const [usersError, setUsersError] = useState(null);
   const [recentAudits, setRecentAudits] = useState([]);
   const [auditStats, setAuditStats] = useState(null);
+  const [webhookList, setWebhookList] = useState([]);
+  const [webhookKPIs, setWebhookKPIs] = useState(null);
 
   const fetchDashboardAuditData = async () => {
     try {
@@ -56,18 +59,43 @@ export default function AdminDashboard() {
     }
   };
 
+  const fetchDashboardWebhookData = async () => {
+    try {
+      const res = await webhookService.getDashboardWebhooks();
+      if (res.success && res.data) {
+        setWebhookList(res.data.webhooks || []);
+        setWebhookKPIs(res.data.stats || null);
+      }
+    } catch (err) {
+      console.error('[ADMIN-DASHBOARD-WEBHOOK-ERROR]', err.message);
+    }
+  };
+
   useEffect(() => {
     fetchDashboardAuditData();
+    fetchDashboardWebhookData();
   }, []);
 
   useEffect(() => {
     const socket = io();
     socket.on('connect', () => {
-      console.log('[SOCKET] Connected to Admin Dashboard audit logs stream');
+      console.log('[SOCKET] Connected to Admin Dashboard stream');
     });
 
     socket.on('audit:create', () => {
       fetchDashboardAuditData();
+    });
+
+    socket.on('webhook:create', () => {
+      fetchDashboardWebhookData();
+    });
+
+    socket.on('webhook:update', () => {
+      fetchDashboardWebhookData();
+    });
+
+    socket.on('webhook:delivery', () => {
+      fetchDashboardWebhookData();
     });
 
     return () => {
@@ -371,29 +399,35 @@ export default function AdminDashboard() {
             <div className="col-6">
               <ChartCard title="Webhook Status" subtitle="Integration health">
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                  {webhooks.map((wh, i) => (
-                    <motion.div
-                      key={wh.id}
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: i * 0.08 }}
-                      style={{
-                        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                        padding: '0.75rem', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-secondary)',
-                        borderRadius: 'var(--radius-lg)', transition: 'all 200ms ease'
-                      }}
-                      whileHover={{ backgroundColor: 'rgba(26, 86, 219, 0.04)' }}
-                    >
-                      <div>
-                        <div style={{ fontSize: 'var(--text-sm)', fontWeight: 'var(--font-medium)' }}>{wh.name}</div>
-                        <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-tertiary)' }}>{wh.events.join(', ')}</div>
-                      </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                        <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-tertiary)', fontFamily: 'var(--font-mono)' }}>{wh.avgLatency}ms</span>
-                        <StatusBadge status={wh.status} />
-                      </div>
-                    </motion.div>
-                  ))}
+                  {webhookList.length === 0 ? (
+                    <div style={{ padding: '1rem', textAlign: 'center', color: 'var(--text-secondary)', fontSize: 'var(--text-sm)' }}>
+                      No webhooks configured. Configure them in the Webhook Center.
+                    </div>
+                  ) : (
+                    webhookList.map((wh, i) => (
+                      <motion.div
+                        key={wh.id}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: i * 0.08 }}
+                        style={{
+                          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                          padding: '0.75rem', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-secondary)',
+                          borderRadius: 'var(--radius-lg)', transition: 'all 200ms ease'
+                        }}
+                        whileHover={{ backgroundColor: 'rgba(26, 86, 219, 0.04)' }}
+                      >
+                        <div>
+                          <div style={{ fontSize: 'var(--text-sm)', fontWeight: 'var(--font-medium)' }}>{wh.name}</div>
+                          <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-tertiary)' }}>{wh.events.join(', ')}</div>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                          <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-tertiary)', fontFamily: 'var(--font-mono)' }}>{wh.avgLatency}ms</span>
+                          <StatusBadge status={wh.status} />
+                        </div>
+                      </motion.div>
+                    ))
+                  )}
                 </div>
               </ChartCard>
             </div>

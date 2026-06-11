@@ -4,6 +4,7 @@ import Incident from '../models/Incident.js';
 import mitigationService from './mitigationService.js';
 import { logAudit } from '../utils/auditLogger.js';
 import auditService from './auditService.js';
+import webhookService from './webhookService.js';
 
 export const aiAgentService = {
   /**
@@ -177,6 +178,13 @@ export const aiAgentService = {
 
     // Create central Agent Decision Audit Log
     await auditService.logAgentDecision(req, populatedAction);
+
+    // Trigger Webhook Event
+    try {
+      await webhookService.triggerEvent('AGENT_ACTION_EXECUTED', populatedAction, req);
+    } catch (webErr) {
+      console.error(`[AGENT-WEBHOOK-ERROR] Failed to trigger webhook: ${webErr.message}`);
+    }
 
     return populatedAction;
   },

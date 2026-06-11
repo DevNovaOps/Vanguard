@@ -4,6 +4,7 @@ import RailwayNode from '../models/RailwayNode.js';
 import { logAudit } from '../utils/auditLogger.js';
 import incidentService from './incidentService.js';
 import auditService from './auditService.js';
+import webhookService from './webhookService.js';
 
 /**
  * Service handling Compliance Engine business logic
@@ -311,6 +312,21 @@ export const complianceService = {
             severity: rule.severity,
             ruleId: { ruleCode: rule.ruleCode }
           });
+
+          // Trigger Webhook Event
+          try {
+            await webhookService.triggerEvent('COMPLIANCE_VIOLATION', {
+              violationId: violation._id,
+              ruleCode: rule.ruleCode,
+              nodeId,
+              sensorType,
+              actualValue: value,
+              expectedValue: rule.minValue !== null && value < rule.minValue ? rule.minValue : rule.maxValue,
+              severity: rule.severity
+            });
+          } catch (webErr) {
+            console.error(`[COMPLIANCE-WEBHOOK-ERROR] Failed to trigger webhook: ${webErr.message}`);
+          }
 
           // Calculate risk score based on rule severity
           let riskScore = 25;

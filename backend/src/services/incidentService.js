@@ -4,6 +4,7 @@ import { getIO } from '../config/socket.js';
 import mongoose from 'mongoose';
 import incidentPriorityService from './incidentPriorityService.js';
 import auditService from './auditService.js';
+import webhookService from './webhookService.js';
 
 // Helper to determine severity based on risk score
 export const calculateSeverity = (riskScore) => {
@@ -80,6 +81,13 @@ export const incidentService = {
       // Log Audit Log
       await auditService.logIncidentUpdated(req, incident);
 
+      // Trigger Webhook Event
+      try {
+        await webhookService.triggerEvent('INCIDENT_UPDATED', incident, req);
+      } catch (webErr) {
+        console.error(`[INCIDENT-UPDATE-WEBHOOK-ERROR] Failed to trigger webhook: ${webErr.message}`);
+      }
+
       // Log Priority Audits
       if (isEscalation) {
         await auditService.logEvent({
@@ -125,6 +133,13 @@ export const incidentService = {
 
       // Log Audit Log
       await auditService.logIncidentCreated(req, incident);
+
+      // Trigger Webhook Event
+      try {
+        await webhookService.triggerEvent('INCIDENT_CREATED', incident, req);
+      } catch (webErr) {
+        console.error(`[INCIDENT-CREATE-WEBHOOK-ERROR] Failed to trigger webhook: ${webErr.message}`);
+      }
 
       // Log Audit for Incident Prioritized
       await auditService.logEvent({
@@ -219,6 +234,13 @@ export const incidentService = {
 
     await auditService.logIncidentUpdated(req, incident);
 
+    // Trigger Webhook Event
+    try {
+      await webhookService.triggerEvent('INCIDENT_UPDATED', incident, req);
+    } catch (webErr) {
+      console.error(`[INCIDENT-UPDATE-WEBHOOK-ERROR] Failed to trigger webhook: ${webErr.message}`);
+    }
+
     // Log Priority Audits
     if (isEscalation) {
       await auditService.logEvent({
@@ -272,6 +294,13 @@ export const incidentService = {
 
     await auditService.logIncidentResolved(req, incident);
 
+    // Trigger Webhook Event
+    try {
+      await webhookService.triggerEvent('INCIDENT_RESOLVED', incident, req);
+    } catch (webErr) {
+      console.error(`[INCIDENT-RESOLVE-WEBHOOK-ERROR] Failed to trigger webhook: ${webErr.message}`);
+    }
+
     emitIncidentSocketEvent('incident:resolve', incident);
 
     // Recalculate priorities in Max Heap
@@ -311,6 +340,13 @@ export const incidentService = {
       metadata: { incidentId: incident.incidentId }
     });
 
+    // Trigger Webhook Event
+    try {
+      await webhookService.triggerEvent('INCIDENT_CLOSED', incident, req);
+    } catch (webErr) {
+      console.error(`[INCIDENT-CLOSE-WEBHOOK-ERROR] Failed to trigger webhook: ${webErr.message}`);
+    }
+
     emitIncidentSocketEvent('incident:close', incident);
 
     // Recalculate priorities in Max Heap
@@ -349,6 +385,13 @@ export const incidentService = {
       severity: 'Info',
       metadata: { incidentId: incident.incidentId, assignedTeam: teamName }
     });
+
+    // Trigger Webhook Event
+    try {
+      await webhookService.triggerEvent('INCIDENT_UPDATED', incident, req);
+    } catch (webErr) {
+      console.error(`[INCIDENT-UPDATE-WEBHOOK-ERROR] Failed to trigger webhook: ${webErr.message}`);
+    }
 
     emitIncidentSocketEvent('incident:update', incident);
 

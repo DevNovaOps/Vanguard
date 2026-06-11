@@ -6,6 +6,7 @@ import RailwayNode from '../models/RailwayNode.js';
 import { logAudit } from '../utils/auditLogger.js';
 import incidentService from './incidentService.js';
 import auditService from './auditService.js';
+import webhookService from './webhookService.js';
 
 export const riskService = {
   /**
@@ -64,6 +65,20 @@ export const riskService = {
         severity: severity === 'Critical' ? 'Critical' : (severity === 'High' ? 'Warning' : 'Info'),
         metadata: { nodeId, nodeName: node.nodeName, previousLevel, currentLevel: severity, previousScore, currentScore: riskScore }
       });
+
+      // Trigger Webhook Event
+      try {
+        await webhookService.triggerEvent('RISK_LEVEL_CHANGED', {
+          nodeId,
+          nodeName: node.nodeName,
+          previousLevel,
+          currentLevel: severity,
+          previousScore,
+          currentScore: riskScore
+        }, req);
+      } catch (webErr) {
+        console.error(`[RISK-LEVEL-WEBHOOK-ERROR] Failed to trigger webhook: ${webErr.message}`);
+      }
     }
 
     // 3. Log Risk Threshold Breached if applicable (e.g. crossing to High or Critical)
@@ -78,6 +93,19 @@ export const riskService = {
         severity: severity === 'Critical' ? 'Critical' : 'Warning',
         metadata: { nodeId, nodeName: node.nodeName, previousScore, currentScore: riskScore, riskLevel: severity }
       });
+
+      // Trigger Webhook Event
+      try {
+        await webhookService.triggerEvent('RISK_THRESHOLD_EXCEEDED', {
+          nodeId,
+          nodeName: node.nodeName,
+          previousScore,
+          currentScore: riskScore,
+          riskLevel: severity
+        }, req);
+      } catch (webErr) {
+        console.error(`[RISK-THRESHOLD-WEBHOOK-ERROR] Failed to trigger webhook: ${webErr.message}`);
+      }
     }
 
     let incident = null;

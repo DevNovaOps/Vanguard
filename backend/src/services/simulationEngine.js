@@ -10,6 +10,7 @@ import incidentService from './incidentService.js';
 import incidentPriorityService from './incidentPriorityService.js';
 import aiAgentService from './aiAgentService.js';
 import mitigationService from './mitigationService.js';
+import webhookService from './webhookService.js';
 import { logAudit } from '../utils/auditLogger.js';
 import { getIO } from '../config/socket.js';
 
@@ -175,6 +176,19 @@ export const simulationEngine = {
       await auditService.logSimulationStart(req, node);
     } catch (e) {
       console.warn('[SIMULATION] Audit log failed:', e.message);
+    }
+
+    // Trigger Webhook Event
+    try {
+      await webhookService.triggerEvent('SIMULATION_STARTED', {
+        runId: run.runId,
+        nodeId: node._id,
+        nodeCode: node.nodeCode,
+        nodeName: node.nodeName,
+        startedAt: run.startedAt
+      }, req);
+    } catch (webErr) {
+      console.error(`[SIMULATION-START-WEBHOOK-ERROR] Failed to trigger webhook: ${webErr.message}`);
     }
 
     // Accumulated context across steps
@@ -526,6 +540,20 @@ export const simulationEngine = {
         await auditService.logSimulationComplete(req, node);
       } catch (e) {
         console.warn('[SIMULATION] Final audit log failed:', e.message);
+      }
+
+      // Trigger Webhook Event
+      try {
+        await webhookService.triggerEvent('SIMULATION_COMPLETED', {
+          runId: run.runId,
+          nodeId: node._id,
+          nodeCode: node.nodeCode,
+          nodeName: node.nodeName,
+          completedAt: run.completedAt,
+          result: run.result
+        }, req);
+      } catch (webErr) {
+        console.error(`[SIMULATION-COMPLETE-WEBHOOK-ERROR] Failed to trigger webhook: ${webErr.message}`);
       }
 
       console.log(`[SIMULATION] ======= Simulation ${run.runId} COMPLETED =======`);

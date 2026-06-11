@@ -1,5 +1,6 @@
 import Incident from '../models/Incident.js';
 import auditService from '../services/auditService.js';
+import webhookService from '../services/webhookService.js';
 
 /**
  * @desc    Get dashboard incident statistics
@@ -58,3 +59,44 @@ export const getDashboardAudit = async (req, res, next) => {
     next(error);
   }
 };
+
+/**
+ * @desc    Get dashboard webhook statistics and webhooks list
+ * @route   GET /api/dashboard/webhooks
+ * @access  Private
+ */
+export const getDashboardWebhooks = async (req, res, next) => {
+  try {
+    const stats = await webhookService.getWebhookStatistics();
+    const healthScore = webhookService.calculateHealthScore(stats.successRate, stats.averageLatency);
+    const webhooks = await webhookService.getWebhooks();
+
+    // Map webhooks to include properties that AdminDashboard.jsx expects
+    const formattedWebhooks = webhooks.map(wh => {
+      const doc = wh.toJSON ? wh.toJSON() : wh;
+      return {
+        ...doc,
+        id: wh.webhookId,
+        url: wh.endpoint,
+        events: wh.subscribedEvents,
+        avgLatency: wh.averageLatency,
+        status: wh.status
+      };
+    });
+
+    res.status(200).json({
+      success: true,
+      message: 'Dashboard webhook statistics retrieved successfully',
+      data: {
+        stats: {
+          ...stats,
+          healthScore
+        },
+        webhooks: formattedWebhooks
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+

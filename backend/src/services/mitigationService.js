@@ -4,6 +4,7 @@ import RailwayNode from '../models/RailwayNode.js';
 import { getIO } from '../config/socket.js';
 import mongoose from 'mongoose';
 import auditService from './auditService.js';
+import webhookService from './webhookService.js';
 
 // Helper to emit Socket.IO events safely
 const emitMitigationSocketEvent = (eventName, mitigation) => {
@@ -295,6 +296,13 @@ export const mitigationService = {
       severity: 'Info',
       metadata: { mitigationId: populated.mitigationId }
     });
+
+    // Trigger Webhook Event
+    try {
+      await webhookService.triggerEvent('MITIGATION_EXECUTED', populated, req);
+    } catch (webErr) {
+      console.error(`[MITIGATION-WEBHOOK-ERROR] Failed to trigger webhook: ${webErr.message}`);
+    }
 
     // Socket Emits
     emitMitigationSocketEvent('mitigation:execute', populated);
