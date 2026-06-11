@@ -48,6 +48,18 @@ export const incidentService = {
 
   getDashboardStats: async () => {
     return api.get('/api/dashboard/incidents');
+  },
+
+  getPrioritizedQueue: async () => {
+    return api.get('/api/incidents/prioritized');
+  },
+
+  getPriorityDashboard: async () => {
+    return api.get('/api/incidents/priority-dashboard');
+  },
+
+  getIncidentPriorityRank: async (id) => {
+    return api.get(`/api/incidents/priority/${id}`);
   }
 };
 

@@ -11,6 +11,11 @@ import {
   getOpenIncidents,
   getCriticalIncidents
 } from '../controllers/incidentController.js';
+import {
+  getPrioritizedQueue,
+  getIncidentPriorityRank,
+  getPriorityDashboard
+} from '../controllers/incidentPriorityController.js';
 import { authenticateUser } from '../middleware/authMiddleware.js';
 import { authorizeRoles } from '../middleware/roleMiddleware.js';
 
@@ -81,6 +86,9 @@ router.use(authenticateUser);
 router.get('/', authorizeRoles('Admin', 'SafetyOfficer', 'Operator', 'Manager'), getAllIncidents);
 router.get('/open', authorizeRoles('Admin', 'SafetyOfficer', 'Operator', 'Manager'), getOpenIncidents);
 router.get('/critical', authorizeRoles('Admin', 'SafetyOfficer', 'Operator', 'Manager'), getCriticalIncidents);
+router.get('/prioritized', authorizeRoles('Admin', 'SafetyOfficer', 'Operator', 'Manager'), getPrioritizedQueue);
+router.get('/priority-dashboard', authorizeRoles('Admin', 'SafetyOfficer', 'Operator', 'Manager'), getPriorityDashboard);
+router.get('/priority/:id', authorizeRoles('Admin', 'SafetyOfficer', 'Operator', 'Manager'), getIncidentPriorityRank);
 router.get('/:id', authorizeRoles('Admin', 'SafetyOfficer', 'Operator', 'Manager'), getIncidentById);
 
 // Write/Mutation queries (restricted to Admin, SafetyOfficer, Operator)

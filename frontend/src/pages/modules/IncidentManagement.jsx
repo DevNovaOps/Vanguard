@@ -31,18 +31,18 @@ export default function IncidentManagement() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Fetch incidents from backend
+  // Fetch incidents from backend in priority order (using Max Heap)
   const fetchIncidents = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
-      const res = await incidentService.getIncidents();
-      if (res.success && res.data) {
-        setIncidents(res.data);
+      const res = await incidentService.getPrioritizedQueue();
+      if (res.success && res.queue) {
+        setIncidents(res.queue);
       }
     } catch (err) {
       console.error('[INCIDENT-PAGE] Fetch failed:', err);
-      setError(err.message || 'Failed to load incidents');
+      setError(err.message || 'Failed to load prioritized incidents');
     } finally {
       setLoading(false);
     }
@@ -61,23 +61,20 @@ export default function IncidentManagement() {
       console.log('[SOCKET] Connected to real-time incident stream');
     });
 
-    const handleCreate = (newInc) => {
-      // Find full node reference dynamically or just append
-      setIncidents((prev) => {
-        const exists = prev.find(i => i.incidentId === newInc.incidentId || i._id === newInc._id);
-        if (exists) {
-          return prev.map(i => (i.incidentId === newInc.incidentId || i._id === newInc._id) ? newInc : i);
-        }
-        return [newInc, ...prev];
-      });
-      // Fetch fresh list to populate populated node fields if needed
+    const handlePriorityUpdate = (data) => {
+      console.log('[SOCKET] Received priority queue update');
+      if (data && data.queue) {
+        setIncidents(data.queue);
+      } else {
+        fetchIncidents();
+      }
+    };
+
+    const handleCreate = () => {
       fetchIncidents();
     };
 
     const handleUpdate = (updatedInc) => {
-      setIncidents((prev) => {
-        return prev.map(i => (i.incidentId === updatedInc.incidentId || i._id === updatedInc._id) ? updatedInc : i);
-      });
       setSelectedIncident((curr) => {
         if (curr && (curr.incidentId === updatedInc.incidentId || curr._id === updatedInc._id)) {
           return updatedInc;
@@ -87,6 +84,7 @@ export default function IncidentManagement() {
       fetchIncidents();
     };
 
+    socket.on('incident:priority:update', handlePriorityUpdate);
     socket.on('incident:create', handleCreate);
     socket.on('incident:update', handleUpdate);
     socket.on('incident:resolve', handleUpdate);
@@ -97,20 +95,14 @@ export default function IncidentManagement() {
     };
   }, [fetchIncidents]);
 
-  // Max Heap prioritization
+  // Read prioritization directly from backend heap sorting
   const heapPrioritized = useMemo(() => {
-    const heap = new MaxHeap();
-    incidents.forEach(inc => {
-      // Ensure it has dynamic/getter fields
-      const formatted = {
-        ...inc,
-        id: inc.incidentId,
-        asset: inc.nodeId?.nodeCode || '',
-        assetName: inc.nodeId?.nodeName || 'Unknown Asset'
-      };
-      heap.insert(formatted);
-    });
-    return heap.toArray();
+    return incidents.map(inc => ({
+      ...inc,
+      id: inc.incidentId,
+      asset: typeof inc.nodeId === 'object' ? inc.nodeId?.nodeCode : '',
+      assetName: typeof inc.nodeId === 'object' ? inc.nodeId?.nodeName : 'Unknown Asset'
+    }));
   }, [incidents]);
 
   const filtered = heapPrioritized.filter(inc => {

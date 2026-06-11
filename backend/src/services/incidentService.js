@@ -3,6 +3,7 @@ import RailwayNode from '../models/RailwayNode.js';
 import { logAudit } from '../utils/auditLogger.js';
 import { getIO } from '../config/socket.js';
 import mongoose from 'mongoose';
+import incidentPriorityService from './incidentPriorityService.js';
 
 // Helper to determine severity based on risk score
 export const calculateSeverity = (riskScore) => {
@@ -62,6 +63,9 @@ export const incidentService = {
     const incidentTitle = title || `Incident at ${node.nodeName}`;
 
     if (incident) {
+      const isEscalation = riskScore > incident.riskScore;
+      const oldRisk = incident.riskScore;
+
       // Update existing incident
       incident.riskScore = riskScore;
       incident.severity = severity;
@@ -82,8 +86,30 @@ export const incidentService = {
         metadata: { incidentId: incident.incidentId, nodeId }
       });
 
+      // Log Priority Audits
+      if (isEscalation) {
+        await logAudit({
+          req,
+          module: 'Incident',
+          action: 'Incident Escalated',
+          description: `Incident ${incident.incidentId} escalated from risk score ${oldRisk} to ${riskScore}`,
+          metadata: { incidentId: incident.incidentId, oldRisk, newRisk: riskScore }
+        });
+      } else {
+        await logAudit({
+          req,
+          module: 'Incident',
+          action: 'Priority Updated',
+          description: `Priority rank updated for incident ${incident.incidentId} (new risk score: ${riskScore})`,
+          metadata: { incidentId: incident.incidentId, riskScore }
+        });
+      }
+
       // Emit update socket event
       emitIncidentSocketEvent('incident:update', incident);
+
+      // Recalculate priorities in Max Heap
+      await incidentPriorityService.triggerRecalculation(req);
 
       return incident;
     } else {
@@ -110,8 +136,20 @@ export const incidentService = {
         metadata: { incidentId: incident.incidentId, nodeId }
       });
 
+      // Log Audit for Incident Prioritized
+      await logAudit({
+        req,
+        module: 'Incident',
+        action: 'Incident Prioritized',
+        description: `Incident ${incident.incidentId} prioritized in queue with risk score ${riskScore}`,
+        metadata: { incidentId: incident.incidentId, riskScore, severity }
+      });
+
       // Emit create socket event
       emitIncidentSocketEvent('incident:create', incident);
+
+      // Recalculate priorities in Max Heap
+      await incidentPriorityService.triggerRecalculation(req);
 
       return incident;
     }
@@ -170,6 +208,9 @@ export const incidentService = {
       throw error;
     }
 
+    const oldRisk = incident.riskScore;
+    const isEscalation = updateData.riskScore !== undefined && updateData.riskScore > oldRisk;
+
     // Update risk score and auto-recalculate severity
     if (updateData.riskScore !== undefined) {
       incident.riskScore = updateData.riskScore;
@@ -193,7 +234,29 @@ export const incidentService = {
       metadata: { incidentId: incident.incidentId, updateData }
     });
 
+    // Log Priority Audits
+    if (isEscalation) {
+      await logAudit({
+        req,
+        module: 'Incident',
+        action: 'Incident Escalated',
+        description: `Incident ${incident.incidentId} escalated from risk score ${oldRisk} to ${updateData.riskScore}`,
+        metadata: { incidentId: incident.incidentId, oldRisk, newRisk: updateData.riskScore }
+      });
+    } else if (updateData.riskScore !== undefined) {
+      await logAudit({
+        req,
+        module: 'Incident',
+        action: 'Priority Updated',
+        description: `Priority rank updated for incident ${incident.incidentId} (new risk score: ${updateData.riskScore})`,
+        metadata: { incidentId: incident.incidentId, riskScore: updateData.riskScore }
+      });
+    }
+
     emitIncidentSocketEvent('incident:update', incident);
+
+    // Recalculate priorities in Max Heap
+    await incidentPriorityService.triggerRecalculation(req);
 
     return incident;
   },
@@ -230,6 +293,9 @@ export const incidentService = {
 
     emitIncidentSocketEvent('incident:resolve', incident);
 
+    // Recalculate priorities in Max Heap
+    await incidentPriorityService.triggerRecalculation(req);
+
     return incident;
   },
 
@@ -265,6 +331,9 @@ export const incidentService = {
 
     emitIncidentSocketEvent('incident:close', incident);
 
+    // Recalculate priorities in Max Heap
+    await incidentPriorityService.triggerRecalculation(req);
+
     return incident;
   },
 
@@ -299,6 +368,9 @@ export const incidentService = {
     });
 
     emitIncidentSocketEvent('incident:update', incident);
+
+    // Recalculate priorities in Max Heap
+    await incidentPriorityService.triggerRecalculation(req);
 
     return incident;
   },
