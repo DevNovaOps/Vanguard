@@ -11,6 +11,7 @@ import dashboardRoutes from './routes/dashboardRoutes.js';
 import simulationRoutes from './routes/simulationRoutes.js';
 import riskRoutes from './routes/riskRoutes.js';
 import aiAgentRoutes from './routes/aiAgentRoutes.js';
+import mitigationRoutes from './routes/mitigationRoutes.js';
 
 const app = express();
 
