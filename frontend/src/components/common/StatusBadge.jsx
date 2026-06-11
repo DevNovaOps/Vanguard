@@ -1,7 +1,7 @@
 export default function StatusBadge({ status, size = 'sm', dot = false, className = '' }) {
   const colorMap = {
     healthy: 'success', active: 'success', normal: 'success', resolved: 'success',
-    executed: 'success', success: 'success', up: 'success',
+    executed: 'success', success: 'success', up: 'success', completed: 'success',
     warning: 'warning', degraded: 'warning', monitoring: 'warning',
     pending: 'warning', scheduled: 'warning',
     critical: 'danger', failed: 'danger', high: 'danger', down: 'danger',

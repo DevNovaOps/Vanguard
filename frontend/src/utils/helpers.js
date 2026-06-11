@@ -27,7 +27,7 @@ export function timeAgo(dateStr) {
 // ── Status & Severity Colors ──
 export function getStatusColor(status) {
   const map = {
-    healthy: 'success', active: 'success', normal: 'success', resolved: 'success', executed: 'success',
+    healthy: 'success', active: 'success', normal: 'success', resolved: 'success', executed: 'success', completed: 'success',
     warning: 'warning', degraded: 'warning', monitoring: 'warning', pending: 'warning', scheduled: 'warning',
     critical: 'danger', failed: 'danger',
     maintenance: 'info', standby: 'info', investigating: 'info',

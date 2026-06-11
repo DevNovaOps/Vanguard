@@ -3,6 +3,10 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import mongoose from 'mongoose';
 import assert from 'assert';
+import dns from 'dns';
+
+// Setup DNS servers to Google DNS for reliable SRV lookup
+dns.setServers(['8.8.8.8', '8.8.4.4']);
 
 import RailwayNode from '../src/models/RailwayNode.js';
 import Incident from '../src/models/Incident.js';

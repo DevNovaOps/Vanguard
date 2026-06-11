@@ -13,7 +13,7 @@ export const logAudit = async ({ req, userId, module, action, description, metad
       if (!resolvedUserId && req.user) {
         resolvedUserId = req.user._id;
       }
-      ipAddress = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+      ipAddress = (req.headers && req.headers['x-forwarded-for']) || (req.socket && req.socket.remoteAddress) || null;
     }
 
     await AuditLog.create({

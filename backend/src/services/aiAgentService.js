@@ -1,5 +1,7 @@
 import AgentAction from '../models/AgentAction.js';
 import RailwayNode from '../models/RailwayNode.js';
+import Incident from '../models/Incident.js';
+import mitigationService from './mitigationService.js';
 import { logAudit } from '../utils/auditLogger.js';
 
 export const aiAgentService = {
@@ -86,6 +88,47 @@ export const aiAgentService = {
 
     // Populate node details for response consistency
     const populatedAction = await AgentAction.findById(action._id).populate('nodeId', 'nodeCode nodeName status region');
+
+    // Automatic Mitigation Trigger
+    const mitigationDecisionMap = {
+      'Shutdown System': 'Infrastructure Shutdown',
+      'Emergency Brake': 'Emergency Brake',
+      'Maintenance Alert': 'Maintenance Dispatch',
+      'Critical Infrastructure Isolation': 'Route Isolation',
+      'Critical Isolation': 'Route Isolation'
+    };
+
+    if (mitigationDecisionMap[decision]) {
+      try {
+        // Find an active Open/Investigating incident for this node or create one
+        let incident = await Incident.findOne({ nodeId, status: { $in: ['Open', 'Investigating', 'Mitigating'] } });
+        if (!incident) {
+          incident = await Incident.create({
+            nodeId,
+            riskScore: riskScore || 50,
+            severity: severity || 'High',
+            title: `AI Agent Decision: ${decision}`,
+            description: reasoning || `AI Agent evaluated telemetry at node ${nodeExists.nodeName}: ${decision}`,
+            status: 'Open',
+            source: 'Agent'
+          });
+          console.log(`[AI-AGENT] Automatically created incident ${incident.incidentId} for mitigation mapping.`);
+        }
+
+        const mappedAction = mitigationDecisionMap[decision];
+        await mitigationService.createMitigation({
+          incidentId: incident._id,
+          nodeId,
+          action: mappedAction,
+          severity: severity || 'High',
+          executionSource: 'AI_AGENT',
+          executionNotes: `Automatically triggered by AI Agent Decision: ${decision}. Reasoning: ${reasoning}`,
+          agentActionId: action._id
+        }, req);
+      } catch (mitgErr) {
+        console.error(`[AI-AGENT-MITIGATION-ERROR] Failed to auto-trigger mitigation: ${mitgErr.message}`);
+      }
+    }
 
     // Create Audit Log
     await logAudit({
