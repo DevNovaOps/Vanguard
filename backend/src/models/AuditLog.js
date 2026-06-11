@@ -31,8 +31,23 @@ const auditLogSchema = new mongoose.Schema(
     },
     module: {
       type: String,
-      required: [true, 'Module is required'],
-      trim: true,
+      required: [true, 'Audited module name is required'],
+      enum: {
+        values: [
+          'Authentication',
+          'TransitNode',
+          'Sensor',
+          'SensorData',
+          'Compliance',
+          'Incident',
+          'Mitigation',
+          'Simulation',
+          'Risk',
+          'AutonomousAgent',
+          'Webhook'
+        ],
+        message: 'Module must be Authentication, TransitNode, Sensor, SensorData, Compliance, Incident, Mitigation, Simulation, Risk, AutonomousAgent, or Webhook'
+      },
       index: true
     },
     entityType: {

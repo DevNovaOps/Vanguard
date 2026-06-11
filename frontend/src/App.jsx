@@ -35,6 +35,7 @@ import AuditLogs from './pages/modules/AuditLogs';
 import WebhookCenter from './pages/modules/WebhookCenter';
 import Reports from './pages/modules/Reports';
 import RailwayNetwork from './pages/modules/RailwayNetwork';
+import FailureSimulation from './pages/modules/FailureSimulation';
 import SettingsPage from './pages/settings/Settings';
 
 function DashboardRedirect() {
@@ -78,6 +79,7 @@ function AppRoutes() {
         <Route path="/incidents" element={<IncidentManagement />} />
         <Route path="/autonomous-agent" element={<AutonomousAgent />} />
         <Route path="/mitigation" element={<MitigationCenter />} />
+        <Route path="/simulation" element={<FailureSimulation />} />
         <Route path="/audit-logs" element={<AuditLogs />} />
         <Route path="/webhooks" element={<WebhookCenter />} />
         <Route path="/reports" element={<Reports />} />

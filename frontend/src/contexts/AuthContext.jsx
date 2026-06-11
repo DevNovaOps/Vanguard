@@ -11,10 +11,10 @@ const ROLES = {
 };
 
 const ROLE_PERMISSIONS = {
-  admin: ['dashboard', 'railway-network', 'telemetry', 'infrastructure', 'risk-analysis', 'compliance', 'incidents', 'autonomous-agent', 'mitigation', 'audit-logs', 'webhooks', 'reports', 'settings', 'user-approvals'],
-  operator: ['dashboard', 'railway-network', 'telemetry', 'infrastructure', 'compliance', 'incidents', 'autonomous-agent', 'mitigation', 'reports'],
-  safety_officer: ['dashboard', 'compliance', 'risk-analysis', 'incidents', 'autonomous-agent', 'mitigation', 'audit-logs', 'reports'],
-  manager: ['dashboard', 'railway-network', 'compliance', 'risk-analysis', 'autonomous-agent', 'reports', 'settings'],
+  admin: ['dashboard', 'railway-network', 'telemetry', 'infrastructure', 'risk-analysis', 'compliance', 'incidents', 'autonomous-agent', 'mitigation', 'simulation', 'audit-logs', 'webhooks', 'reports', 'settings', 'user-approvals'],
+  operator: ['dashboard', 'railway-network', 'telemetry', 'infrastructure', 'compliance', 'incidents', 'autonomous-agent', 'mitigation', 'simulation', 'reports'],
+  safety_officer: ['dashboard', 'compliance', 'risk-analysis', 'incidents', 'autonomous-agent', 'mitigation', 'simulation', 'audit-logs', 'reports'],
+  manager: ['dashboard', 'railway-network', 'compliance', 'risk-analysis', 'autonomous-agent', 'simulation', 'reports', 'settings'],
 };
 
 const DEMO_USERS = {
