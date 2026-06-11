@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   LayoutDashboard, Map, Radio, Database, AlertTriangle, Shield,
   AlertCircle, Bot, Wrench, FileText, Webhook, BarChart3, Settings,
-  ChevronLeft, ChevronRight, Users
+  ChevronLeft, ChevronRight, Users, Zap
 } from 'lucide-react';
 import VanguardARCIcon from '../common/VanguardARCIcon';
 import { incidentService } from '../../utils/incidentService';
@@ -34,6 +34,7 @@ const NAV_GROUPS = [
     items: [
       { path: '/autonomous-agent', icon: Bot, label: 'Autonomous Agent', module: 'autonomous-agent' },
       { path: '/mitigation', icon: Wrench, label: 'Mitigation Center', module: 'mitigation' },
+      { path: '/simulation', icon: Zap, label: 'Failure Simulation', module: 'simulation' },
     ],
   },
   {

@@ -17,9 +17,10 @@ const auditLogSchema = new mongoose.Schema(
           'SensorData',
           'Compliance',
           'Incident',
-          'Mitigation'
+          'Mitigation',
+          'Simulation'
         ],
-        message: 'Module must be Authentication, TransitNode, Sensor, SensorData, Compliance, Incident, or Mitigation'
+        message: 'Module must be Authentication, TransitNode, Sensor, SensorData, Compliance, Incident, Mitigation, or Simulation'
       },
       required: [true, 'Audited module name is required'],
       index: true

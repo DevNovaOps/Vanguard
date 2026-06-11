@@ -6,7 +6,7 @@ export default function StatusBadge({ status, size = 'sm', dot = false, classNam
     pending: 'warning', scheduled: 'warning',
     critical: 'danger', failed: 'danger', high: 'danger', down: 'danger',
     maintenance: 'info', standby: 'info', investigating: 'info', info: 'info',
-    low: 'success', medium: 'warning',
+    low: 'success', medium: 'warning', running: 'info',
   };
 
   const badgeColor = colorMap[status?.toLowerCase()] || 'neutral';

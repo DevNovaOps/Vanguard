@@ -1,18 +1,19 @@
-import { createContext, useContext, useState, useCallback, useRef } from 'react';
+import { createContext, useContext, useState, useCallback, useRef, useEffect } from 'react';
 import { api } from '../utils/api.js';
+import { io } from 'socket.io-client';
 
 const SimulationContext = createContext(null);
 
 const SIMULATION_STEPS = [
-  { id: 1, name: 'Sensor Anomaly Detected', module: 'telemetry', duration: 2000, description: 'Temperature spike detected on Node TN-042 (Gauge Rail Sensor)' },
-  { id: 2, name: 'Compliance Violation', module: 'compliance', duration: 1800, description: 'Rule API617-TEMP exceeded: Rail temperature 72°C > threshold 65°C' },
-  { id: 3, name: 'Risk Score Increase', module: 'risk', duration: 1500, description: 'Risk score elevated to 87/100 — CRITICAL classification' },
-  { id: 4, name: 'Heap Prioritization', module: 'incidents', duration: 1200, description: 'Max Heap re-ordered: INC-2847 promoted to priority position' },
-  { id: 5, name: 'Incident Created', module: 'incidents', duration: 1500, description: 'Incident INC-2847 generated — Severity: CRITICAL, Asset: TN-042' },
-  { id: 6, name: 'AI Agent Activated', module: 'agent', duration: 2000, description: 'Autonomous agent evaluating mitigation options...' },
-  { id: 7, name: 'Mitigation Executed', module: 'mitigation', duration: 1800, description: 'Emergency speed restriction applied on Section 12A-B' },
-  { id: 8, name: 'Network Stabilized', module: 'network', duration: 1500, description: 'All affected nodes returning to normal operating parameters' },
-  { id: 9, name: 'Report Generated', module: 'reports', duration: 1000, description: 'Incident report IR-2847 compiled and filed automatically' },
+  { id: 1, name: 'Sensor Anomaly Detected', module: 'telemetry', description: 'Detecting temperature spike on target node sensor array' },
+  { id: 2, name: 'Compliance Violation', module: 'compliance', description: 'Evaluating sensor readings against active compliance rules' },
+  { id: 3, name: 'Risk Score Calculated', module: 'risk', description: 'Computing weighted risk score and severity classification' },
+  { id: 4, name: 'Heap Prioritization', module: 'incidents', description: 'Max Heap recalculation — re-ordering incident priority queue' },
+  { id: 5, name: 'Incident Created', module: 'incidents', description: 'Creating or confirming incident record in the database' },
+  { id: 6, name: 'AI Agent Activated', module: 'agent', description: 'Autonomous agent evaluating telemetry and deciding mitigation' },
+  { id: 7, name: 'Mitigation Executed', module: 'mitigation', description: 'Deploying corrective action on affected infrastructure' },
+  { id: 8, name: 'Network Stabilized', module: 'network', description: 'Resolving incidents and restoring normal operations' },
+  { id: 9, name: 'Report Generated', module: 'reports', description: 'Compiling final simulation report and audit trail' },
 ];
 
 export function SimulationProvider({ children }) {
@@ -20,62 +21,166 @@ export function SimulationProvider({ children }) {
   const [currentStep, setCurrentStep] = useState(0);
   const [completedSteps, setCompletedSteps] = useState([]);
   const [events, setEvents] = useState([]);
-  const timeoutRef = useRef(null);
-  const stepRef = useRef(0);
+  const [simulationRunId, setSimulationRunId] = useState(null);
+  const [liveStepData, setLiveStepData] = useState({});
+  const socketRef = useRef(null);
 
   const addEvent = useCallback((event) => {
-    setEvents(prev => [{ ...event, timestamp: new Date().toISOString(), id: Date.now() }, ...prev].slice(0, 50));
+    setEvents(prev => [{ ...event, timestamp: new Date().toISOString(), id: Date.now() + Math.random() }, ...prev].slice(0, 100));
   }, []);
 
-  const runStep = useCallback((stepIndex) => {
-    if (stepIndex >= SIMULATION_STEPS.length) {
-      setIsRunning(false);
-      setCurrentStep(0);
-      addEvent({ type: 'simulation-complete', title: 'Simulation Complete', description: 'All 9 steps executed successfully. System stabilized.', severity: 'success' });
-      return;
-    }
+  // Socket.IO connection for real-time simulation updates
+  useEffect(() => {
+    const socket = io(window.location.origin, {
+      transports: ['websocket', 'polling']
+    });
+    socketRef.current = socket;
 
-    const step = SIMULATION_STEPS[stepIndex];
-    stepRef.current = stepIndex;
-    setCurrentStep(stepIndex + 1);
-    setCompletedSteps(prev => [...prev, step.id]);
-
-    addEvent({
-      type: step.module,
-      title: step.name,
-      description: step.description,
-      severity: stepIndex < 5 ? 'danger' : stepIndex < 7 ? 'warning' : 'success',
-      step: stepIndex + 1,
+    socket.on('connect', () => {
+      console.log('[SIMULATION-SOCKET] Connected:', socket.id);
     });
 
-    timeoutRef.current = setTimeout(() => {
-      runStep(stepIndex + 1);
-    }, step.duration);
+    socket.on('connect_error', (err) => {
+      console.warn('[SIMULATION-SOCKET] Connection error:', err.message);
+    });
+
+    socket.on('error', (err) => {
+      console.warn('[SIMULATION-SOCKET] Socket error:', err.message);
+    });
+
+    // Listen for simulation step events
+    socket.on('simulation:step', (data) => {
+      console.log('[SIMULATION-SOCKET] Step event:', data);
+
+      if (data.status === 'completed') {
+        setCurrentStep(data.stepNumber);
+        setCompletedSteps(prev => {
+          if (!prev.includes(data.stepNumber)) {
+            return [...prev, data.stepNumber];
+          }
+          return prev;
+        });
+
+        // Store step data for the timeline
+        setLiveStepData(prev => ({
+          ...prev,
+          [data.stepNumber]: data
+        }));
+
+        // Add to events feed
+        const severityMap = {
+          telemetry: 'danger',
+          compliance: 'danger',
+          risk: 'danger',
+          incidents: 'warning',
+          agent: 'warning',
+          mitigation: 'info',
+          network: 'success',
+          reports: 'success'
+        };
+
+        addEvent({
+          type: data.module,
+          title: data.stepName,
+          description: data.description,
+          severity: severityMap[data.module] || 'info',
+          step: data.stepNumber,
+          data: data.data
+        });
+      } else if (data.status === 'running') {
+        setCurrentStep(data.stepNumber);
+        addEvent({
+          type: data.module,
+          title: `${data.stepName} — Processing...`,
+          description: data.description,
+          severity: 'info',
+          step: data.stepNumber
+        });
+      } else if (data.status === 'failed') {
+        addEvent({
+          type: data.module,
+          title: `${data.stepName} — Failed`,
+          description: data.description,
+          severity: 'danger',
+          step: data.stepNumber
+        });
+      }
+    });
+
+    // Listen for simulation start
+    socket.on('simulation:start', (data) => {
+      console.log('[SIMULATION-SOCKET] Simulation started:', data);
+      setIsRunning(true);
+      setCurrentStep(0);
+      setCompletedSteps([]);
+      setLiveStepData({});
+      setSimulationRunId(data.runId);
+      addEvent({
+        type: 'simulation-start',
+        title: 'Failure Simulation Started',
+        description: `Initiating 9-step failure cascade on ${data.nodeName} (${data.nodeCode})...`,
+        severity: 'info'
+      });
+    });
+
+    // Listen for simulation complete
+    socket.on('simulation:complete', (data) => {
+      console.log('[SIMULATION-SOCKET] Simulation completed:', data);
+      setIsRunning(false);
+      addEvent({
+        type: 'simulation-complete',
+        title: 'Simulation Complete',
+        description: `All 9 steps executed successfully. Run ${data.runId} completed in ${(data.totalDuration / 1000).toFixed(1)}s.`,
+        severity: 'success'
+      });
+    });
+
+    // Listen for simulation failure
+    socket.on('simulation:failed', (data) => {
+      console.log('[SIMULATION-SOCKET] Simulation failed:', data);
+      setIsRunning(false);
+      addEvent({
+        type: 'simulation-failed',
+        title: 'Simulation Failed',
+        description: `Simulation ${data.runId} failed: ${data.error}`,
+        severity: 'danger'
+      });
+    });
+
+    return () => {
+      socket.disconnect();
+    };
   }, [addEvent]);
 
   const startSimulation = useCallback(async () => {
     if (isRunning) return;
-    setIsRunning(true);
-    setCurrentStep(0);
-    setCompletedSteps([]);
-    addEvent({ type: 'simulation-start', title: 'Failure Simulation Started', description: 'Initiating 9-step failure cascade simulation...', severity: 'info' });
-    
-    // Call backend to trigger database events (persistence & socket emit)
+
+    // The Socket.IO events will handle state updates
+    // Just trigger the backend
     try {
       await api.post('/api/simulation/trigger', {});
     } catch (err) {
-      console.error('[SIMULATION] Failed to trigger backend failure simulation:', err);
+      console.error('[SIMULATION] Failed to trigger simulation:', err);
+      addEvent({
+        type: 'simulation-error',
+        title: 'Simulation Trigger Failed',
+        description: err.message || 'Failed to start simulation. Check authentication and permissions.',
+        severity: 'danger'
+      });
     }
-
-    setTimeout(() => runStep(0), 500);
-  }, [isRunning, runStep, addEvent]);
+  }, [isRunning, addEvent]);
 
   const stopSimulation = useCallback(() => {
-    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    // For now, just reset UI state — backend simulation continues but we stop listening
     setIsRunning(false);
     setCurrentStep(0);
     setCompletedSteps([]);
-    addEvent({ type: 'simulation-stop', title: 'Simulation Stopped', description: 'Simulation manually terminated by operator.', severity: 'warning' });
+    addEvent({
+      type: 'simulation-stop',
+      title: 'Simulation Stopped',
+      description: 'Simulation display terminated by operator. Backend process may continue.',
+      severity: 'warning'
+    });
   }, [addEvent]);
 
   return (
@@ -85,6 +190,8 @@ export function SimulationProvider({ children }) {
       totalSteps: SIMULATION_STEPS.length,
       completedSteps,
       events,
+      liveStepData,
+      simulationRunId,
       startSimulation,
       stopSimulation,
       SIMULATION_STEPS,
