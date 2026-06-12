@@ -5,6 +5,7 @@ import { getIO } from '../config/socket.js';
 import mongoose from 'mongoose';
 import auditService from './auditService.js';
 import webhookService from './webhookService.js';
+import notificationService from './notificationService.js';
 
 // Helper to emit Socket.IO events safely
 const emitMitigationSocketEvent = (eventName, mitigation) => {
@@ -145,6 +146,22 @@ export const mitigationService = {
       emitIncidentSocketEvent('incident:update', incident);
     }
 
+    // Trigger Notification
+    const notifSeverity = populated.severity === 'Medium' ? 'Warning' : (populated.severity === 'Low' ? 'Info' : populated.severity);
+    try {
+      await notificationService.createNotification({
+        title: `Mitigation Action Created: ${populated.action}`,
+        message: `Mitigation action ${populated.mitigationId} (${populated.action}) has been created for node ${node.nodeName}. Severity: ${populated.severity}. Notes: ${populated.executionNotes || 'None'}`,
+        type: 'MitigationCreated',
+        severity: notifSeverity,
+        module: 'Mitigation',
+        recipientRoles: ['SafetyOfficer', 'Operator'],
+        metadata: { mitigationId: populated._id, mitigationCode: populated.mitigationId, nodeId: populated.nodeId?._id, incidentId: populated.incidentId?._id }
+      });
+    } catch (notifErr) {
+      console.error(`[MITIGATION-CREATE-NOTIFICATION-ERROR] Failed to trigger notification: ${notifErr.message}`);
+    }
+
     // Log Audit
     await auditService.logEvent({
       req,
@@ -206,6 +223,38 @@ export const mitigationService = {
       .populate('nodeId')
       .populate('incidentId')
       .populate('executedBy', 'name email role');
+
+    // Trigger notification based on status change
+    if (status === 'Failed') {
+      try {
+        await notificationService.createNotification({
+          title: `Mitigation Action Failed: ${populated.action}`,
+          message: `Mitigation action ${populated.mitigationId} (${populated.action}) failed for node ${populated.nodeId?.nodeName || 'unknown'}. Notes: ${populated.executionNotes || 'None'}`,
+          type: 'MitigationFailed',
+          severity: 'Critical',
+          module: 'Mitigation',
+          recipientRoles: ['SafetyOfficer', 'Operator'],
+          metadata: { mitigationId: populated._id, mitigationCode: populated.mitigationId, nodeId: populated.nodeId?._id }
+        });
+      } catch (notifErr) {
+        console.error(`[MITIGATION-FAIL-NOTIFICATION-ERROR] Failed to trigger notification: ${notifErr.message}`);
+      }
+    } else if (status === 'Executed' || status === 'Completed') {
+      const notifSeverity = populated.severity === 'Medium' ? 'Warning' : (populated.severity === 'Low' ? 'Info' : populated.severity);
+      try {
+        await notificationService.createNotification({
+          title: `Mitigation Action Executed: ${populated.action}`,
+          message: `Mitigation action ${populated.mitigationId} (${populated.action}) has been successfully executed for node ${populated.nodeId?.nodeName || 'unknown'}.`,
+          type: 'MitigationExecuted',
+          severity: notifSeverity,
+          module: 'Mitigation',
+          recipientRoles: ['SafetyOfficer', 'Operator'],
+          metadata: { mitigationId: populated._id, mitigationCode: populated.mitigationId, nodeId: populated.nodeId?._id }
+        });
+      } catch (notifErr) {
+        console.error(`[MITIGATION-EXECUTE-NOTIFICATION-ERROR] Failed to trigger notification: ${notifErr.message}`);
+      }
+    }
 
     // Audit Log
     let actionName = 'Mitigation Updated';
@@ -286,6 +335,22 @@ export const mitigationService = {
       .populate('nodeId')
       .populate('incidentId')
       .populate('executedBy', 'name email role');
+
+    // Trigger Notification
+    const notifSeverity = populated.severity === 'Medium' ? 'Warning' : (populated.severity === 'Low' ? 'Info' : populated.severity);
+    try {
+      await notificationService.createNotification({
+        title: `Mitigation Action Executed: ${populated.action}`,
+        message: `Mitigation action ${populated.mitigationId} (${populated.action}) has been successfully executed for node ${populated.nodeId?.nodeName || 'unknown'}.`,
+        type: 'MitigationExecuted',
+        severity: notifSeverity,
+        module: 'Mitigation',
+        recipientRoles: ['SafetyOfficer', 'Operator'],
+        metadata: { mitigationId: populated._id, mitigationCode: populated.mitigationId, nodeId: populated.nodeId?._id }
+      });
+    } catch (notifErr) {
+      console.error(`[MITIGATION-EXECUTE-NOTIFICATION-ERROR] Failed to trigger notification: ${notifErr.message}`);
+    }
 
     // Audit Log
     await auditService.logEvent({

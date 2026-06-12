@@ -7,6 +7,7 @@ import { logAudit } from '../utils/auditLogger.js';
 import incidentService from './incidentService.js';
 import auditService from './auditService.js';
 import webhookService from './webhookService.js';
+import notificationService from './notificationService.js';
 
 export const riskService = {
   /**
@@ -121,6 +122,24 @@ export const riskService = {
       }, req);
     }
 
+    // Trigger Risk Alert notification if risk score exceeds 30
+    if (riskScore > 30) {
+      const notifSeverity = severity === 'Critical' ? 'Critical' : (severity === 'High' ? 'High' : 'Warning');
+      try {
+        await notificationService.createNotification({
+          title: `Risk Alert: Elevated Risk at ${node.nodeName}`,
+          message: `Risk level for node ${node.nodeName} is now classified as ${severity} with a score of ${riskScore}/100. Reason: ${reason || 'Recalculation threshold breach.'}`,
+          type: 'RiskAlert',
+          severity: notifSeverity,
+          module: 'Risk',
+          recipientRoles: ['SafetyOfficer'],
+          metadata: { nodeId: node._id, nodeName: node.nodeName, riskScore, riskLevel: severity }
+        });
+      } catch (notifErr) {
+        console.error(`[RISK-NOTIFICATION-ERROR] Failed to trigger notification: ${notifErr.message}`);
+      }
+    }
+
     return {
       nodeId,
       riskScore,
@@ -227,6 +246,21 @@ export const riskService = {
       severity: 'Info',
       metadata: { count }
     });
+
+    // Trigger global risk calculation notification
+    try {
+      await notificationService.createNotification({
+        title: 'Global Risk Recalculation Completed',
+        message: `Global risk score recalculation completed for ${count} nodes.`,
+        type: 'RiskAlert',
+        severity: 'Info',
+        module: 'Risk',
+        recipientRoles: ['SafetyOfficer'],
+        metadata: { count }
+      });
+    } catch (notifErr) {
+      console.error(`[RISK-GLOBAL-NOTIFICATION-ERROR] Failed to trigger notification: ${notifErr.message}`);
+    }
 
     return count;
   },

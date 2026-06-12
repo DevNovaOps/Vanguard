@@ -5,6 +5,7 @@ import mitigationService from './mitigationService.js';
 import { logAudit } from '../utils/auditLogger.js';
 import auditService from './auditService.js';
 import webhookService from './webhookService.js';
+import notificationService from './notificationService.js';
 
 export const aiAgentService = {
   /**
@@ -156,6 +157,22 @@ export const aiAgentService = {
 
     // Log Plan Generated
     if (decision !== 'Keep Monitoring') {
+      // Trigger Notification
+      const notifSeverity = severity === 'Critical' ? 'Critical' : (severity === 'High' ? 'High' : 'Info');
+      try {
+        await notificationService.createNotification({
+          title: `AI Agent Decision: ${decision}`,
+          message: `AI Agent executed decision: "${decision}" for node ${nodeExists.nodeName}. Confidence: ${confidence}%. Reasoning: ${reasoning}`,
+          type: 'AgentDecision',
+          severity: notifSeverity,
+          module: 'AutonomousAgent',
+          recipientRoles: ['SafetyOfficer'],
+          metadata: { actionId: action._id, nodeId: nodeExists._id, decision, confidence }
+        });
+      } catch (notifErr) {
+        console.error(`[AGENT-NOTIFICATION-ERROR] Failed to trigger notification: ${notifErr.message}`);
+      }
+
       await auditService.logEvent({
         req,
         module: 'AutonomousAgent',

@@ -5,6 +5,7 @@ import mongoose from 'mongoose';
 import incidentPriorityService from './incidentPriorityService.js';
 import auditService from './auditService.js';
 import webhookService from './webhookService.js';
+import notificationService from './notificationService.js';
 
 // Helper to determine severity based on risk score
 export const calculateSeverity = (riskScore) => {
@@ -90,6 +91,23 @@ export const incidentService = {
 
       // Log Priority Audits
       if (isEscalation) {
+        // Trigger Notification
+        const notifSeverity = incident.severity === 'Medium' ? 'Warning' : incident.severity;
+        const mappedSeverity = notifSeverity === 'Low' ? 'Info' : notifSeverity;
+        try {
+          await notificationService.createNotification({
+            title: `Incident Escalated: ${incident.title}`,
+            message: `Incident ${incident.incidentId} at node ${incident.nodeId?.nodeName || 'unknown'} has been escalated. Risk score increased from ${oldRisk} to ${riskScore}/100.`,
+            type: 'IncidentEscalated',
+            severity: mappedSeverity,
+            module: 'Incident',
+            recipientRoles: ['SafetyOfficer', 'Operator'],
+            metadata: { incidentId: incident._id, incidentCode: incident.incidentId, nodeId: incident.nodeId?._id }
+          });
+        } catch (notifErr) {
+          console.error(`[INCIDENT-ESCALATE-NOTIFICATION-ERROR] Failed to trigger notification: ${notifErr.message}`);
+        }
+
         await auditService.logEvent({
           req,
           module: 'Incident',
@@ -130,6 +148,23 @@ export const incidentService = {
       });
 
       incident = await Incident.findById(newIncident._id).populate('nodeId');
+
+      // Trigger Notification
+      const notifSeverity = incident.severity === 'Medium' ? 'Warning' : incident.severity;
+      const mappedSeverity = notifSeverity === 'Low' ? 'Info' : notifSeverity;
+      try {
+        await notificationService.createNotification({
+          title: `Incident Created: ${incident.title}`,
+          message: `A new incident has been generated at node ${incident.nodeId?.nodeName || 'unknown'} with a risk score of ${incident.riskScore}/100 (${incident.severity}). Source: ${incident.source}.`,
+          type: 'IncidentCreated',
+          severity: mappedSeverity,
+          module: 'Incident',
+          recipientRoles: ['SafetyOfficer', 'Operator'],
+          metadata: { incidentId: incident._id, incidentCode: incident.incidentId, nodeId: incident.nodeId?._id }
+        });
+      } catch (notifErr) {
+        console.error(`[INCIDENT-CREATE-NOTIFICATION-ERROR] Failed to trigger notification: ${notifErr.message}`);
+      }
 
       // Log Audit Log
       await auditService.logIncidentCreated(req, incident);
@@ -243,6 +278,23 @@ export const incidentService = {
 
     // Log Priority Audits
     if (isEscalation) {
+      // Trigger Notification
+      const notifSeverity = incident.severity === 'Medium' ? 'Warning' : incident.severity;
+      const mappedSeverity = notifSeverity === 'Low' ? 'Info' : notifSeverity;
+      try {
+        await notificationService.createNotification({
+          title: `Incident Escalated: ${incident.title}`,
+          message: `Incident ${incident.incidentId} at node ${incident.nodeId?.nodeName || 'unknown'} has been escalated. Risk score increased from ${oldRisk} to ${updateData.riskScore}/100.`,
+          type: 'IncidentEscalated',
+          severity: mappedSeverity,
+          module: 'Incident',
+          recipientRoles: ['SafetyOfficer', 'Operator'],
+          metadata: { incidentId: incident._id, incidentCode: incident.incidentId, nodeId: incident.nodeId?._id }
+        });
+      } catch (notifErr) {
+        console.error(`[INCIDENT-ESCALATE-NOTIFICATION-ERROR] Failed to trigger notification: ${notifErr.message}`);
+      }
+
       await auditService.logEvent({
         req,
         module: 'Incident',
@@ -330,6 +382,21 @@ export const incidentService = {
     incident.status = 'Closed';
     await incident.save();
     incident = await Incident.findById(incident._id).populate('nodeId');
+
+    // Trigger Notification
+    try {
+      await notificationService.createNotification({
+        title: `Incident Closed: ${incident.title}`,
+        message: `Incident ${incident.incidentId} at node ${incident.nodeId?.nodeName || 'unknown'} has been closed.`,
+        type: 'IncidentClosed',
+        severity: 'Info',
+        module: 'Incident',
+        recipientRoles: ['SafetyOfficer', 'Operator'],
+        metadata: { incidentId: incident._id, incidentCode: incident.incidentId, nodeId: incident.nodeId?._id }
+      });
+    } catch (notifErr) {
+      console.error(`[INCIDENT-CLOSE-NOTIFICATION-ERROR] Failed to trigger notification: ${notifErr.message}`);
+    }
 
     await auditService.logEvent({
       req,

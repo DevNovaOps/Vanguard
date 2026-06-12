@@ -5,6 +5,7 @@ import { logAudit } from '../utils/auditLogger.js';
 import incidentService from './incidentService.js';
 import auditService from './auditService.js';
 import webhookService from './webhookService.js';
+import notificationService from './notificationService.js';
 
 /**
  * Service handling Compliance Engine business logic
@@ -303,6 +304,22 @@ export const complianceService = {
             status: 'Open'
           });
           violationsCreated.push(violation);
+
+          // Trigger Notification
+          const notifSeverity = rule.severity === 'Critical' ? 'Critical' : (rule.severity === 'High' ? 'High' : (rule.severity === 'Medium' ? 'Warning' : 'Info'));
+          try {
+            await notificationService.createNotification({
+              title: `Compliance Violation: ${rule.ruleCode} at ${node.nodeName}`,
+              message: `Compliance Violation detected on sensor ${sensorType} for rule ${rule.ruleCode} (${rule.standard}). Actual value ${value} is outside target limit.`,
+              type: 'ComplianceViolation',
+              severity: notifSeverity,
+              module: 'Compliance',
+              recipientRoles: ['SafetyOfficer'],
+              metadata: { violationId: violation._id, nodeId: node._id, ruleCode: rule.ruleCode }
+            });
+          } catch (notifErr) {
+            console.error(`[COMPLIANCE-NOTIFICATION-ERROR] Failed to trigger notification: ${notifErr.message}`);
+          }
 
           // Log Compliance Violation
           await auditService.logComplianceViolation(null, {
