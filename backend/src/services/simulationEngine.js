@@ -11,6 +11,7 @@ import incidentPriorityService from './incidentPriorityService.js';
 import aiAgentService from './aiAgentService.js';
 import mitigationService from './mitigationService.js';
 import webhookService from './webhookService.js';
+import notificationService from './notificationService.js';
 import { logAudit } from '../utils/auditLogger.js';
 import { getIO } from '../config/socket.js';
 
@@ -158,6 +159,21 @@ export const simulationEngine = {
     });
 
     activeRunId = run._id;
+
+    // Trigger Notification
+    try {
+      await notificationService.createNotification({
+        title: `Simulation Started: Run ${run.runId}`,
+        message: `Cinematic failure cascade simulation has started on node ${node.nodeName} (${node.nodeCode}). Status: Running.`,
+        type: 'SimulationStarted',
+        severity: 'Info',
+        module: 'Simulation',
+        recipientRoles: ['Operator'],
+        metadata: { runId: run._id, runCode: run.runId, nodeId: node._id }
+      });
+    } catch (notifErr) {
+      console.error(`[SIMULATION-START-NOTIFICATION-ERROR] Failed to trigger notification: ${notifErr.message}`);
+    }
 
     console.log(`[SIMULATION] ======= Starting Simulation ${run.runId} on node ${node.nodeName} =======`);
 
@@ -524,6 +540,21 @@ export const simulationEngine = {
       run.completedSteps = 9;
       run.completedAt = new Date();
       await run.save();
+
+      // Trigger Notification
+      try {
+        await notificationService.createNotification({
+          title: `Simulation Completed: Run ${run.runId}`,
+          message: `Cinematic failure cascade simulation has successfully completed on node ${node.nodeName} (${node.nodeCode}). Status: Completed.`,
+          type: 'SimulationCompleted',
+          severity: 'Info',
+          module: 'Simulation',
+          recipientRoles: ['Operator'],
+          metadata: { runId: run._id, runCode: run.runId, nodeId: node._id, result: run.result }
+        });
+      } catch (notifErr) {
+        console.error(`[SIMULATION-COMPLETE-NOTIFICATION-ERROR] Failed to trigger notification: ${notifErr.message}`);
+      }
 
       activeRunId = null;
 

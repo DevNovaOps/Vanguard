@@ -14,6 +14,8 @@ import riskRoutes from './routes/riskRoutes.js';
 import aiAgentRoutes from './routes/aiAgentRoutes.js';
 import mitigationRoutes from './routes/mitigationRoutes.js';
 import webhookRoutes from './routes/webhookRoutes.js';
+import reportRoutes from './routes/reportRoutes.js';
+import notificationRoutes from './routes/notificationRoutes.js';
 
 
 const app = express();
@@ -45,6 +47,8 @@ app.use('/api/webhooks', webhookRoutes);
 
 app.use('/api/risk', riskRoutes);
 app.use('/api/agent', aiAgentRoutes);
+app.use('/api/reports', reportRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 // Health Check Route
 app.get('/', (req, res) => {

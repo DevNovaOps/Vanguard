@@ -10,9 +10,57 @@ const REPORTS = [
 ];
 
 export default function Reports() {
-  const handleExport = (format, report) => {
-    // Simulated export
-    alert(`Exporting "${report.title}" as ${format.toUpperCase()}...`);
+  const handleExport = async (format, report) => {
+    const endpointMap = {
+      'Infrastructure Report': 'infrastructure',
+      'Compliance Report': 'compliance',
+      'Incident Report': 'incidents',
+      'Risk Analysis Report': 'risk',
+      'Autonomous Actions Report': 'agent'
+    };
+    const key = endpointMap[report.title];
+    if (!key) return;
+
+    const token = localStorage.getItem('arc_token');
+
+    try {
+      const response = await fetch(`/api/reports/${key}/${format}`, {
+        headers: {
+          'Authorization': token ? `Bearer ${token}` : ''
+        }
+      });
+
+      if (!response.ok) {
+        let errMsg = 'Export failed';
+        try {
+          const errData = await response.json();
+          errMsg = errData.message || errMsg;
+        } catch (e) {
+          const text = await response.text();
+          if (text) errMsg = text;
+        }
+        throw new Error(errMsg);
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+
+      const cleanTitle = report.title.replace(/\s+/g, '_');
+      const year = new Date().getFullYear();
+      const extMap = { pdf: 'pdf', csv: 'csv', excel: 'xlsx' };
+      const ext = extMap[format] || 'pdf';
+
+      a.download = `${cleanTitle.replace('_Report', '')}_Report_${year}.${ext}`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Export failed:', error);
+      alert(`Export failed: ${error.message}`);
+    }
   };
 
   return (
