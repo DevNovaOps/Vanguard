@@ -7,6 +7,45 @@ import { riskTrendData, complianceTrendData } from '../../data/mockData';
 import { complianceService } from '../../utils/complianceService';
 import { Download } from 'lucide-react';
 
+
+const pageVariants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.08
+    }
+  }
+};
+
+const headerVariants = {
+  hidden: { opacity: 0, y: -10 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.45, ease: [0.16, 1, 0.3, 1] }
+  }
+};
+
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.06
+    }
+  }
+};
+
+const itemVariants = {
+  hidden: { opacity: 0, y: 15 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.5, ease: [0.16, 1, 0.3, 1] }
+  }
+};
+
 const businessImpact = [
   { metric: 'Downtime Prevention', value: '47.2 hrs', change: '+8.3h', positive: true },
   { metric: 'Cost Savings', value: '₹4.2 Cr', change: '+₹0.8Cr', positive: true },
@@ -63,10 +102,10 @@ export default function ManagerDashboard() {
   });
 
   return (
-    <div>
-      <div className="page-header">
+    <motion.div variants={pageVariants} initial="hidden" animate="visible">
+      <motion.div className="page-header" variants={headerVariants}>
         <div>
-          <h1>Manager Dashboard</h1>
+          <h1><span className="gradient-text">Manager Dashboard</span></h1>
           <p>Executive overview and strategic insights</p>
         </div>
         <div className="page-actions">
@@ -74,22 +113,22 @@ export default function ManagerDashboard() {
             <Download size={14} /> Export Reports
           </motion.button>
         </div>
-      </div>
+      </motion.div>
 
-      <div className="kpi-grid" style={{ gridTemplateColumns: 'repeat(4, 1fr)' }}>
+      <motion.div className="kpi-grid" style={{ gridTemplateColumns: 'repeat(4, 1fr)' }} variants={itemVariants}>
         {liveManagerKPIs.slice(0, 4).map((kpi, i) => (
           <KPICard key={kpi.label} {...kpi} delay={i * 80} />
         ))}
-      </div>
-      <div className="kpi-grid" style={{ gridTemplateColumns: 'repeat(3, 1fr)', marginTop: '-0.5rem' }}>
+      </motion.div>
+      <motion.div className="kpi-grid" style={{ gridTemplateColumns: 'repeat(3, 1fr)', marginTop: '-0.5rem' }} variants={itemVariants}>
         {liveManagerKPIs.slice(4).map((kpi, i) => (
           <KPICard key={kpi.label} {...kpi} delay={(i + 4) * 80} />
         ))}
-      </div>
+      </motion.div>
 
-      <div className="dashboard-grid">
+      <motion.div className="dashboard-grid" variants={containerVariants}>
         {/* Performance Trends */}
-        <div className="col-8">
+        <motion.div className="col-8" variants={itemVariants}>
           <ChartCard title="Performance Trends" subtitle="Risk score and mitigation actions over 30 days">
             <ResponsiveContainer width="100%" height={280}>
               <AreaChart data={riskTrendData}>
@@ -112,10 +151,10 @@ export default function ManagerDashboard() {
               </AreaChart>
             </ResponsiveContainer>
           </ChartCard>
-        </div>
+        </motion.div>
 
         {/* Business Impact */}
-        <div className="col-4">
+        <motion.div className="col-4" variants={itemVariants}>
           <ChartCard title="Business Impact" subtitle="Key performance metrics">
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
               {businessImpact.map((item, i) => (
@@ -129,6 +168,7 @@ export default function ManagerDashboard() {
                     padding: '0.75rem', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-secondary)',
                     borderRadius: 'var(--radius-lg)',
                   }}
+                  whileHover={{ scale: 1.02, backgroundColor: 'rgba(255,255,255,0.04)' }}
                 >
                   <span style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)' }}>{item.metric}</span>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -141,10 +181,10 @@ export default function ManagerDashboard() {
               ))}
             </div>
           </ChartCard>
-        </div>
+        </motion.div>
 
         {/* Compliance Overview */}
-        <div className="col-12">
+        <motion.div className="col-12" variants={itemVariants}>
           <ChartCard title="Compliance Overview" subtitle="Monthly compliance scores and violation counts">
             <ResponsiveContainer width="100%" height={220}>
               <BarChart data={liveComplianceTrendData}>
@@ -163,8 +203,9 @@ export default function ManagerDashboard() {
               </BarChart>
             </ResponsiveContainer>
           </ChartCard>
-        </div>
-      </div>
-    </div>
+        </motion.div>
+      </motion.div>
+    </motion.div>
   );
 }
+

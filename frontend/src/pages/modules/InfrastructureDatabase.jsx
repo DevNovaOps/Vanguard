@@ -45,7 +45,7 @@ export default function InfrastructureDatabase() {
     <div>
       <div className="page-header">
         <div>
-          <h1><Database size={22} style={{ display: 'inline', verticalAlign: 'middle', marginRight: '8px' }} />Infrastructure Database</h1>
+          <h1><Database size={22} style={{ display: 'inline', verticalAlign: 'middle', marginRight: '8px' }} /><span className="gradient-text">Infrastructure Database</span></h1>
           <p>Railway asset management and maintenance tracking</p>
         </div>
       </div>

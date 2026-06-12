@@ -23,24 +23,42 @@ export default function SettingsPage() {
     <div>
       <div className="page-header">
         <div>
-          <h1><Settings size={22} style={{ display: 'inline', verticalAlign: 'middle', marginRight: '8px' }} />Settings</h1>
+          <h1><Settings size={22} style={{ display: 'inline', verticalAlign: 'middle', marginRight: '8px' }} /><span className="gradient-text">Settings</span></h1>
           <p>Platform configuration and preferences</p>
         </div>
       </div>
 
       <div className="settings-layout">
-        <div className="settings-nav">
-          {SETTINGS_TABS.map(tab => (
-            <motion.button
-              key={tab.id}
-              className={`settings-nav-item ${activeTab === tab.id ? 'active' : ''}`}
-              onClick={() => setActiveTab(tab.id)}
-              whileHover={{ x: 2 }}
-              whileTap={{ scale: 0.98 }}
-            >
-              <tab.icon size={16} /> {tab.label}
-            </motion.button>
-          ))}
+        <div className="settings-nav" style={{ position: 'relative' }}>
+          {SETTINGS_TABS.map(tab => {
+            const isActive = activeTab === tab.id;
+            return (
+              <motion.button
+                key={tab.id}
+                className={`settings-nav-item ${isActive ? 'active' : ''}`}
+                onClick={() => setActiveTab(tab.id)}
+                whileHover={{ x: 2 }}
+                whileTap={{ scale: 0.98 }}
+                style={{ position: 'relative', backgroundColor: isActive ? 'transparent' : undefined }}
+              >
+                {isActive && (
+                  <motion.div
+                    className="nav-item-active-bg"
+                    layoutId="activeSettingsNav"
+                    style={{
+                      position: 'absolute',
+                      inset: 0,
+                      zIndex: 0
+                    }}
+                    transition={{ type: 'spring', stiffness: 380, damping: 30 }}
+                  />
+                )}
+                <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', position: 'relative', zIndex: 1 }}>
+                  <tab.icon size={16} /> {tab.label}
+                </span>
+              </motion.button>
+            );
+          })}
         </div>
 
         <AnimatePresence mode="wait">

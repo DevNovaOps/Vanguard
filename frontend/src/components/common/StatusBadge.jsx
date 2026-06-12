@@ -11,10 +11,30 @@ export default function StatusBadge({ status, size = 'sm', dot = false, classNam
 
   const badgeColor = colorMap[status?.toLowerCase()] || 'neutral';
   const label = status?.replace(/_/g, ' ') || 'Unknown';
+  const isHighAlert = ['critical', 'failed', 'high', 'down', 'warning', 'degraded'].includes(status?.toLowerCase());
 
   return (
-    <span className={`badge badge-${badgeColor} ${dot ? 'badge-dot' : ''} ${className}`}>
+    <span className={`badge badge-${badgeColor} ${dot ? 'badge-dot' : ''} ${className}`} style={{ position: 'relative' }}>
+      {dot && isHighAlert && (
+        <span style={{
+          position: 'absolute',
+          left: '11px',
+          top: '50%',
+          transform: 'translate(-50%, -50%)',
+          width: '16px',
+          height: '16px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          pointerEvents: 'none',
+          color: badgeColor === 'danger' ? 'var(--color-danger)' : 'var(--color-warning)'
+        }}>
+          <span className="pulsing-ring" style={{ width: '100%', height: '100%' }} />
+          <span className="pulsing-ring" style={{ width: '100%', height: '100%', animationDelay: '1s' }} />
+        </span>
+      )}
       {label}
     </span>
   );
 }
+

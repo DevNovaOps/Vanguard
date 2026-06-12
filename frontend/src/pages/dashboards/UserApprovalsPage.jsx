@@ -101,7 +101,7 @@ export default function UserApprovalsPage() {
     <div>
       <div className="page-header">
         <div>
-          <h1>User Approvals</h1>
+          <h1><span className="gradient-text">User Approvals</span></h1>
           <p>Access management, registration reviews, and RBAC control logs</p>
         </div>
         <div className="page-actions">

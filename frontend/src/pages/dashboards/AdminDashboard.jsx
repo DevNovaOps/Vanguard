@@ -14,6 +14,44 @@ import { useSimulation } from '../../contexts/SimulationContext';
 import { Plus, Users, FileText, Play, Settings, Activity, Shield, AlertTriangle, Zap, Bot, LayoutDashboard } from 'lucide-react';
 import { authService } from '../../utils/authService';
 
+const pageVariants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.08
+    }
+  }
+};
+
+const headerVariants = {
+  hidden: { opacity: 0, y: -10 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.45, ease: [0.16, 1, 0.3, 1] }
+  }
+};
+
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.06
+    }
+  }
+};
+
+const itemVariants = {
+  hidden: { opacity: 0, y: 15 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.5, ease: [0.16, 1, 0.3, 1] }
+  }
+};
+
 const INTEL_ITEMS = [
   { text: 'Sensor S-011 reporting anomaly — Bhusawal Power Hub', dot: 'danger', time: '2s ago' },
   { text: 'Risk score increased to 82 for TN-011', dot: 'warning', time: '15s ago' },
@@ -171,13 +209,11 @@ export default function AdminDashboard() {
     return () => clearInterval(interval);
   }, []);
 
-  // recentAudits is now populated from component state
-
   return (
-    <div>
-      <div className="page-header">
+    <motion.div variants={pageVariants} initial="hidden" animate="visible">
+      <motion.div className="page-header" variants={headerVariants}>
         <div>
-          <h1>Admin Dashboard</h1>
+          <h1><span className="gradient-text">Admin Dashboard</span></h1>
           <p>Complete platform administration and oversight</p>
         </div>
         <div className="page-actions">
@@ -193,9 +229,9 @@ export default function AdminDashboard() {
           </motion.button>
           <motion.button className="btn btn-primary btn-sm" whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}><FileText size={14} /> Generate Report</motion.button>
         </div>
-      </div>
+      </motion.div>
 
-      <div className="kpi-grid" style={{ gridTemplateColumns: 'repeat(4, 1fr)' }}>
+      <motion.div className="kpi-grid" style={{ gridTemplateColumns: 'repeat(4, 1fr)' }} variants={itemVariants}>
         {(() => {
           const displayKPIs = [
             adminKPIs[0],
@@ -214,16 +250,15 @@ export default function AdminDashboard() {
             <KPICard key={kpi.label} {...kpi} delay={i * 80} />
           ));
         })()}
-      </div>
+      </motion.div>
 
       {showUserManagement ? (
         <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
+          variants={containerVariants}
           className="dashboard-grid"
           style={{ gridTemplateColumns: '1fr' }}
         >
-          <div className="col-12">
+          <motion.div className="col-12" variants={itemVariants}>
             <ChartCard title="Platform Registrations & Approvals" subtitle="Manage operator, safety officer, and manager system access">
               {loadingUsers ? (
                 <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-secondary)' }}>
@@ -308,13 +343,13 @@ export default function AdminDashboard() {
                 </div>
               )}
             </ChartCard>
-          </div>
+          </motion.div>
         </motion.div>
       ) : (
         <>
-          <div className="dashboard-grid">
+          <motion.div className="dashboard-grid" variants={containerVariants}>
             {/* Risk Trend Chart */}
-            <div className="col-8">
+            <motion.div className="col-8" variants={itemVariants}>
               <ChartCard title="Risk & Incident Trends" subtitle="Last 30 days">
                 <ResponsiveContainer width="100%" height={280}>
                   <AreaChart data={riskTrendData}>
@@ -337,10 +372,10 @@ export default function AdminDashboard() {
                   </AreaChart>
                 </ResponsiveContainer>
               </ChartCard>
-            </div>
+            </motion.div>
 
             {/* System Health Donut */}
-            <div className="col-4">
+            <motion.div className="col-4" variants={itemVariants}>
               <ChartCard title="System Health" subtitle="Node status distribution">
                 <ResponsiveContainer width="100%" height={280}>
                   <PieChart>
@@ -361,10 +396,10 @@ export default function AdminDashboard() {
                   ))}
                 </div>
               </ChartCard>
-            </div>
+            </motion.div>
 
             {/* Live Intelligence Stream */}
-            <div className="col-12">
+            <motion.div className="col-12" variants={itemVariants}>
               <ChartCard title="Live Intelligence Stream" subtitle="Real-time platform activity">
                 <div className="intel-feed">
                   <AnimatePresence mode="popLayout">
@@ -386,17 +421,17 @@ export default function AdminDashboard() {
                   </AnimatePresence>
                 </div>
               </ChartCard>
-            </div>
+            </motion.div>
 
             {/* Audit Timeline */}
-            <div className="col-6">
+            <motion.div className="col-6" variants={itemVariants}>
               <ChartCard title="Audit Timeline" subtitle="Recent system activities">
                 <Timeline items={recentAudits} />
               </ChartCard>
-            </div>
+            </motion.div>
 
             {/* Webhook Status */}
-            <div className="col-6">
+            <motion.div className="col-6" variants={itemVariants}>
               <ChartCard title="Webhook Status" subtitle="Integration health">
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                   {webhookList.length === 0 ? (
@@ -430,12 +465,12 @@ export default function AdminDashboard() {
                   )}
                 </div>
               </ChartCard>
-            </div>
-          </div>
+            </motion.div>
+          </motion.div>
 
           {/* Live Simulation Events */}
           {events.length > 0 && (
-            <div style={{ marginTop: '1.5rem' }}>
+            <motion.div style={{ marginTop: '1.5rem' }} variants={itemVariants}>
               <ChartCard title="Simulation Events" subtitle="Real-time simulation feed">
                 <div style={{ maxHeight: '200px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                   {events.slice(0, 10).map((evt, i) => (
@@ -453,10 +488,11 @@ export default function AdminDashboard() {
                   ))}
                 </div>
               </ChartCard>
-            </div>
+            </motion.div>
           )}
         </>
       )}
-    </div>
+    </motion.div>
   );
 }
+

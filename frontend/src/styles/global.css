@@ -314,3 +314,97 @@ code, pre {
   animation: liveDot 1.5s ease-in-out infinite;
   box-shadow: 0 0 8px rgba(5, 150, 105, 0.6);
 }
+
+/* ── Dashboard Ambient Motion System Background ── */
+.dashboard-ambient-bg {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  overflow: hidden;
+  opacity: 0.8;
+}
+.ambient-blob {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(120px);
+  opacity: 0.03;
+  will-change: transform;
+}
+[data-theme="light"] .ambient-blob {
+  opacity: 0.015;
+}
+.blob-1 {
+  top: 10%;
+  left: 15%;
+  width: 450px;
+  height: 450px;
+  background: radial-gradient(circle, var(--color-primary-400), transparent);
+  animation: ambientFloat 25s ease-in-out infinite;
+}
+.blob-2 {
+  bottom: 15%;
+  right: 10%;
+  width: 500px;
+  height: 500px;
+  background: radial-gradient(circle, var(--color-accent-400), transparent);
+  animation: ambientFloatSlow 30s ease-in-out infinite;
+}
+.blob-3 {
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 600px;
+  height: 600px;
+  background: radial-gradient(circle, var(--color-primary-500), transparent);
+  animation: ambientFloat 40s ease-in-out infinite alternate;
+}
+
+/* ── Sliding Active Nav Indicator ── */
+.nav-item {
+  overflow: hidden;
+}
+.nav-item-active-bg {
+  position: absolute;
+  inset: 0;
+  background: rgba(26, 86, 219, 0.08);
+  border-radius: var(--radius-lg);
+  z-index: 0;
+}
+[data-theme="light"] .nav-item-active-bg {
+  background: rgba(26, 86, 219, 0.06);
+}
+
+/* ── Pulsing Alert rings ── */
+@keyframes ringPulse {
+  0% { transform: scale(0.95); opacity: 0.5; }
+  50% { transform: scale(1.2); opacity: 0.8; }
+  100% { transform: scale(1.4); opacity: 0; }
+}
+.pulsing-ring {
+  position: absolute;
+  border: 1px solid currentColor;
+  border-radius: 50%;
+  animation: ringPulse 2s cubic-bezier(0.25, 0, 0, 1) infinite;
+  pointer-events: none;
+}
+
+/* ── Global Animated Gradient Text ── */
+.gradient-text {
+  background: linear-gradient(135deg, #38bdf8, #2dd4bf, #00d2ff, #38bdf8);
+  background-size: 300% auto;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: gradientShift 6s ease infinite;
+  filter: drop-shadow(0 0 8px rgba(0, 210, 255, 0.3));
+}
+[data-theme="light"] .gradient-text {
+  background: linear-gradient(135deg, var(--color-primary-500), var(--color-accent-500));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  filter: none;
+}
+
+

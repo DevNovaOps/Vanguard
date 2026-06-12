@@ -19,7 +19,7 @@ export default function Reports() {
     <div>
       <div className="page-header">
         <div>
-          <h1><BarChart3 size={22} style={{ display: 'inline', verticalAlign: 'middle', marginRight: '8px' }} />Reports</h1>
+          <h1><BarChart3 size={22} style={{ display: 'inline', verticalAlign: 'middle', marginRight: '8px' }} /><span className="gradient-text">Reports</span></h1>
           <p>Generate and export platform reports</p>
         </div>
       </div>

@@ -11,6 +11,58 @@ import { timeAgo } from '../../utils/helpers';
 import { FileText, CheckCircle, AlertOctagon } from 'lucide-react';
 import { io } from 'socket.io-client';
 
+
+const pageVariants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.08
+    }
+  }
+};
+
+const headerVariants = {
+  hidden: { opacity: 0, y: -10 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.45, ease: [0.16, 1, 0.3, 1] }
+  }
+};
+
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.06
+    }
+  }
+};
+
+const itemVariants = {
+  hidden: { opacity: 0, y: 15 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.5, ease: [0.16, 1, 0.3, 1] }
+  }
+};
+
+const rowVariants = {
+  hidden: { opacity: 0, y: 8 },
+  visible: (i) => ({
+    opacity: 1,
+    y: 0,
+    transition: {
+      delay: i * 0.02,
+      duration: 0.3,
+      ease: [0.16, 1, 0.3, 1]
+    }
+  })
+};
+
 export default function SafetyDashboard() {
   const [violations, setViolations] = useState([]);
   const [stats, setStats] = useState(null);
@@ -96,10 +148,10 @@ export default function SafetyDashboard() {
   ];
 
   return (
-    <div>
-      <div className="page-header">
+    <motion.div variants={pageVariants} initial="hidden" animate="visible">
+      <motion.div className="page-header" variants={headerVariants}>
         <div>
-          <h1>Safety Officer Dashboard</h1>
+          <h1><span className="gradient-text">Safety Officer Dashboard</span></h1>
           <p>Risk and compliance monitoring</p>
         </div>
         <div className="page-actions">
@@ -110,17 +162,17 @@ export default function SafetyDashboard() {
             <FileText size={14} /> Safety Report
           </motion.button>
         </div>
-      </div>
+      </motion.div>
 
-      <div className="kpi-grid" style={{ gridTemplateColumns: 'repeat(5, 1fr)' }}>
+      <motion.div className="kpi-grid" style={{ gridTemplateColumns: 'repeat(5, 1fr)' }} variants={itemVariants}>
         {liveSafetyKPIs.map((kpi, i) => (
           <KPICard key={kpi.label} {...kpi} delay={i * 80} />
         ))}
-      </div>
+      </motion.div>
 
-      <div className="dashboard-grid">
+      <motion.div className="dashboard-grid" variants={containerVariants}>
         {/* Compliance Trend */}
-        <div className="col-8">
+        <motion.div className="col-8" variants={itemVariants}>
           <ChartCard title="Compliance Score Trend" subtitle="Monthly compliance performance">
             <ResponsiveContainer width="100%" height={260}>
               <LineChart data={complianceTrendData}>
@@ -139,10 +191,10 @@ export default function SafetyDashboard() {
               </LineChart>
             </ResponsiveContainer>
           </ChartCard>
-        </div>
+        </motion.div>
 
         {/* Incident Severity */}
-        <div className="col-4">
+        <motion.div className="col-4" variants={itemVariants}>
           <ChartCard title="Incident Severity" subtitle={hasIncidentData ? "Distribution by severity level" : "No active incidents (showing scale)"}>
             <ResponsiveContainer width="100%" height={200}>
               <PieChart>
@@ -163,10 +215,10 @@ export default function SafetyDashboard() {
               ))}
             </div>
           </ChartCard>
-        </div>
+        </motion.div>
 
         {/* Active Violations */}
-        <div className="col-12">
+        <motion.div className="col-12" variants={itemVariants}>
           <ChartCard title="Active Violations" subtitle="Compliance rule breaches requiring attention">
             <div className="data-table-wrapper">
               <table className="data-table">
@@ -182,7 +234,7 @@ export default function SafetyDashboard() {
                     <th>Detected</th>
                   </tr>
                 </thead>
-                <tbody>
+                <tbody style={{ position: 'relative' }}>
                   {violations.length === 0 ? (
                     <tr>
                       <td colSpan="8" style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-tertiary)' }}>
@@ -190,8 +242,14 @@ export default function SafetyDashboard() {
                       </td>
                     </tr>
                   ) : (
-                    violations.map(v => (
-                      <tr key={v._id}>
+                    violations.map((v, i) => (
+                      <motion.tr
+                        key={v._id}
+                        variants={rowVariants}
+                        custom={i}
+                        initial="hidden"
+                        animate="visible"
+                      >
                         <td style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)' }}>{v._id?.substring(18) || v._id}</td>
                         <td style={{ fontWeight: 'var(--font-medium)' }}>{v.ruleId?.ruleCode || '—'}</td>
                         <td>{v.nodeId?.nodeName || '—'}</td>
@@ -200,15 +258,16 @@ export default function SafetyDashboard() {
                         <td><StatusBadge status={v.severity} dot /></td>
                         <td><StatusBadge status={v.status} /></td>
                         <td style={{ fontSize: 'var(--text-xs)', color: 'var(--text-tertiary)' }}>{timeAgo(v.createdAt)}</td>
-                      </tr>
+                      </motion.tr>
                     ))
                   )}
                 </tbody>
               </table>
             </div>
           </ChartCard>
-        </div>
-      </div>
-    </div>
+        </motion.div>
+      </motion.div>
+    </motion.div>
   );
 }
+

@@ -50,7 +50,7 @@ export default function TelemetryCenter() {
     <div>
       <div className="page-header">
         <div>
-          <h1><Radio size={22} style={{ display: 'inline', verticalAlign: 'middle', marginRight: '8px' }} />Telemetry Center</h1>
+          <h1><Radio size={22} style={{ display: 'inline', verticalAlign: 'middle', marginRight: '8px' }} /><span className="gradient-text">Telemetry Center</span></h1>
           <p>Live sensor monitoring and historical trends</p>
         </div>
         <div className="page-actions">

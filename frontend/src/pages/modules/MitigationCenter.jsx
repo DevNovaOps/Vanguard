@@ -348,7 +348,7 @@ export default function MitigationCenter() {
     <div>
       <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
-          <h1><Wrench size={22} style={{ display: 'inline', verticalAlign: 'middle', marginRight: '8px' }} />Mitigation Center</h1>
+          <h1><Wrench size={22} style={{ display: 'inline', verticalAlign: 'middle', marginRight: '8px' }} /><span className="gradient-text">Mitigation Center</span></h1>
           <p>Autonomous and manual mitigation actions</p>
         </div>
         {canCreate && (
