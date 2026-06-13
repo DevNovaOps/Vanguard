@@ -1,5 +1,6 @@
 import { motion } from 'framer-motion';
-import { BarChart3, Database, Shield, AlertCircle, AlertTriangle, Bot, Download, FileSpreadsheet, FileText } from 'lucide-react';
+import { BarChart3, Database, Shield, AlertCircle, AlertTriangle, Bot, Download, FileSpreadsheet, FileText, FileJson } from 'lucide-react';
+import { useSimulation } from '../../contexts/SimulationContext';
 
 const REPORTS = [
   { id: 1, title: 'Infrastructure Report', desc: 'Complete asset inventory with maintenance history, sensor health, and capacity utilization across all transit nodes.', icon: Database, color: 'var(--color-primary-500)', lastGenerated: '2 hours ago' },
@@ -10,6 +11,8 @@ const REPORTS = [
 ];
 
 export default function Reports() {
+  const { simulationStore } = useSimulation();
+
   const handleExport = async (format, report) => {
     const endpointMap = {
       'Infrastructure Report': 'infrastructure',
@@ -63,6 +66,75 @@ export default function Reports() {
     }
   };
 
+  const exportSimulatedJSON = () => {
+    if (!simulationStore) return;
+    const blob = new Blob([JSON.stringify(simulationStore, null, 2)], { type: 'application/json' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `vanguard_failure_simulation_report.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+  };
+
+  const exportSimulatedPDF = () => {
+    if (!simulationStore) return;
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>Vanguard ARC Simulation Diagnostic Report</title>
+          <style>
+            body { font-family: sans-serif; padding: 2.5rem; color: #1e293b; line-height: 1.6; max-width: 900px; margin: 0 auto; }
+            h1 { color: #dc2626; border-bottom: 2px solid #dc2626; padding-bottom: 0.5rem; margin-bottom: 1.5rem; }
+            h2 { color: #1d4ed8; margin-top: 2rem; border-bottom: 1px solid #e2e8f0; padding-bottom: 0.25rem; font-size: 1.25rem; }
+            pre { background: #f8fafc; border: 1px solid #e2e8f0; padding: 1.25rem; border-radius: 8px; white-space: pre-wrap; word-break: break-all; font-family: monospace; font-size: 13px; color: #334155; }
+            .meta { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; margin-bottom: 2rem; background: #f1f5f9; padding: 1.25rem; border-radius: 8px; }
+            .meta-item { font-size: 14px; }
+            .meta-label { font-weight: bold; color: #475569; }
+          </style>
+        </head>
+        <body>
+          <h1>Vanguard Failure Simulation Diagnostic Report</h1>
+          <div class="meta">
+            <div class="meta-item"><span class="meta-label">Asset:</span> Transformer S-011 (Transformer)</div>
+            <div class="meta-item"><span class="meta-label">Location:</span> Bhusawal Power Hub</div>
+            <div class="meta-item"><span class="meta-label">Failure Type:</span> Bearing Overheating</div>
+            <div class="meta-item"><span class="meta-label">Risk Level:</span> ${simulationStore.risk_level}</div>
+            <div class="meta-item"><span class="meta-label">Generated At:</span> ${new Date().toLocaleString()}</div>
+          </div>
+          
+          <h2>1. Executive Summary</h2>
+          <pre>${simulationStore.executive_summary}</pre>
+          
+          <h2>2. Sensor Evidence</h2>
+          <pre>${simulationStore.sensor_evidence}</pre>
+          
+          <h2>3. Historical Incidents</h2>
+          <pre>${simulationStore.historical_incidents}</pre>
+          
+          <h2>4. RDSO Guidance & Standards</h2>
+          <pre>${simulationStore.rdso_guidance}</pre>
+          
+          <h2>5. Diagnosed Root Causes</h2>
+          <pre>${simulationStore.root_causes}</pre>
+          
+          <h2>6. Recommended Mitigation Actions</h2>
+          <pre>${simulationStore.mitigation_actions}</pre>
+          
+          <script>
+            window.onload = function() {
+              window.print();
+            }
+          </script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+  };
+
   return (
     <div>
       <div className="page-header">
@@ -71,6 +143,37 @@ export default function Reports() {
           <p>Generate and export platform reports</p>
         </div>
       </div>
+
+      {simulationStore && (
+        <motion.div
+          className="card"
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          style={{ padding: '1.5rem', marginBottom: '2rem', borderLeft: '4px solid var(--color-danger)' }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+            <div>
+              <h2 style={{ fontSize: 'var(--text-lg)', fontWeight: 700, margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <AlertTriangle style={{ color: '#ef4444' }} /> Simulated Failure Diagnostic Report (S-011)
+              </h2>
+              <p style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)', margin: '4px 0 0 0' }}>
+                Full diagnostic summary from the 7-agent pipeline run
+              </p>
+            </div>
+            <div style={{ display: 'flex', gap: '0.75rem' }}>
+              <button className="btn btn-primary btn-sm" onClick={exportSimulatedPDF} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <Download size={12} /> Export PDF
+              </button>
+              <button className="btn btn-secondary btn-sm" onClick={exportSimulatedJSON} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <FileJson size={12} /> Export JSON
+              </button>
+            </div>
+          </div>
+          <div style={{ maxHeight: '350px', overflowY: 'auto', background: 'var(--bg-tertiary)', padding: '1rem', borderRadius: 'var(--radius-md)', fontSize: '13px', lineHeight: 1.6, whiteSpace: 'pre-wrap', color: 'var(--text-secondary)' }}>
+            {simulationStore.executive_summary}
+          </div>
+        </motion.div>
+      )}
 
       <div className="reports-grid">
         {REPORTS.map((report, i) => (

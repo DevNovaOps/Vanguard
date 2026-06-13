@@ -7,9 +7,11 @@ import { riskTrendData } from '../../data/mockData';
 import { AlertTriangle, RefreshCw } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { riskService } from '../../utils/riskService';
+import { useSimulation } from '../../contexts/SimulationContext';
 
 export default function RiskAnalysis() {
   const { user } = useAuth();
+  const { simulationStore } = useSimulation();
   const [risks, setRisks] = useState([]);
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -74,18 +76,58 @@ export default function RiskAnalysis() {
   };
 
   // Derive highest risk score and top risk assets
-  const overallRisk = stats?.highestRiskNode?.totalRisk || 0;
-  const topRiskAssets = [...risks].sort((a, b) => b.totalRisk - a.totalRisk).slice(0, 8);
+  const overallRisk = simulationStore ? 95 : (stats?.highestRiskNode?.totalRisk || 0);
+
+  let topRiskAssets = [...risks].sort((a, b) => b.totalRisk - a.totalRisk).slice(0, 8);
+  if (simulationStore) {
+    const simAsset = {
+      _id: 'simulated-s011',
+      nodeId: {
+        nodeName: 'Bhusawal Power Hub',
+        nodeCode: 'S-011',
+        region: 'Western',
+        status: 'critical'
+      },
+      totalRisk: 95,
+      riskLevel: 'Critical'
+    };
+    if (!topRiskAssets.some(a => a.nodeId?.nodeCode === 'S-011')) {
+      topRiskAssets = [simAsset, ...topRiskAssets].slice(0, 8);
+    } else {
+      topRiskAssets = topRiskAssets.map(a => a.nodeId?.nodeCode === 'S-011' ? simAsset : a);
+    }
+  }
 
   // Scaled trend chart to align the end of 30-day mock trend with live metrics
   const adjustedTrendData = riskTrendData.map((d, i) => {
     if (i === riskTrendData.length - 1) {
-      return { ...d, risk: stats?.averageRisk || d.risk };
+      return { ...d, risk: simulationStore ? 95 : (stats?.averageRisk || d.risk) };
     }
     return d;
   });
 
-  // Dynamically compute threat matrix category fields
+  let displayRisks = risks;
+  if (simulationStore) {
+    displayRisks = risks.map(r => {
+      if (r.nodeId?.nodeName === 'Bhusawal Power Hub' || r.nodeId?.nodeCode === 'Bhusawal Power Hub' || r.nodeId?.nodeCode === 'S-011') {
+        return { ...r, totalRisk: 95, riskLevel: 'Critical' };
+      }
+      return r;
+    });
+    if (!displayRisks.some(r => r.nodeId?.nodeName === 'Bhusawal Power Hub')) {
+      displayRisks = [
+        {
+          _id: 'simulated-s011',
+          nodeId: { nodeName: 'Bhusawal Power Hub', nodeCode: 'S-011' },
+          totalRisk: 95,
+          riskLevel: 'Critical'
+        },
+        ...displayRisks
+      ];
+    }
+  }
+
+  // Dynamically compute threat category fields
   const categories = [
     { label: 'Thermal', field: 'thermalRisk' },
     { label: 'Electrical', field: 'electricalRisk' },
@@ -160,6 +202,17 @@ export default function RiskAnalysis() {
         )}
       </div>
 
+      {simulationStore && (
+        <div className="card animate-slide-up" style={{ padding: '1.5rem', marginBottom: '1.5rem', borderLeft: '4px solid var(--color-danger)', background: 'rgba(220, 38, 38, 0.05)' }}>
+          <h3 style={{ color: '#ef4444', display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem', fontSize: 'var(--text-md)', fontWeight: 700 }}>
+            <AlertTriangle size={18} /> ACTIVE SIMULATED THREAT: {simulationStore.risk_level} Risk
+          </h3>
+          <div style={{ fontSize: 'var(--text-sm)', whiteSpace: 'pre-line', lineHeight: 1.5, color: 'var(--text-secondary)' }}>
+            {simulationStore.executive_summary}
+          </div>
+        </div>
+      )}
+
       {/* Current Risk Score */}
       <div className="dashboard-grid" style={{ marginBottom: '1.5rem' }}>
         <div className="col-4">
@@ -199,12 +252,12 @@ export default function RiskAnalysis() {
         <div className="col-6">
           <ChartCard title="Risk Heatmap" subtitle="Asset risk distribution">
             <div className="risk-heatmap">
-              {risks.length === 0 ? (
+              {displayRisks.length === 0 ? (
                 <div style={{ gridColumn: 'span 4', color: 'var(--text-tertiary)', textAlign: 'center', padding: '2rem' }}>
                   No nodes loaded.
                 </div>
               ) : (
-                risks.map(risk => (
+                displayRisks.map(risk => (
                   <div
                     key={risk._id}
                     className={`heatmap-cell ${(risk.riskLevel || 'Low').toLowerCase()}`}

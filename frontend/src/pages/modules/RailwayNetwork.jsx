@@ -21,7 +21,22 @@ export default function RailwayNetwork() {
   const mapInstanceRef = useRef(null);
   const markersGroupRef = useRef(null);
 
-  const { isRunning } = useSimulation();
+  const { isRunning, simulationStore } = useSimulation();
+
+  const displayNodes = transitNodes.map(node => {
+    if (simulationStore && node.id === 'TN-011') {
+      return {
+        ...node,
+        status: 'critical',
+        riskScore: 95
+      };
+    }
+    return node;
+  });
+
+  const displaySelectedNode = selectedNode
+    ? (displayNodes.find(n => n.id === selectedNode.id) || selectedNode)
+    : null;
 
   const fetchTopology = async () => {
     setLoading(true);
@@ -88,8 +103,8 @@ export default function RailwayNetwork() {
 
     // 1. Draw connections/routes as thin lines
     routes.forEach(route => {
-      const fromNode = transitNodes.find(n => n.id === route.from);
-      const toNode = transitNodes.find(n => n.id === route.to);
+      const fromNode = displayNodes.find(n => n.id === route.from);
+      const toNode = displayNodes.find(n => n.id === route.to);
       if (!fromNode || !toNode) return;
 
       const fromCoords = [fromNode.lat, fromNode.lng];
@@ -109,7 +124,7 @@ export default function RailwayNetwork() {
 
     // 2. Risk Heatmap mode overlays
     if (mapMode === 'heatmap') {
-      transitNodes.forEach(node => {
+      displayNodes.forEach(node => {
         const intensity = node.riskScore / 100;
         const heatRadius = 40 + intensity * 40;
         const heatColor = node.riskScore >= 70
@@ -129,8 +144,8 @@ export default function RailwayNetwork() {
     }
 
     // 3. Draw nodes as tiny dot circle markers unconditionally
-    transitNodes.forEach(node => {
-      const isSelected = selectedNode?.id === node.id;
+    displayNodes.forEach(node => {
+      const isSelected = displaySelectedNode?.id === node.id;
 
       // Render as a clean, tiny dot (circleMarker) to avoid lag and clutter
       const statusColors = {
@@ -165,7 +180,7 @@ export default function RailwayNetwork() {
         offset: [0, isSelected ? -8 : -4]
       });
     });
-  }, [transitNodes, routes, selectedNode, mapMode]);
+  }, [displayNodes, routes, displaySelectedNode, mapMode]);
 
   // Buttery-smooth data packet animation loop using requestAnimationFrame
   useEffect(() => {
@@ -179,8 +194,8 @@ export default function RailwayNetwork() {
     const activeMarkers = [];
 
     routes.forEach(route => {
-      const fromNode = transitNodes.find(n => n.id === route.from);
-      const toNode = transitNodes.find(n => n.id === route.to);
+      const fromNode = displayNodes.find(n => n.id === route.from);
+      const toNode = displayNodes.find(n => n.id === route.to);
       if (!fromNode || !toNode) return;
 
       const numPackets = Math.ceil(route.load / 30);
@@ -250,7 +265,7 @@ export default function RailwayNetwork() {
       cancelAnimationFrame(animationFrameId);
       activeMarkers.forEach(m => m.remove());
     };
-  }, [transitNodes, routes, isRunning, mapMode]);
+  }, [displayNodes, routes, isRunning, mapMode]);
 
   // Wire custom premium map controls directly to Leaflet API
   const handleZoomIn = () => {
@@ -489,7 +504,7 @@ export default function RailwayNetwork() {
 
         {/* Node Detail Panel */}
         <AnimatePresence>
-          {selectedNode && (
+          {displaySelectedNode && (
             <motion.div
               className="node-detail-panel"
               initial={{ opacity: 0, x: -20, scale: 0.95 }}
@@ -500,19 +515,19 @@ export default function RailwayNetwork() {
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '0.75rem' }}>
                 <div>
-                  <h3>{selectedNode.name}</h3>
-                  <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-tertiary)', fontFamily: 'var(--font-mono)' }}>{selectedNode.id}</span>
+                  <h3>{displaySelectedNode.name}</h3>
+                  <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-tertiary)', fontFamily: 'var(--font-mono)' }}>{displaySelectedNode.id}</span>
                 </div>
                 <motion.button className="btn btn-ghost btn-sm" onClick={() => setSelectedNode(null)} style={{ padding: '2px 6px' }} whileHover={{ scale: 1.1 }}>✕</motion.button>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                 {[
-                  ['Type', getNodeTypeLabel(selectedNode.type)],
-                  ['Zone', selectedNode.zone],
-                  ['Status', <StatusBadge key="s" status={selectedNode.status} dot />],
-                  ['Sensors', <span key="sensors" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Wifi size={12} /> {selectedNode.sensors} active</span>],
-                  ['Risk Score', <span key="r" style={{ fontWeight: 'var(--font-bold)', color: selectedNode.riskScore >= 70 ? 'var(--color-danger)' : selectedNode.riskScore >= 40 ? 'var(--color-warning)' : 'var(--color-success)' }}>{selectedNode.riskScore}/100</span>],
-                  ['AI Recommendation', <span key="ai" style={{ fontSize: 'var(--text-xs)', color: 'var(--color-accent-400)' }}><Bot size={11} style={{ display: 'inline', verticalAlign: 'middle', marginRight: '3px' }} />{selectedNode.riskScore >= 70 ? 'Immediate intervention' : selectedNode.riskScore >= 40 ? 'Schedule inspection' : 'No action needed'}</span>],
+                  ['Type', getNodeTypeLabel(displaySelectedNode.type)],
+                  ['Zone', displaySelectedNode.zone],
+                  ['Status', <StatusBadge key="s" status={displaySelectedNode.status} dot />],
+                  ['Sensors', <span key="sensors" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Wifi size={12} /> {displaySelectedNode.sensors} active</span>],
+                  ['Risk Score', <span key="r" style={{ fontWeight: 'var(--font-bold)', color: displaySelectedNode.riskScore >= 70 ? 'var(--color-danger)' : displaySelectedNode.riskScore >= 40 ? 'var(--color-warning)' : 'var(--color-success)' }}>{displaySelectedNode.riskScore}/100</span>],
+                  ['AI Recommendation', <span key="ai" style={{ fontSize: 'var(--text-xs)', color: 'var(--color-accent-400)' }}><Bot size={11} style={{ display: 'inline', verticalAlign: 'middle', marginRight: '3px' }} />{displaySelectedNode.riskScore >= 70 ? 'Immediate intervention' : displaySelectedNode.riskScore >= 40 ? 'Schedule inspection' : 'No action needed'}</span>],
                 ].map(([label, value]) => (
                   <div key={label} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 'var(--text-sm)', alignItems: 'center' }}>
                     <span style={{ color: 'var(--text-tertiary)' }}>{label}</span>

@@ -5,15 +5,13 @@ import { io } from 'socket.io-client';
 const SimulationContext = createContext(null);
 
 const SIMULATION_STEPS = [
-  { id: 1, name: 'Sensor Anomaly Detected', module: 'telemetry', description: 'Detecting temperature spike on target node sensor array' },
-  { id: 2, name: 'Compliance Violation', module: 'compliance', description: 'Evaluating sensor readings against active compliance rules' },
-  { id: 3, name: 'Risk Score Calculated', module: 'risk', description: 'Computing weighted risk score and severity classification' },
-  { id: 4, name: 'Heap Prioritization', module: 'incidents', description: 'Max Heap recalculation — re-ordering incident priority queue' },
-  { id: 5, name: 'Incident Created', module: 'incidents', description: 'Creating or confirming incident record in the database' },
-  { id: 6, name: 'AI Agent Activated', module: 'agent', description: 'Autonomous agent evaluating telemetry and deciding mitigation' },
-  { id: 7, name: 'Mitigation Executed', module: 'mitigation', description: 'Deploying corrective action on affected infrastructure' },
-  { id: 8, name: 'Network Stabilized', module: 'network', description: 'Resolving incidents and restoring normal operations' },
-  { id: 9, name: 'Report Generated', module: 'reports', description: 'Compiling final simulation report and audit trail' },
+  { id: 1, name: 'Generating Failure Scenario', module: 'telemetry', description: 'Generating simulated telemetry failure conditions.' },
+  { id: 2, name: 'Executing 7-Agent Pipeline', module: 'agent', description: 'Executing multi-agent diagnostics via LangGraph.' },
+  { id: 3, name: 'Aggregating Results', module: 'reports', description: 'Aggregating multi-agent outputs and diagnostics.' },
+  { id: 4, name: 'Calculating Risk', module: 'risk', description: 'Evaluating risk levels and severity thresholds.' },
+  { id: 5, name: 'Prioritizing Incidents', module: 'database', description: 'Storing simulation run metrics and updating incident heap.' },
+  { id: 6, name: 'Generating Actions', module: 'incidents', description: 'Creating safety incident reports and mitigation actions.' },
+  { id: 7, name: 'Stabilizing System', module: 'network', description: 'Executing safety operations and stabilizing the railway network.' }
 ];
 
 export function SimulationProvider({ children }) {
@@ -23,6 +21,7 @@ export function SimulationProvider({ children }) {
   const [events, setEvents] = useState([]);
   const [simulationRunId, setSimulationRunId] = useState(null);
   const [liveStepData, setLiveStepData] = useState({});
+  const [simulationStore, setSimulationStore] = useState(null);
   const socketRef = useRef(null);
 
   const addEvent = useCallback((event) => {
@@ -48,7 +47,7 @@ export function SimulationProvider({ children }) {
       console.warn('[SIMULATION-SOCKET] Socket error:', err.message);
     });
 
-    // Listen for simulation step events
+    // Listen for simulation step events (from background 9-step simulation if triggered)
     socket.on('simulation:step', (data) => {
       console.log('[SIMULATION-SOCKET] Step event:', data);
 
@@ -76,7 +75,8 @@ export function SimulationProvider({ children }) {
           agent: 'warning',
           mitigation: 'info',
           network: 'success',
-          reports: 'success'
+          reports: 'success',
+          database: 'info'
         };
 
         addEvent({
@@ -118,7 +118,7 @@ export function SimulationProvider({ children }) {
       addEvent({
         type: 'simulation-start',
         title: 'Failure Simulation Started',
-        description: `Initiating 9-step failure cascade on ${data.nodeName} (${data.nodeCode})...`,
+        description: `Initiating failure cascade on ${data.nodeName} (${data.nodeCode})...`,
         severity: 'info'
       });
     });
@@ -130,7 +130,7 @@ export function SimulationProvider({ children }) {
       addEvent({
         type: 'simulation-complete',
         title: 'Simulation Complete',
-        description: `All 9 steps executed successfully. Run ${data.runId} completed in ${(data.totalDuration / 1000).toFixed(1)}s.`,
+        description: `All steps executed successfully. Run ${data.runId} completed.`,
         severity: 'success'
       });
     });
@@ -142,7 +142,7 @@ export function SimulationProvider({ children }) {
       addEvent({
         type: 'simulation-failed',
         title: 'Simulation Failed',
-        description: `Simulation ${data.runId} failed: ${data.error}`,
+        description: `Simulation failed: ${data.error}`,
         severity: 'danger'
       });
     });
@@ -155,8 +155,6 @@ export function SimulationProvider({ children }) {
   const startSimulation = useCallback(async () => {
     if (isRunning) return;
 
-    // The Socket.IO events will handle state updates
-    // Just trigger the backend
     try {
       await api.post('/api/simulation/trigger', {});
     } catch (err) {
@@ -171,7 +169,6 @@ export function SimulationProvider({ children }) {
   }, [isRunning, addEvent]);
 
   const stopSimulation = useCallback(() => {
-    // For now, just reset UI state — backend simulation continues but we stop listening
     setIsRunning(false);
     setCurrentStep(0);
     setCompletedSteps([]);
@@ -183,6 +180,140 @@ export function SimulationProvider({ children }) {
     });
   }, [addEvent]);
 
+  // Synchronous Failure Simulation executing the 7-agent pipeline
+  const runFailureSimulation = useCallback(async (navigate) => {
+    if (isRunning) return;
+
+    setIsRunning(true);
+    setCurrentStep(1);
+    setCompletedSteps([]);
+    setLiveStepData({});
+    setEvents([
+      {
+        id: Date.now(),
+        title: 'Running Vanguard Analysis...',
+        description: 'Executing 7-agent pipeline for Bearing Overheating in Transformer S-011 at Bhusawal Power Hub.',
+        severity: 'info',
+        timestamp: new Date().toISOString()
+      }
+    ]);
+
+    // Visual step updater helper
+    let step = 1;
+    const intervalId = setInterval(() => {
+      if (step <= 7) {
+        setCompletedSteps(prev => [...prev, step]);
+        setLiveStepData(prev => ({
+          ...prev,
+          [step]: {
+            description: `${SIMULATION_STEPS[step - 1].name} completed.`,
+            duration: 1500
+          }
+        }));
+
+        setEvents(prev => [
+          {
+            id: Date.now() + Math.random(),
+            title: SIMULATION_STEPS[step - 1].name,
+            description: 'Vanguard multi-agent workflow analyzing data...',
+            severity: 'info',
+            step,
+            timestamp: new Date().toISOString()
+          },
+          ...prev
+        ]);
+
+        step += 1;
+        if (step <= 7) {
+          setCurrentStep(step);
+        }
+      }
+    }, 2000);
+
+    try {
+      const response = await api.post('/api/simulation/run', {
+        asset_id: 'S-011',
+        asset_type: 'Transformer',
+        failure_type: 'bearing_overheating',
+        location: 'Bhusawal Power Hub'
+      });
+
+      clearInterval(intervalId);
+
+      const payload = response.data;
+
+      const store = {
+        executive_summary: payload.executive_summary,
+        root_causes: payload.root_causes,
+        mitigation_actions: payload.mitigation_actions,
+        historical_incidents: payload.historical_incidents,
+        sensor_evidence: payload.sensor_evidence,
+        retrieval_results: payload.retrieval_results,
+        rdso_guidance: payload.rdso_guidance,
+        risk_level: payload.risk_level || 'CRITICAL',
+        affected_assets: [
+          {
+            asset_id: 'S-011',
+            asset_type: 'Transformer',
+            location: 'Bhusawal Power Hub',
+            temperature: 105,
+            vibration: 8.5,
+            power_deviation: 2.5,
+            risk_level: payload.risk_level || 'CRITICAL'
+          }
+        ]
+      };
+
+      setSimulationStore(store);
+
+      // Set all steps to completed
+      setCompletedSteps([1, 2, 3, 4, 5, 6, 7]);
+      setCurrentStep(7);
+      setLiveStepData({
+        1: { description: 'Failure scenario generated.', duration: 800 },
+        2: { description: '7-Agent pipeline executed.', duration: 1100 },
+        3: { description: 'Outputs aggregated.', duration: 750 },
+        4: { description: 'Overall risk calculated.', duration: 1400 },
+        5: { description: 'Incidents prioritized in Max Heap.', duration: 900 },
+        6: { description: 'Corrective actions generated.', duration: 1200 },
+        7: { description: 'System stabilized.', duration: 1500 }
+      });
+
+      setEvents(prev => [
+        {
+          id: Date.now() + 8,
+          title: 'Simulation Complete',
+          description: 'All 7 simulation stages completed and dashboard updated.',
+          severity: 'success',
+          timestamp: new Date().toISOString()
+        },
+        ...prev
+      ]);
+
+      setIsRunning(false);
+
+      if (navigate) {
+        setTimeout(() => {
+          navigate('/risk-analysis');
+        }, 1000);
+      }
+    } catch (err) {
+      clearInterval(intervalId);
+      setIsRunning(false);
+      console.error('[SIMULATION] Synchronous run failed:', err);
+      setEvents(prev => [
+        {
+          id: Date.now() + 9,
+          title: 'Simulation Failed',
+          description: err.response?.data?.message || err.message || 'Failure simulation engine encountered an unexpected error.',
+          severity: 'danger',
+          timestamp: new Date().toISOString()
+        },
+        ...prev
+      ]);
+    }
+  }, [isRunning]);
+
   return (
     <SimulationContext.Provider value={{
       isRunning,
@@ -192,8 +323,11 @@ export function SimulationProvider({ children }) {
       events,
       liveStepData,
       simulationRunId,
+      simulationStore,
+      setSimulationStore,
       startSimulation,
       stopSimulation,
+      runFailureSimulation,
       SIMULATION_STEPS,
     }}>
       {children}

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import StatusBadge from '../../components/common/StatusBadge';
 import ChartCard from '../../components/common/ChartCard';
@@ -22,7 +22,7 @@ const PIPELINE_STEPS = [
 
 export default function AutonomousAgent() {
   const { user } = useAuth();
-  const { isRunning, currentStep, events, totalSteps } = useSimulation();
+  const { isRunning, currentStep, events, totalSteps, simulationStore } = useSimulation();
 
   const [activeStepIndex, setActiveStepIndex] = useState(-1);
   const [terminalLines, setTerminalLines] = useState([]);
@@ -31,6 +31,25 @@ export default function AutonomousAgent() {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  // Print simulated run logs to the reasoning terminal stream
+  useEffect(() => {
+    if (simulationStore) {
+      const timeStr = new Date().toLocaleTimeString();
+      setTerminalLines(prev => [
+        ...prev,
+        { text: `▸ [${timeStr}] SIMULATED SEQUENCE INITIALIZED: 7-Agent Core workflow matching S-011`, type: 'warning' },
+        { text: `  RETRIEVED MANUALS: ${(simulationStore.retrieval_results || '').slice(0, 120)}...`, type: 'muted' },
+        { text: `  SENSOR ANOMALIES: ${(simulationStore.sensor_evidence || '').slice(0, 120)}...`, type: 'info' },
+        { text: `  HISTORICAL INCIDENTS: ${(simulationStore.historical_incidents || '').slice(0, 120)}...`, type: 'muted' },
+        { text: `  RDSO MAINTENANCE STANDARDS: ${(simulationStore.rdso_guidance || '').slice(0, 120)}...`, type: 'info' },
+        { text: `  DIAGNOSED ROOT CAUSE: ${(simulationStore.root_causes || '').slice(0, 120)}...`, type: 'danger' },
+        { text: `  DEPLOYED AUTONOMOUS ACTIONS: ${(simulationStore.mitigation_actions || '').slice(0, 120)}...`, type: 'success' },
+        { text: `✓ STATE STABILIZED: Status is ${simulationStore.risk_level}`, type: 'success' },
+        { text: '', type: '' }
+      ].slice(-35));
+    }
+  }, [simulationStore]);
 
   // Modal & Manual Telemetry Form State
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -186,9 +205,9 @@ export default function AutonomousAgent() {
     return () => clearInterval(interval);
   }, [fetchData]);
 
-  // Hook simulation Step 6 ("AI Agent Activated") to trigger live API evaluation call
+  // Hook simulation Step 2 ("Execute 7-Agent Pipeline") to trigger live API evaluation call
   useEffect(() => {
-    if (isRunning && currentStep === 6 && lastSimStepRef.current !== currentStep) {
+    if (isRunning && currentStep === 2 && lastSimStepRef.current !== currentStep) {
       lastSimStepRef.current = currentStep;
       
       const triggerSimEvaluate = async () => {
@@ -261,30 +280,64 @@ export default function AutonomousAgent() {
   };
 
   // Derive metrics
-  const latestConfidence = actions.length > 0 ? actions[0].confidence : 95.4;
+  const latestConfidence = simulationStore ? 98.5 : (actions.length > 0 ? actions[0].confidence : 95.4);
   const circumference = 2 * Math.PI * 50;
   const offset = circumference - (latestConfidence / 100) * circumference;
 
-  const timelineDecisions = actions.map(act => ({
-    id: act._id,
-    decision: act.decision,
-    asset: act.nodeId ? `${act.nodeId.nodeName} (${act.nodeId.nodeCode})` : 'Unknown Node',
-    confidence: act.confidence,
-    executionTime: '1.2s',
-    outcome: 'success'
-  }));
-
-  const mappedMitigations = actions.map(act => {
-    const visualStatus = act.status === 'success' ? 'executed' : act.status;
-    return {
+  const timelineDecisions = useMemo(() => {
+    let list = actions.map(act => ({
       id: act._id,
-      type: act.decision,
-      targetName: act.nodeId ? act.nodeId.nodeName : 'Unknown Node',
-      status: visualStatus,
-      outcome: act.reasoning,
-      triggeredBy: 'autonomous'
-    };
-  });
+      decision: act.decision,
+      asset: act.nodeId ? `${act.nodeId.nodeName} (${act.nodeId.nodeCode})` : 'Unknown Node',
+      confidence: act.confidence,
+      executionTime: '1.2s',
+      outcome: 'success'
+    }));
+
+    if (simulationStore) {
+      list = [
+        {
+          id: 'simulated-decision-011',
+          decision: 'Deploy Emergency Cooling & Speed Restrictions',
+          asset: 'Bhusawal Power Hub (S-011)',
+          confidence: 98.5,
+          executionTime: '1.5s',
+          outcome: 'success'
+        },
+        ...list
+      ];
+    }
+    return list;
+  }, [actions, simulationStore]);
+
+  const mappedMitigations = useMemo(() => {
+    let list = actions.map(act => {
+      const visualStatus = act.status === 'success' ? 'executed' : act.status;
+      return {
+        id: act._id,
+        type: act.decision,
+        targetName: act.nodeId ? act.nodeId.nodeName : 'Unknown Node',
+        status: visualStatus,
+        outcome: act.reasoning,
+        triggeredBy: 'autonomous'
+      };
+    });
+
+    if (simulationStore) {
+      list = [
+        {
+          id: 'simulated-mitigation-011',
+          type: 'Emergency Speed Restriction (30 km/h) & Coolant Flush',
+          targetName: 'Bhusawal Power Hub (S-011)',
+          status: 'executed',
+          outcome: simulationStore.mitigation_actions,
+          triggeredBy: 'autonomous'
+        },
+        ...list
+      ];
+    }
+    return list;
+  }, [actions, simulationStore]);
 
   if (loading && actions.length === 0 && (canViewActions || canViewStats)) {
     return (
@@ -369,6 +422,36 @@ export default function AutonomousAgent() {
           </div>
         </ChartCard>
       </motion.div>
+
+      {simulationStore && (
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.1 }}
+          style={{ marginTop: '1.5rem' }}
+        >
+          <ChartCard title="Vanguard Simulated Core Reasoning" subtitle="Detailed agent outputs for S-011 Transformer Bearing Overheating simulation">
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.25rem' }}>
+              <div style={{ padding: '1rem', background: 'var(--bg-tertiary)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border-color)' }}>
+                <h4 style={{ color: '#3b82f6', marginBottom: '0.75rem', fontSize: 'var(--text-sm)', fontWeight: 700, textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <Radio size={16} /> 1. Retrieved Evidence
+                </h4>
+                <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', maxHeight: '200px', overflowY: 'auto', whiteSpace: 'pre-wrap', lineHeight: 1.5 }}>
+                  {simulationStore.retrieval_results}
+                </div>
+              </div>
+              <div style={{ padding: '1rem', background: 'var(--bg-tertiary)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border-color)' }}>
+                <h4 style={{ color: '#a855f7', marginBottom: '0.75rem', fontSize: 'var(--text-sm)', fontWeight: 700, textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <Bot size={16} /> 2. Diagnosed Root Causes (Ranked)
+                </h4>
+                <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', maxHeight: '200px', overflowY: 'auto', whiteSpace: 'pre-wrap', lineHeight: 1.5 }}>
+                  {simulationStore.root_causes}
+                </div>
+              </div>
+            </div>
+          </ChartCard>
+        </motion.div>
+      )}
 
       <div className="dashboard-grid" style={{ marginTop: '1.5rem' }}>
         {/* AI Terminal */}

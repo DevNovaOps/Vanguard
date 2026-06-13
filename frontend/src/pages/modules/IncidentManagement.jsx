@@ -9,6 +9,7 @@ import { incidentService } from '../../utils/incidentService';
 import { timeAgo, MaxHeap } from '../../utils/helpers';
 import { AlertCircle, ArrowUpDown } from 'lucide-react';
 import { io } from 'socket.io-client';
+import { useSimulation } from '../../contexts/SimulationContext';
 
 const columns = [
   { key: 'id', label: 'Incident ID', render: (v) => <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)' }}>{v}</span> },
@@ -30,6 +31,7 @@ export default function IncidentManagement() {
   const [incidents, setIncidents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const { simulationStore } = useSimulation();
 
   // Fetch incidents from backend in priority order (using Max Heap)
   const fetchIncidents = useCallback(async () => {
@@ -97,13 +99,33 @@ export default function IncidentManagement() {
 
   // Read prioritization directly from backend heap sorting
   const heapPrioritized = useMemo(() => {
-    return incidents.map(inc => ({
+    let list = incidents.map(inc => ({
       ...inc,
       id: inc.incidentId,
       asset: typeof inc.nodeId === 'object' ? inc.nodeId?.nodeCode : '',
       assetName: typeof inc.nodeId === 'object' ? inc.nodeId?.nodeName : 'Unknown Asset'
     }));
-  }, [incidents]);
+
+    if (simulationStore) {
+      const simInc = {
+        _id: 'simulated-incident-011',
+        incidentId: 'INC-SIM-011',
+        id: 'INC-SIM-011',
+        severity: 'critical',
+        title: 'Transformer Bearing Overheating (Simulated)',
+        asset: 'S-011',
+        assetName: 'Bhusawal Power Hub',
+        riskScore: 95,
+        status: 'active',
+        assignedTeam: 'Alpha',
+        createdAt: new Date().toISOString(),
+        description: simulationStore.historical_incidents || 'Bearing overheating detected on Transformer S-011 at Bhusawal Power Hub.'
+      };
+      // Place it at the top of the prioritized list
+      list = [simInc, ...list];
+    }
+    return list;
+  }, [incidents, simulationStore]);
 
   const filtered = heapPrioritized.filter(inc => {
     if (severityFilter !== 'all' && inc.severity?.toLowerCase() !== severityFilter.toLowerCase()) return false;
@@ -204,6 +226,15 @@ export default function IncidentManagement() {
                 </div>
               ))}
             </div>
+            {selectedIncident.id === 'INC-SIM-011' && simulationStore && (
+              <div style={{ padding: '1rem', background: 'var(--bg-tertiary)', borderRadius: 'var(--radius-md)', borderLeft: '4px solid var(--color-danger)' }}>
+                <div style={{ fontSize: 'var(--text-xs)', color: '#ef4444', fontWeight: 700, marginBottom: '6px', textTransform: 'uppercase' }}>Simulated Recommendations & RDSO Guidance</div>
+                <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-primary)', marginBottom: '8px', borderBottom: '1px solid var(--border-color)', paddingBottom: '6px', fontWeight: 600 }}>RDSO GUIDANCE:</div>
+                <div style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)', marginBottom: '12px', whiteSpace: 'pre-wrap', lineHeight: 1.4 }}>{simulationStore.rdso_guidance}</div>
+                <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-primary)', marginBottom: '8px', borderBottom: '1px solid var(--border-color)', paddingBottom: '6px', fontWeight: 600 }}>MITIGATION ACTIONS:</div>
+                <div style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)', whiteSpace: 'pre-wrap', lineHeight: 1.4 }}>{simulationStore.mitigation_actions}</div>
+              </div>
+            )}
           </div>
         )}
       </Modal>

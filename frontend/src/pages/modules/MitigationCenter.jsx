@@ -14,6 +14,7 @@ import { mitigationService } from '../../utils/mitigationService';
 import { incidentService } from '../../utils/incidentService';
 import { networkService } from '../../utils/networkService';
 import { io } from 'socket.io-client';
+import { useSimulation } from '../../contexts/SimulationContext';
 
 const actionIcons = {
   'Emergency Speed Restriction': Siren,
@@ -47,6 +48,7 @@ const columns = [
 
 export default function MitigationCenter() {
   const { user } = useAuth();
+  const { simulationStore } = useSimulation();
   
   // States
   const [mitigations, setMitigations] = useState([]);
@@ -290,7 +292,25 @@ export default function MitigationCenter() {
 
   // Derived properties
   const filteredMitigations = useMemo(() => {
-    return mitigations.filter(m => {
+    let list = mitigations;
+    if (simulationStore) {
+      const simMit = {
+        _id: 'simulated-mitigation-011',
+        mitigationId: 'MIT-SIM-011',
+        type: 'Emergency Speed Restriction',
+        action: 'Emergency Speed Restriction (30 km/h) & Coolant Flush',
+        targetName: 'Bhusawal Power Hub (S-011)',
+        severity: 'Critical',
+        status: 'Executed',
+        triggeredBy: 'autonomous',
+        createdAt: new Date().toISOString(),
+        executedAt: new Date().toISOString(),
+        executionSource: 'AI Multi-Agent Core',
+        executionNotes: simulationStore.mitigation_actions || 'Proactive coolant flush and manual checking scheduled within 24 hours.'
+      };
+      list = [simMit, ...list];
+    }
+    return list.filter(m => {
       const matchesSearch = search === '' ||
         m.mitigationId?.toLowerCase().includes(search.toLowerCase()) ||
         m.type?.toLowerCase().includes(search.toLowerCase()) ||
@@ -301,11 +321,26 @@ export default function MitigationCenter() {
 
       return matchesSearch && matchesStatus && matchesSeverity;
     });
-  }, [mitigations, search, statusFilter, severityFilter]);
+  }, [mitigations, search, statusFilter, severityFilter, simulationStore]);
 
   const executed = useMemo(() => {
-    return mitigations.filter(a => a.status === 'Executed' || a.status === 'Completed');
-  }, [mitigations]);
+    let list = mitigations.filter(a => a.status === 'Executed' || a.status === 'Completed');
+    if (simulationStore) {
+      list = [
+        {
+          _id: 'simulated-mitigation-011',
+          mitigationId: 'MIT-SIM-011',
+          type: 'Emergency Speed Restriction',
+          action: 'Emergency Speed Restriction (30 km/h) & Coolant Flush',
+          targetName: 'Bhusawal Power Hub (S-011)',
+          status: 'Executed',
+          executedAt: new Date().toISOString()
+        },
+        ...list
+      ];
+    }
+    return list;
+  }, [mitigations, simulationStore]);
 
   const pending = useMemo(() => {
     return mitigations.filter(a => a.status !== 'Executed' && a.status !== 'Completed');
@@ -316,7 +351,7 @@ export default function MitigationCenter() {
       id: a._id || a.mitigationId,
       title: a.type || a.action,
       description: `${a.targetName} — ${a.outcome || 'Success'}`,
-      time: timeAgo(a.executedAt || a.updatedAt),
+      time: a._id === 'simulated-mitigation-011' ? 'just now' : timeAgo(a.executedAt || a.updatedAt),
       dotColor: a.status === 'Completed' ? 'success' : 'info',
     }));
   }, [executed]);

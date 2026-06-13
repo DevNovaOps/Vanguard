@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { LineChart, Line, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
 import { motion } from 'framer-motion';
 import ChartCard from '../../components/common/ChartCard';
@@ -17,7 +17,7 @@ export default function TelemetryCenter() {
   const [nodeFilter, setNodeFilter] = useState('all');
   const [telemetryData] = useState(() => generateTelemetryHistory(6));
   const [liveSensors, setLiveSensors] = useState(sensors);
-  const { isRunning, currentStep } = useSimulation();
+  const { isRunning, currentStep, simulationStore } = useSimulation();
 
   // Simulate live updates during simulation
   useEffect(() => {
@@ -34,12 +34,46 @@ export default function TelemetryCenter() {
     return () => clearInterval(interval);
   }, [isRunning]);
 
-  const filtered = liveSensors.filter(s => {
-    if (typeFilter !== 'all' && s.type !== typeFilter) return false;
-    if (nodeFilter !== 'all' && s.nodeId !== nodeFilter) return false;
-    if (search && !s.name.toLowerCase().includes(search.toLowerCase()) && !s.id.toLowerCase().includes(search.toLowerCase())) return false;
-    return true;
-  });
+  const filtered = useMemo(() => {
+    let list = liveSensors;
+    if (simulationStore) {
+      list = liveSensors.map(s => {
+        if (s.nodeId === 'TN-011') {
+          if (s.type === 'temperature') {
+            return { ...s, value: 105, status: 'critical' };
+          }
+          if (s.type === 'power') {
+            return { ...s, value: 12.5, status: 'critical' };
+          }
+        }
+        return s;
+      });
+
+      if (!list.some(s => s.nodeId === 'TN-011' && s.type === 'vibration')) {
+        list = [
+          {
+            id: 'S-011-VIB',
+            nodeId: 'TN-011',
+            type: 'vibration',
+            name: 'Transformer Bearing Vibration K3',
+            value: 8.5,
+            unit: 'mm/s',
+            threshold: 6.0,
+            status: 'critical',
+            lastUpdate: new Date().toISOString()
+          },
+          ...list
+        ];
+      }
+    }
+
+    return list.filter(s => {
+      if (typeFilter !== 'all' && s.type !== typeFilter) return false;
+      if (nodeFilter !== 'all' && s.nodeId !== nodeFilter) return false;
+      if (search && !s.name.toLowerCase().includes(search.toLowerCase()) && !s.id.toLowerCase().includes(search.toLowerCase())) return false;
+      return true;
+    });
+  }, [liveSensors, typeFilter, nodeFilter, search, simulationStore]);
 
   const chartColors = {
     temperature: '#DC2626', vibration: '#D97706', pressure: '#2563EB',
@@ -129,7 +163,7 @@ export default function TelemetryCenter() {
               const info = getSensorTypeInfo(sensor.type);
               const node = transitNodes.find(n => n.id === sensor.nodeId);
               const pct = (sensor.value / sensor.threshold) * 100;
-              const isBreach = pct >= 90;
+              const isBreach = pct >= 90 || sensor.status === 'critical' || (sensor.type === 'power' && sensor.value < 15);
               return (
                 <tr key={sensor.id} className={isBreach ? 'threshold-breach' : ''}>
                   <td style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)' }}>{sensor.id}</td>

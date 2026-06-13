@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
 import StatusBadge from '../../components/common/StatusBadge';
 import ChartCard from '../../components/common/ChartCard';
 import KPICard from '../../components/common/KPICard';
@@ -12,28 +13,27 @@ import { timeAgo } from '../../utils/helpers';
 import {
   Zap, Play, Square, Clock, CheckCircle, XCircle, AlertTriangle,
   Radio, Shield, BarChart3, Bot, Wrench, Wifi, FileText,
-  Activity, History, TrendingUp, Timer, ChevronDown
+  Activity, History, TrendingUp, Timer, ChevronDown, Database
 } from 'lucide-react';
 
-// Step metadata for the timeline
+// Step metadata for the timeline matching 7 agents
 const STEP_META = [
-  { id: 1, name: 'Sensor Anomaly Detected', icon: Radio, module: 'telemetry', color: '#ef4444' },
-  { id: 2, name: 'Compliance Violation', icon: Shield, module: 'compliance', color: '#f97316' },
-  { id: 3, name: 'Risk Score Calculated', icon: AlertTriangle, module: 'risk', color: '#eab308' },
-  { id: 4, name: 'Heap Prioritization', icon: BarChart3, module: 'incidents', color: '#a855f7' },
-  { id: 5, name: 'Incident Created', icon: AlertTriangle, module: 'incidents', color: '#ec4899' },
-  { id: 6, name: 'AI Agent Activated', icon: Bot, module: 'agent', color: '#3b82f6' },
-  { id: 7, name: 'Mitigation Executed', icon: Wrench, module: 'mitigation', color: '#06b6d4' },
-  { id: 8, name: 'Network Stabilized', icon: Wifi, module: 'network', color: '#22c55e' },
-  { id: 9, name: 'Report Generated', icon: FileText, module: 'reports', color: '#10b981' },
+  { id: 1, name: 'Generating Failure Scenario', icon: Radio, module: 'telemetry', color: '#3b82f6' },
+  { id: 2, name: 'Executing 7-Agent Pipeline', icon: Bot, module: 'agent', color: '#f59e0b' },
+  { id: 3, name: 'Aggregating Results', icon: BarChart3, module: 'reports', color: '#ef4444' },
+  { id: 4, name: 'Calculating Risk', icon: Shield, module: 'risk', color: '#10b981' },
+  { id: 5, name: 'Prioritizing Incidents', icon: Database, module: 'database', color: '#a855f7' },
+  { id: 6, name: 'Generating Actions', icon: Wrench, module: 'incidents', color: '#06b6d4' },
+  { id: 7, name: 'Stabilizing System', icon: CheckCircle, module: 'network', color: '#ec4899' },
 ];
 
 export default function FailureSimulation() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const {
     isRunning, currentStep, totalSteps, completedSteps,
     events, liveStepData, simulationRunId,
-    startSimulation, stopSimulation, SIMULATION_STEPS
+    runFailureSimulation, SIMULATION_STEPS
   } = useSimulation();
 
   const [history, setHistory] = useState([]);
@@ -61,7 +61,7 @@ export default function FailureSimulation() {
 
   // Reload history when simulation completes
   useEffect(() => {
-    if (!isRunning && completedSteps.length === 9) {
+    if (!isRunning && completedSteps.length === 7) {
       setTimeout(() => loadData(), 1500);
     }
   }, [isRunning, completedSteps]);
@@ -180,12 +180,12 @@ export default function FailureSimulation() {
           {canTrigger && (
             <button
               id="simulation-trigger-btn"
-              className={`btn ${isRunning ? 'btn-danger' : 'btn-primary'}`}
-              onClick={isRunning ? stopSimulation : startSimulation}
-              disabled={isRunning && currentStep > 0 && currentStep < totalSteps}
-              style={{ minWidth: '200px' }}
+              className={`btn ${isRunning ? 'btn-secondary' : 'btn-primary'}`}
+              onClick={() => runFailureSimulation(navigate)}
+              disabled={isRunning}
+              style={{ minWidth: '220px' }}
             >
-              {isRunning ? <><Square size={16} /> Stop Simulation</> : <><Play size={16} /> Run Failure Simulation</>}
+              {isRunning ? 'Running Vanguard Analysis...' : <><Play size={16} /> Run Failure Simulation</>}
             </button>
           )}
         </div>
@@ -357,7 +357,7 @@ export default function FailureSimulation() {
                   >
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.15rem' }}>
                       <span style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: '11px' }}>
-                        {event.step ? `[${event.step}/9] ` : ''}{event.title}
+                        {event.step ? `[${event.step}/7] ` : ''}{event.title}
                       </span>
                       <span style={{ color: 'var(--text-tertiary)', fontSize: '10px', whiteSpace: 'nowrap' }}>
                         {new Date(event.timestamp).toLocaleTimeString()}
