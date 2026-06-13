@@ -76,7 +76,7 @@ export default function Reports() {
         {REPORTS.map((report, i) => (
           <motion.div
             key={report.id}
-            className="report-card"
+            className="card report-card"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: i * 0.1, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}

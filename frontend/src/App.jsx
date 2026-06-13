@@ -1,6 +1,7 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { useEffect } from 'react';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
-import { ThemeProvider } from './contexts/ThemeContext';
+import { ThemeProvider, useTheme } from './contexts/ThemeContext';
 import { SimulationProvider } from './contexts/SimulationContext';
 import { NotificationProvider } from './contexts/NotificationContext';
 
@@ -51,6 +52,20 @@ function DashboardRedirect() {
 }
 
 function AppRoutes() {
+  const location = useLocation();
+  const { theme } = useTheme();
+
+  useEffect(() => {
+    if (location.pathname === '/') {
+      document.documentElement.setAttribute('data-theme', 'dark');
+    } else {
+      const resolved = theme === 'system'
+        ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+        : theme;
+      document.documentElement.setAttribute('data-theme', resolved);
+    }
+  }, [location.pathname, theme]);
+
   return (
     <Routes>
       {/* Public Routes */}
