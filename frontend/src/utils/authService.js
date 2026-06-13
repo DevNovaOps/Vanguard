@@ -45,6 +45,10 @@ export const authService = {
     return api.get('/api/auth/profile');
   },
 
+  updateUserProfile: async (userData) => {
+    return api.put('/api/auth/profile', userData);
+  },
+
   getAllUsers: async () => {
     return api.get('/api/auth/users');
   },

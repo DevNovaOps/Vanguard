@@ -166,6 +166,77 @@ export const getUserProfile = async (req, res, next) => {
 };
 
 /**
+ * @desc    Update user profile details
+ * @route   PUT /api/auth/profile
+ * @access  Private
+ */
+export const updateUserProfile = async (req, res, next) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({
+      success: false,
+      message: errors.array().map(err => err.msg).join(', ')
+    });
+  }
+
+  const { name, email, department } = req.body;
+
+  try {
+    const user = await User.findById(req.user._id);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    if (email && email !== user.email) {
+      const emailExists = await User.findOne({ email });
+      if (emailExists) {
+        return res.status(400).json({
+          success: false,
+          message: 'A user with this email address already exists'
+        });
+      }
+      user.email = email;
+    }
+
+    if (name) user.name = name;
+    if (department !== undefined) user.department = department;
+
+    await user.save();
+
+    // Log profile update in audit trail
+    await auditService.logEvent({
+      req,
+      userId: user._id,
+      username: user.name,
+      role: user.role,
+      action: 'USER_UPDATED',
+      module: 'Authentication',
+      description: `User profile updated: ${user.name} (${user.email})`,
+      severity: 'Info',
+      metadata: { userId: user._id }
+    });
+
+    res.status(200).json({
+      success: true,
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        permissions: user.permissions,
+        department: user.department,
+        isActive: user.isActive
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
  * @desc    Logout user (Dummy handler for JWT clean-up on client side)
  * @route   POST /api/auth/logout
  * @access  Public

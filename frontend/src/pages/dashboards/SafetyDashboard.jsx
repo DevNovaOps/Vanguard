@@ -9,6 +9,7 @@ import { complianceService } from '../../utils/complianceService';
 import { incidentService } from '../../utils/incidentService';
 import { timeAgo } from '../../utils/helpers';
 import { FileText, CheckCircle, AlertOctagon } from 'lucide-react';
+import { downloadReport } from '../../utils/reportService';
 import { io } from 'socket.io-client';
 
 
@@ -68,6 +69,18 @@ export default function SafetyDashboard() {
   const [stats, setStats] = useState(null);
   const [incidents, setIncidents] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [exporting, setExporting] = useState(false);
+
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      await downloadReport('risk', 'pdf', 'Risk Analysis Report');
+    } catch (err) {
+      alert('Failed to export report: ' + err.message);
+    } finally {
+      setExporting(false);
+    }
+  };
 
   const fetchSafetyData = useCallback(async () => {
     try {
@@ -158,8 +171,14 @@ export default function SafetyDashboard() {
           <motion.button className="btn btn-secondary btn-sm" whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
             <CheckCircle size={14} /> Audit Compliance
           </motion.button>
-          <motion.button className="btn btn-primary btn-sm" whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
-            <FileText size={14} /> Safety Report
+          <motion.button
+            className="btn btn-primary btn-sm"
+            whileHover={{ scale: 1.03 }}
+            whileTap={{ scale: 0.97 }}
+            onClick={handleExport}
+            disabled={exporting}
+          >
+            <FileText size={14} /> {exporting ? 'Exporting...' : 'Safety Report'}
           </motion.button>
         </div>
       </motion.div>

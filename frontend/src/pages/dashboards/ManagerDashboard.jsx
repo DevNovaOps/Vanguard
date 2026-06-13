@@ -6,6 +6,7 @@ import ChartCard from '../../components/common/ChartCard';
 import { riskTrendData, complianceTrendData } from '../../data/mockData';
 import { complianceService } from '../../utils/complianceService';
 import { Download } from 'lucide-react';
+import { downloadReport } from '../../utils/reportService';
 
 
 const pageVariants = {
@@ -58,6 +59,18 @@ const businessImpact = [
 export default function ManagerDashboard() {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [exporting, setExporting] = useState(false);
+
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      await downloadReport('infrastructure', 'pdf', 'Infrastructure Report');
+    } catch (err) {
+      alert('Failed to export report: ' + err.message);
+    } finally {
+      setExporting(false);
+    }
+  };
 
   useEffect(() => {
     const fetchManagerData = async () => {
@@ -109,8 +122,14 @@ export default function ManagerDashboard() {
           <p>Executive overview and strategic insights</p>
         </div>
         <div className="page-actions">
-          <motion.button className="btn btn-primary btn-sm" whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
-            <Download size={14} /> Export Reports
+          <motion.button
+            className="btn btn-primary btn-sm"
+            whileHover={{ scale: 1.03 }}
+            whileTap={{ scale: 0.97 }}
+            onClick={handleExport}
+            disabled={exporting}
+          >
+            <Download size={14} /> {exporting ? 'Exporting...' : 'Export Reports'}
           </motion.button>
         </div>
       </motion.div>

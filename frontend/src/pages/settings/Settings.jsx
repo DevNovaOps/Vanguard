@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import StatusBadge from '../../components/common/StatusBadge';
-import { Settings, User, Bell, Palette, Key, Server, Sun, Moon, Monitor } from 'lucide-react';
+import { Settings, User, Bell, Palette, Key, Server, Sun, Moon, Monitor, CheckCircle, AlertCircle } from 'lucide-react';
 
 const SETTINGS_TABS = [
   { id: 'profile', label: 'Profile', icon: User },
@@ -15,9 +15,34 @@ const SETTINGS_TABS = [
 
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState('profile');
-  const { user, getRoleInfo } = useAuth();
+  const { user, getRoleInfo, updateUserProfile } = useAuth();
   const { theme, setTheme } = useTheme();
   const roleInfo = getRoleInfo();
+
+  // Profile fields state
+  const [name, setName] = useState(user?.name || '');
+  const [email, setEmail] = useState(user?.email || '');
+  const [department, setDepartment] = useState(user?.department || 'Railway Operations');
+  const [isSaving, setIsSaving] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
+  const [errorMessage, setErrorMessage] = useState('');
+
+
+  const handleSaveProfile = async () => {
+    setIsSaving(true);
+    setSuccessMessage('');
+    setErrorMessage('');
+    try {
+      await updateUserProfile({ name, email, department });
+      setSuccessMessage('Profile updated successfully.');
+      setTimeout(() => setSuccessMessage(''), 4000);
+    } catch (err) {
+      setErrorMessage(err.message || 'Failed to update profile.');
+      setTimeout(() => setErrorMessage(''), 4000);
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   return (
     <div>
@@ -74,6 +99,54 @@ export default function SettingsPage() {
               <>
                 <div className="settings-section">
                   <h3>Profile Information</h3>
+
+                  <AnimatePresence>
+                    {successMessage && (
+                      <motion.div
+                        initial={{ opacity: 0, y: -8 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -8 }}
+                        style={{
+                          padding: '0.75rem 1rem',
+                          background: 'rgba(52, 211, 153, 0.08)',
+                          border: '1px solid var(--color-success)',
+                          borderRadius: 'var(--radius-lg)',
+                          color: '#34D399',
+                          fontSize: 'var(--text-sm)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '8px',
+                          marginBottom: '1.5rem'
+                        }}
+                      >
+                        <CheckCircle size={16} />
+                        <span>{successMessage}</span>
+                      </motion.div>
+                    )}
+                    {errorMessage && (
+                      <motion.div
+                        initial={{ opacity: 0, y: -8 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -8 }}
+                        style={{
+                          padding: '0.75rem 1rem',
+                          background: 'rgba(239, 68, 68, 0.08)',
+                          border: '1px solid var(--color-danger)',
+                          borderRadius: 'var(--radius-lg)',
+                          color: '#F87171',
+                          fontSize: 'var(--text-sm)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '8px',
+                          marginBottom: '1.5rem'
+                        }}
+                      >
+                        <AlertCircle size={16} />
+                        <span>{errorMessage}</span>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+
                   <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.5rem' }}>
                     <motion.div
                       className="user-avatar"
@@ -91,11 +164,11 @@ export default function SettingsPage() {
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                     <div className="input-group">
                       <label>Full Name</label>
-                      <input className="input" defaultValue={user?.name} />
+                      <input className="input" value={name} onChange={e => setName(e.target.value)} />
                     </div>
                     <div className="input-group">
                       <label>Email</label>
-                      <input className="input" defaultValue={user?.email} />
+                      <input className="input" value={email} onChange={e => setEmail(e.target.value)} />
                     </div>
                     <div className="input-group">
                       <label>Role</label>
@@ -103,11 +176,19 @@ export default function SettingsPage() {
                     </div>
                     <div className="input-group">
                       <label>Department</label>
-                      <input className="input" defaultValue="Railway Operations" />
+                      <input className="input" value={department} onChange={e => setDepartment(e.target.value)} />
                     </div>
                   </div>
                 </div>
-                <motion.button className="btn btn-primary" whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}>Save Changes</motion.button>
+                <motion.button 
+                  className="btn btn-primary" 
+                  whileHover={{ scale: 1.02 }} 
+                  whileTap={{ scale: 0.97 }}
+                  onClick={handleSaveProfile}
+                  disabled={isSaving}
+                >
+                  {isSaving ? 'Saving Changes...' : 'Save Changes'}
+                </motion.button>
               </>
             )}
 

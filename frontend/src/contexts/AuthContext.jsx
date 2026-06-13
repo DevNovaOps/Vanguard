@@ -171,6 +171,25 @@ export function AuthProvider({ children }) {
     return ROLES[user.role] || ROLES.admin;
   }, [user]);
 
+  const updateUserProfile = useCallback(async (userData) => {
+    setLoading(true);
+    try {
+      const res = await authService.updateUserProfile(userData);
+      if (res.success && res.user) {
+        const normalized = normalizeUserRole(res.user);
+        setUser(normalized);
+        localStorage.setItem('arc_user', JSON.stringify(normalized));
+        setLoading(false);
+        return normalized;
+      } else {
+        throw new Error(res.message || 'Profile update failed');
+      }
+    } catch (error) {
+      setLoading(false);
+      throw error;
+    }
+  }, [normalizeUserRole]);
+
   return (
     <AuthContext.Provider value={{
       user,
@@ -182,6 +201,7 @@ export function AuthProvider({ children }) {
       register,
       hasPermission,
       getRoleInfo,
+      updateUserProfile,
       ROLES,
       ROLE_PERMISSIONS,
       DEMO_USERS,

@@ -1,5 +1,6 @@
 import { motion } from 'framer-motion';
 import { BarChart3, Database, Shield, AlertCircle, AlertTriangle, Bot, Download, FileSpreadsheet, FileText } from 'lucide-react';
+import { downloadReport } from '../../utils/reportService';
 
 const REPORTS = [
   { id: 1, title: 'Infrastructure Report', desc: 'Complete asset inventory with maintenance history, sensor health, and capacity utilization across all transit nodes.', icon: Database, color: 'var(--color-primary-500)', lastGenerated: '2 hours ago' },
@@ -21,42 +22,8 @@ export default function Reports() {
     const key = endpointMap[report.title];
     if (!key) return;
 
-    const token = localStorage.getItem('arc_token');
-
     try {
-      const response = await fetch(`/api/reports/${key}/${format}`, {
-        headers: {
-          'Authorization': token ? `Bearer ${token}` : ''
-        }
-      });
-
-      if (!response.ok) {
-        let errMsg = 'Export failed';
-        try {
-          const errData = await response.json();
-          errMsg = errData.message || errMsg;
-        } catch (e) {
-          const text = await response.text();
-          if (text) errMsg = text;
-        }
-        throw new Error(errMsg);
-      }
-
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-
-      const cleanTitle = report.title.replace(/\s+/g, '_');
-      const year = new Date().getFullYear();
-      const extMap = { pdf: 'pdf', csv: 'csv', excel: 'xlsx' };
-      const ext = extMap[format] || 'pdf';
-
-      a.download = `${cleanTitle.replace('_Report', '')}_Report_${year}.${ext}`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      window.URL.revokeObjectURL(url);
+      await downloadReport(key, format, report.title);
     } catch (error) {
       console.error('Export failed:', error);
       alert(`Export failed: ${error.message}`);
