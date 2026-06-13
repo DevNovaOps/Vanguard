@@ -92,8 +92,8 @@ export default function PublicLayout() {
           <div className="public-footer-col">
             <h4>Company</h4>
             <Link to="/contact">Contact</Link>
-            <a>Privacy Policy</a>
-            <a>Terms of Service</a>
+            <Link to="/privacy">Privacy Policy</Link>
+            <Link to="/terms">Terms of Service</Link>
           </div>
         </div>
         <div className="public-footer-bottom">

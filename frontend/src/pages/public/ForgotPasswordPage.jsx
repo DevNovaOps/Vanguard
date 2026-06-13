@@ -1,8 +1,7 @@
 import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import { useAuth } from '../../contexts/AuthContext';
+import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { LogIn, Shield, Radio, Bot, Activity, Zap, Eye, Users, Lock, Mail, CheckCircle } from 'lucide-react';
+import { Mail, CheckCircle, ArrowRight, Shield } from 'lucide-react';
 import VanguardARCIcon from '../../components/common/VanguardARCIcon';
 
 const AUTH_STATS = [
@@ -11,7 +10,6 @@ const AUTH_STATS = [
   { value: '156', label: 'Auto Actions', color: '#A78BFA' },
 ];
 
-/* Auth network nodes and routes */
 const AUTH_NODES = [
   { cx: 80, cy: 100 }, { cx: 200, cy: 60 }, { cx: 340, cy: 120 },
   { cx: 480, cy: 50 }, { cx: 600, cy: 110 }, { cx: 720, cy: 70 },
@@ -38,56 +36,28 @@ const AUTH_PARTICLES = Array.from({ length: 15 }, (_, i) => ({
   delay: Math.random() * 4,
 }));
 
-const SUGGESTED_EMAILS = [
-  'admin123@gmail.com',
-  'arjun@vanguardarc.in',
-  'priya@vanguardarc.in',
-  'rajesh@vanguardarc.in',
-  'sneha@vanguardarc.in',
-  'operator@vanguardarc.in',
-  'safety@vanguardarc.in',
-  'manager@vanguardarc.in'
-];
-
-export default function LoginPage() {
+export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [emailPlaceholder] = useState(() => {
-    const randomIndex = Math.floor(Math.random() * SUGGESTED_EMAILS.length);
-    return SUGGESTED_EMAILS[randomIndex];
-  });
   const [focusedField, setFocusedField] = useState(null);
+  const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState(null);
-  const { login } = useAuth();
-  const navigate = useNavigate();
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = (e) => {
     e.preventDefault();
     setError(null);
 
-    const isLengthValid = password.length >= 8;
-    const hasUppercase = /[A-Z]/.test(password);
-    const hasNumber = /[0-9]/.test(password);
-    const hasSpecialChar = /[!@#$%^&*(),.?":{}|<>]/.test(password);
-    const isPasswordValid = isLengthValid && hasUppercase && hasNumber && hasSpecialChar;
-
-    if (!isPasswordValid) {
-      setError('Password does not meet the required security criteria.');
+    if (!email) {
+      setError('Email is required.');
+      return;
+    }
+    // Simple email regex check
+    if (!/\S+@\S+\.\S+/.test(email)) {
+      setError('Please enter a valid email address.');
       return;
     }
 
-    try {
-      const user = await login(email, password);
-      const roleRoutes = {
-        admin: '/dashboard/admin',
-        operator: '/dashboard/operator',
-        safety_officer: '/dashboard/safety',
-        manager: '/dashboard/manager',
-      };
-      navigate(roleRoutes[user.role] || '/dashboard');
-    } catch (err) {
-      setError(err.message || 'Authentication failed. Please check credentials.');
-    }
+    // Simulate sending reset email
+    setSubmitted(true);
   };
 
   return (
@@ -188,124 +158,92 @@ export default function LoginPage() {
         animate={{ opacity: 1, scale: 1, y: 0 }}
         transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
       >
-        {/* Card glow accent */}
         <div className="auth-card-glow" />
 
-        <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
-          <motion.div
-            className="auth-logo-icon"
-            whileHover={{ scale: 1.1, rotate: 5 }}
-            transition={{ type: 'spring', stiffness: 400, damping: 17 }}
-          >
-            <VanguardARCIcon size={72} />
-          </motion.div>
-          <h1>Welcome Back</h1>
-          <p className="auth-subtitle">Sign in to Vanguard ARC Platform</p>
-          
-        </div>
-
-        <form className="auth-form" onSubmit={handleSubmit}>
-
-          {/* Email */}
-          <div className={`input-group auth-input-group ${focusedField === 'email' ? 'focused' : ''}`}>
-            <label><Mail size={13} style={{ display: 'inline', verticalAlign: 'middle', marginRight: '4px' }} />Email</label>
-            <input
-              className="input"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder={emailPlaceholder}
-              onFocus={() => setFocusedField('email')}
-              onBlur={() => setFocusedField(null)}
-            />
-          </div>
-
-          {/* Password */}
-          <div className={`input-group auth-input-group ${focusedField === 'password' ? 'focused' : ''}`}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', marginBottom: '2px' }}>
-              <label style={{ margin: 0 }}><Lock size={13} style={{ display: 'inline', verticalAlign: 'middle', marginRight: '4px' }} />Password</label>
-              <Link 
-                to="/forgot-password"
-                style={{ fontSize: 'var(--text-xs)', color: 'var(--color-primary-400)', cursor: 'pointer', fontWeight: 'var(--font-medium)', textDecoration: 'none' }}
-                onMouseOver={(e) => e.target.style.textDecoration = 'underline'}
-                onMouseOut={(e) => e.target.style.textDecoration = 'none'}
-              >
-                Forgot?
-              </Link>
-            </div>
-            <input
-              className="input"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••"
-              onFocus={() => setFocusedField('password')}
-              onBlur={() => setFocusedField(null)}
-            />
-
-            {/* Password Validation Criteria */}
-            <div style={{ marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '4px', textAlign: 'left', paddingLeft: '4px' }}>
-              {[
-                { label: 'At least 8 characters', met: password.length >= 8 },
-                { label: 'One uppercase letter', met: /[A-Z]/.test(password) },
-                { label: 'One number', met: /[0-9]/.test(password) },
-                { label: 'One special symbol (@#$... )', met: /[!@#$%^&*(),.?":{}|<>]/.test(password) }
-              ].map((crit, idx) => (
-                <div 
-                  key={idx} 
-                  style={{ 
-                    display: 'flex', 
-                    alignItems: 'center', 
-                    gap: '6px', 
-                    fontSize: '11px', 
-                    color: crit.met ? 'var(--color-success)' : 'var(--text-tertiary)',
-                    transition: 'color 0.2s ease'
-                  }}
+        <AnimatePresence mode="wait">
+          {!submitted ? (
+            <motion.div
+              key="reset-form"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.3 }}
+            >
+              <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
+                <motion.div
+                  className="auth-logo-icon"
+                  whileHover={{ scale: 1.1, rotate: 5 }}
+                  transition={{ type: 'spring', stiffness: 400, damping: 17 }}
                 >
-                  <span 
-                    style={{ 
-                      width: '6px', 
-                      height: '6px', 
-                      borderRadius: '50%', 
-                      backgroundColor: crit.met ? 'var(--color-success)' : 'var(--text-tertiary)',
-                      boxShadow: crit.met ? '0 0 6px var(--color-success)' : 'none',
-                      display: 'inline-block',
-                      transition: 'all 0.2s ease'
-                    }} 
+                  <VanguardARCIcon size={72} />
+                </motion.div>
+                <h1>Reset Password</h1>
+                <p className="auth-subtitle">Enter your email to receive a password reset link</p>
+              </div>
+
+              <form className="auth-form" onSubmit={handleSubmit}>
+                <div className={`input-group auth-input-group ${focusedField === 'email' ? 'focused' : ''}`}>
+                  <label><Mail size={13} style={{ display: 'inline', verticalAlign: 'middle', marginRight: '4px' }} />Email Address</label>
+                  <input
+                    className="input"
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="you@company.com"
+                    onFocus={() => setFocusedField('email')}
+                    onBlur={() => setFocusedField(null)}
                   />
-                  <span>{crit.label}</span>
                 </div>
-              ))}
-            </div>
-          </div>
 
-          {error && (
-            <div style={{
-              padding: '0.75rem',
-              background: 'rgba(239, 68, 68, 0.1)',
-              border: '1px solid var(--color-danger)',
-              color: 'var(--color-danger)',
-              borderRadius: 'var(--radius-lg)',
-              fontSize: 'var(--text-sm)',
-              textAlign: 'center',
-              marginBottom: '1rem'
-            }}>
-              {error}
-            </div>
+                {error && (
+                  <div style={{
+                    padding: '0.75rem',
+                    background: 'rgba(239, 68, 68, 0.1)',
+                    border: '1px solid var(--color-danger)',
+                    color: 'var(--color-danger)',
+                    borderRadius: 'var(--radius-lg)',
+                    fontSize: 'var(--text-sm)',
+                    textAlign: 'center',
+                    marginBottom: '1rem'
+                  }}>
+                    {error}
+                  </div>
+                )}
+
+                <motion.button
+                  type="submit"
+                  className="btn btn-primary btn-lg auth-submit-btn"
+                  whileHover={{ scale: 1.02, y: -1 }}
+                  whileTap={{ scale: 0.97 }}
+                >
+                  Send Reset Link
+                </motion.button>
+              </form>
+            </motion.div>
+          ) : (
+            <motion.div
+              key="success-screen"
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.4 }}
+              style={{ textAlign: 'center', padding: '1.5rem 0' }}
+            >
+              <div style={{ marginBottom: '1.5rem', display: 'flex', justifyContent: 'center' }}>
+                <CheckCircle size={72} style={{ color: '#34D399' }} />
+              </div>
+              <h1 style={{ fontSize: 'var(--text-xl)', marginBottom: '0.75rem', color: 'var(--text-primary)' }}>Reset Link Sent!</h1>
+              <p style={{ color: 'var(--text-secondary)', marginBottom: '2rem', lineHeight: '1.6', fontSize: 'var(--text-sm)' }}>
+                A password reset instructions link has been sent to <strong style={{ color: 'var(--text-primary)' }}>{email}</strong>. Please check your inbox.
+              </p>
+              <Link to="/login" className="btn btn-primary btn-lg" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '8px', textDecoration: 'none', width: '100%', color: 'white' }}>
+                Return to Login <ArrowRight size={14} />
+              </Link>
+            </motion.div>
           )}
-
-          <motion.button
-            type="submit"
-            className="btn btn-primary btn-lg auth-submit-btn"
-            whileHover={{ scale: 1.02, y: -1 }}
-            whileTap={{ scale: 0.97 }}
-          >
-            <LogIn size={16} /> Sign In
-          </motion.button>
-        </form>
+        </AnimatePresence>
 
         <div className="auth-footer">
-          Don't have an account? <Link to="/register">Create one</Link>
+          <Link to="/login">Back to Sign In</Link>
         </div>
       </motion.div>
     </div>
