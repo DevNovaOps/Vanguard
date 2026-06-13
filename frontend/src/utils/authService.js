@@ -13,6 +13,30 @@ export const authService = {
     return api.post('/api/auth/otp-login', { email });
   },
 
+  forgotPassword: async (email) => {
+    return api.post('/api/auth/forgot-password', { email });
+  },
+
+  sendResetLink: async (email) => {
+    return api.post('/api/auth/send-reset-link', { email });
+  },
+
+  resetPassword: async (token, password) => {
+    return api.post(`/api/auth/reset-password/${token}`, { password });
+  },
+
+  sendLoginOtp: async (email) => {
+    return api.post('/api/auth/send-login-otp', { email });
+  },
+
+  verifyLoginOtp: async (email, otp) => {
+    return api.post('/api/auth/verify-login-otp', { email, otp });
+  },
+
+  resendOtp: async (email) => {
+    return api.post('/api/auth/resend-otp', { email });
+  },
+
   registerUser: async (userData) => {
     return api.post('/api/auth/register', userData);
   },

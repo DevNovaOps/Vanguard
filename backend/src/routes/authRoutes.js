@@ -9,7 +9,13 @@ import {
   approveAllUsers,
   approveUser,
   rejectUser,
-  loginUserWithOtp
+  loginUserWithOtp,
+  forgotPassword,
+  sendResetLink,
+  resetPassword,
+  sendLoginOtp,
+  verifyLoginOtp,
+  resendOtp
 } from '../controllers/authController.js';
 import { authenticateUser } from '../middleware/authMiddleware.js';
 import { authorizeRoles } from '../middleware/roleMiddleware.js';
@@ -56,6 +62,15 @@ const loginValidationRules = [
 router.post('/register', registerValidationRules, registerUser);
 router.post('/login', loginValidationRules, loginUser);
 router.post('/otp-login', loginUserWithOtp);
+
+// Forgot Password and OTP Authentication Routes
+router.post('/forgot-password', forgotPassword);
+router.post('/send-reset-link', sendResetLink);
+router.post('/reset-password/:token', resetPassword);
+router.post('/send-login-otp', sendLoginOtp);
+router.post('/verify-login-otp', verifyLoginOtp);
+router.post('/resend-otp', resendOtp);
+
 router.get('/profile', authenticateUser, getUserProfile);
 router.post('/logout', authenticateUser, logoutUser);
 

@@ -318,14 +318,16 @@ export default function RailwayNetwork() {
       const loadOpacity = isHighlighted ? 0.85 : 0.15 + (route.load / 100) * 0.4;
       const loadWidth = isHighlighted ? 3 + (route.load / 100) * 2 : 1 + (route.load / 100) * 2;
 
-      const glowPath = L.polyline(routeCoords, {
+      // Glow path
+      L.polyline([fromCoords, toCoords], {
         color: routeColor,
         weight: loadWidth + 4,
         opacity: loadOpacity * 0.3,
         interactive: false
       }).addTo(markersGroupRef.current);
 
-      const corePath = L.polyline(routeCoords, {
+      // Core path
+      L.polyline([fromCoords, toCoords], {
         color: routeColor,
         weight: loadWidth,
         opacity: loadOpacity,

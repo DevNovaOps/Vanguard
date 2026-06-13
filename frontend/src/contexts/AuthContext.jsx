@@ -101,10 +101,10 @@ export function AuthProvider({ children }) {
     }
   }, [normalizeUserRole]);
 
-  const loginWithOtp = useCallback(async (email) => {
+  const loginWithOtp = useCallback(async (email, otp) => {
     setLoading(true);
     try {
-      const res = await authService.loginUserWithOtp(email);
+      const res = await authService.verifyLoginOtp(email, otp);
       if (res.success && res.token && res.user) {
         localStorage.setItem('arc_token', res.token);
         const normalized = normalizeUserRole(res.user);
