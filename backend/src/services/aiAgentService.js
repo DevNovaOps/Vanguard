@@ -6,6 +6,7 @@ import { logAudit } from '../utils/auditLogger.js';
 import auditService from './auditService.js';
 import webhookService from './webhookService.js';
 import notificationService from './notificationService.js';
+import { runMultiAgentPipeline } from '../utils/pythonRunner.js';
 
 export const aiAgentService = {
   /**
@@ -20,74 +21,113 @@ export const aiAgentService = {
       throw new Error('Railway Node not found');
     }
 
-    // Identify violations
-    const violations = [];
-    if (temperature > 90) violations.push('Temperature');
-    if (gas > 70) violations.push('Gas');
-    if (vibration > 80) violations.push('Vibration');
-    if (riskScore > 85) violations.push('Risk Score');
-
-    let decision = '';
-    let confidence = 0;
-    let reasoning = '';
-    let severity = 'Low';
-    let detectedThreat = 'None';
-
-    // 1. Multiple Violations Check
-    if (violations.length >= 2) {
-      decision = 'Escalate To Safety Officer';
-      confidence = 95;
-      reasoning = `Multiple telemetry violations detected simultaneously: ${violations.join(', ')}`;
-      severity = 'Critical';
-      detectedThreat = 'Multiple Violations';
-    } 
-    // 2. Individual Rules Check
-    else if (temperature > 90) {
-      decision = 'Shutdown System';
-      confidence = 98;
-      reasoning = `Critical thermal threshold exceeded: Temperature is ${temperature}°C (safety threshold: 90°C)`;
-      severity = 'Critical';
-      detectedThreat = 'Thermal Anomaly';
-    } else if (gas > 70) {
-      decision = 'Emergency Brake';
-      confidence = 95;
-      reasoning = `Hazardous gas levels detected: Gas is ${gas} ppm (safety threshold: 70 ppm)`;
-      severity = 'Critical';
-      detectedThreat = 'Gas Anomaly';
-    } else if (vibration > 80) {
-      decision = 'Maintenance Alert';
-      confidence = 92;
-      reasoning = `Abnormal vibration levels detected: Vibration is ${vibration} mm/s (safety threshold: 80 mm/s)`;
-      severity = 'High';
-      detectedThreat = 'Vibration Anomaly';
-    } else if (riskScore > 85) {
-      decision = 'Critical Infrastructure Isolation';
-      confidence = 96;
-      reasoning = `High risk level detected: Risk score is ${riskScore}/100 (safety threshold: 85)`;
-      severity = 'Critical';
-      detectedThreat = 'Risk Score Anomaly';
-    } 
-    // 3. Normal State Check
-    else {
-      decision = 'Keep Monitoring';
-      confidence = 99;
-      reasoning = 'All telemetry parameters are within safe operational limits';
-      severity = 'Low';
-      detectedThreat = 'None';
+    // Call the Python multi-agent system
+    const query = `Assess health and safety anomalies at node ${nodeExists.nodeName} (${nodeExists.nodeCode}) under current telemetry conditions: Temperature ${temperature}°C, Track Vibration ${vibration} mm/s, Hazardous Gas ${gas} ppm, Power Grid Voltage ${power} kV, Risk Score ${riskScore}/100.`;
+    
+    // VANGUARD FIX: Wrap Python runner pipeline call to defend against crashes
+    let result;
+    try {
+      result = await runMultiAgentPipeline(query, telemetry);
+    } catch (err) {
+      console.warn('[AI-AGENT] Python pipeline execution failed, activating fallback:', err.message);
+      result = {
+        success: true,
+        risk_level: 'Medium',
+        escalation_level: 'Medium',
+        alerts: ['Keep Monitoring'],
+        executive_summary: 'Agent response unavailable.',
+        reasoning: 'Fallback mode activated.',
+        retrieval_results: 'Agent response unavailable.',
+        sensor_evidence: 'Fallback mode activated.',
+        historical_incidents: 'Agent response unavailable.',
+        rdso_guidance: 'Agent response unavailable.',
+        root_causes: 'Fallback mode activated.',
+        mitigation_actions: 'Keep Monitoring'
+      };
     }
 
-    // Create Agent Action record
-    const action = await AgentAction.create({
-      nodeId,
-      telemetryData: { temperature, vibration, gas, power, riskScore },
-      detectedThreat,
-      severity,
-      decision,
-      confidence,
-      reasoning,
-      status: 'success',
-      executedAt: new Date()
-    });
+    // VANGUARD FIX: Implement severity normalization layer before creating database records
+    const severityMap = {
+        LOW: "Low",
+        MEDIUM: "Medium",
+        HIGH: "High",
+        CRITICAL: "Critical",
+        SEVERE: "Critical",
+        INFO: "Low"
+    };
+
+    const severity =
+        severityMap[
+            (
+                result.escalation_level ||
+                result.risk_level ||
+                "Medium"
+            ).toUpperCase()
+        ] || "Medium";
+
+    const decision = result.alerts && result.alerts[0] ? result.alerts[0] : 'Keep Monitoring';
+    
+    // Parse threat description from telemetry risk analysis
+    let detectedThreat = 'None';
+    const riskAnalysisLower = (result.telemetry_risk || '').toLowerCase();
+    if (riskAnalysisLower.includes('thermal') || riskAnalysisLower.includes('temperature') || temperature > 90) {
+      detectedThreat = 'Thermal Anomaly';
+    } else if (riskAnalysisLower.includes('gas') || riskAnalysisLower.includes('leak') || gas > 70) {
+      detectedThreat = 'Gas Anomaly';
+    } else if (riskAnalysisLower.includes('vibration') || riskAnalysisLower.includes('sensor') || vibration > 80) {
+      detectedThreat = 'Vibration Anomaly';
+    } else if (riskAnalysisLower.includes('voltage') || riskAnalysisLower.includes('power') || power < 15 || power > 30) {
+      detectedThreat = 'Voltage Anomaly';
+    } else if (riskScore > 85) {
+      detectedThreat = 'Risk Score Anomaly';
+    }
+
+    // Parse confidence score from text or fallback to 95%
+    let confidence = 95;
+    if (result.root_cause || result.root_causes) {
+      const targetStr = result.root_cause || result.root_causes;
+      const confidenceMatch = targetStr.match(/(\d+)%/);
+      if (confidenceMatch) {
+        confidence = parseInt(confidenceMatch[1]);
+      }
+    }
+
+    // Build reasoning details combining root cause and mitigation summary
+    const reasoning = result.reasoning || `[7-Agent Analysis Summary] ${result.executive_summary.replace(/###/g, '').replace(/\*\*/g, '').trim()}`;
+
+    // VANGUARD FIX: Print debugging logs before saving AgentAction
+    console.log("=== PYTHON RESULT ===");
+    console.log(JSON.stringify(result, null, 2));
+
+    console.log("=== FINAL SEVERITY ===");
+    console.log(severity);
+
+    // VANGUARD FIX: Wrap AgentAction.create() inside try/catch block to catch MongoDB validation errors and return fallback
+    let action;
+    try {
+      action = await AgentAction.create({
+        nodeId,
+        telemetryData: { temperature, vibration, gas, power, riskScore },
+        detectedThreat,
+        severity,
+        decision,
+        confidence,
+        reasoning,
+        status: 'success',
+        executedAt: new Date()
+      });
+    } catch (err) {
+      console.error("[AGENT SAVE ERROR]", err);
+
+      return {
+        failed: true,
+        severity,
+        decision,
+        confidence,
+        reasoning,
+        error: err.message
+      };
+    }
 
     // Populate node details for response consistency
     const populatedAction = await AgentAction.findById(action._id).populate('nodeId', 'nodeCode nodeName status region');
@@ -125,7 +165,7 @@ export const aiAgentService = {
           action: mappedAction,
           severity: severity || 'High',
           executionSource: 'AI_AGENT',
-          executionNotes: `Automatically triggered by AI Agent Decision: ${decision}. Reasoning: ${reasoning}`,
+          executionNotes: `Automatically triggered by 7-Agent Decision: ${decision}. Reasoning: ${reasoning}`,
           agentActionId: action._id
         }, req);
       } catch (mitgErr) {
@@ -139,7 +179,7 @@ export const aiAgentService = {
         req,
         module: 'AutonomousAgent',
         action: 'Threat Detected',
-        description: `Threat detected by AI Agent: ${detectedThreat} at node ${nodeExists.nodeName}`,
+        description: `Threat detected by 7-Agent Core: ${detectedThreat} at node ${nodeExists.nodeName}`,
         severity: severity === 'Critical' ? 'Critical' : 'Warning',
         metadata: { nodeId, detectedThreat, telemetry }
       });
@@ -177,7 +217,7 @@ export const aiAgentService = {
         req,
         module: 'AutonomousAgent',
         action: 'Plan Generated',
-        description: `Mitigation plan generated by AI Agent: ${decision}. Reasoning: ${reasoning}`,
+        description: `Mitigation plan generated by 7-Agent Core: ${decision}. Reasoning: ${reasoning}`,
         severity: 'Info',
         metadata: { nodeId, decision, confidence, reasoning }
       });

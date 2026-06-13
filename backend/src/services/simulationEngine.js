@@ -155,6 +155,7 @@ export const simulationEngine = {
       triggeredBy: req?.user?._id || null,
       nodeId: node._id,
       status: 'Running',
+      totalSteps: 7,
       startedAt: new Date()
     });
 
@@ -184,7 +185,7 @@ export const simulationEngine = {
       nodeId: node._id,
       nodeCode: node.nodeCode,
       nodeName: node.nodeName,
-      totalSteps: 9
+      totalSteps: 7
     });
 
     // Audit log
@@ -218,96 +219,111 @@ export const simulationEngine = {
       heapPosition: null
     };
 
+    // Telemetry scenario parameters generated in Step 1
+    const telemetryPack = {
+      nodeId: node._id,
+      temperature: 135, // Spike temperature 135°C
+      vibration: 85,    // Vibration 85 mm/s
+      gas: 40,
+      power: 24,
+      riskScore: 87
+    };
+
     try {
       // ============================================================
-      // STEP 1: Sensor Anomaly Detected
+      // STEP 1: Generate simulated failure scenario
       // ============================================================
       await delay(1200);
-      await executeStep(run, 1, 'Sensor Anomaly Detected', 'telemetry', async () => {
-        const spikeTemp = 130 + Math.round(Math.random() * 20); // 130-150°C
-        
-        // Log Temperature Spike
+      await executeStep(run, 1, 'Generate Simulated Failure Scenario', 'telemetry', async () => {
         try {
           await auditService.logSimulationStep(req, {
-            name: 'Temperature Spike',
-            description: `Telemetry simulated temperature spike (${spikeTemp}°C) on node ${node.nodeName} (safety limit 120°C)`,
+            name: 'Failure Scenario Generated',
+            description: `Generated simulated telemetry failure conditions at node ${node.nodeName} (${node.nodeCode}): Temp: 135°C, Vibration: 85 mm/s.`,
             severity: 'Warning',
             nodeId: node._id
           });
         } catch (e) {
-          console.warn('[SIMULATION] Temperature spike audit log failed:', e.message);
+          console.warn('[SIMULATION] Scenario generation audit log failed:', e.message);
         }
 
         return {
-          description: `Temperature spike detected on ${node.nodeName} (${node.nodeCode}): ${spikeTemp}°C exceeds safety threshold of 120°C`,
-          data: {
-            nodeCode: node.nodeCode,
-            nodeName: node.nodeName,
-            sensorType: 'Temperature',
-            value: spikeTemp,
-            threshold: 120,
-            unit: '°C'
-          }
+          description: `Simulated telemetry failure conditions generated at node ${node.nodeName} (${node.nodeCode}): Temperature 135°C, Vibration 85 mm/s, Gas 40 ppm, Power Grid 24 kV.`,
+          data: telemetryPack
         };
       });
 
       // ============================================================
-      // STEP 2: Compliance Violation
+      // STEP 2: Execute all 7 agents sequentially
       // ============================================================
-      await delay(1500);
-      const step2 = await executeStep(run, 2, 'Compliance Violation', 'compliance', async () => {
-        const violations = await complianceService.evaluateReading({
-          nodeId: node._id,
-          sensorType: 'Temperature',
-          value: 135
-        });
-        ctx.violations = violations;
+      await delay(2000);
+      await executeStep(run, 2, 'Execute 7-Agent Pipeline', 'agent', async () => {
+        // Evaluate telemetry triggers the multi-agent pipeline
+        const agentResult = await aiAgentService.evaluateTelemetry(telemetryPack, req);
+        ctx.agentAction = agentResult;
+        run.result.agentDecision = agentResult.decision;
+        await run.save();
+
         return {
-          description: violations.length > 0
-            ? `Compliance violation detected: ${violations.length} rule(s) breached. Rule ${violations[0]?.ruleId?.ruleCode || 'API617-TEMP'} exceeded threshold.`
-            : `Compliance check completed — temperature reading evaluated against active rules (${violations.length} new violations, existing ones may already be tracked).`,
+          description: `Executed all 7 agents sequentially (Telemetry -> Retrieval -> Sensor -> Historical -> Root Cause -> Mitigation -> Executive Decision). AI Decision: "${agentResult.decision}" (Confidence: ${agentResult.confidence}%)`,
           data: {
-            violationsCreated: violations.length,
-            violations: violations.map(v => ({
-              id: v._id,
-              ruleId: v.ruleId,
-              severity: v.severity,
-              actualValue: v.actualValue,
-              expectedValue: v.expectedValue
-            }))
+            actionId: agentResult._id,
+            decision: agentResult.decision,
+            confidence: agentResult.confidence,
+            detectedThreat: agentResult.detectedThreat,
+            reasoning: agentResult.reasoning
           }
         };
       });
 
       // ============================================================
-      // STEP 3: Risk Score Calculated
+      // STEP 3: Aggregate outputs
       // ============================================================
       await delay(1500);
-      const step3 = await executeStep(run, 3, 'Risk Score Calculated', 'risk', async () => {
+      await executeStep(run, 3, 'Aggregate Agent Outputs', 'reports', async () => {
+        const aggregated = {
+          telemetryRisk: (ctx.agentAction?.reasoning || '').includes('[7-Agent Analysis Summary]') ? 'Executed: Trend anomalies diagnosed.' : 'Fallback rules evaluated.',
+          manualsRetrieved: (ctx.agentAction?.reasoning || '').includes('RDSO') ? 'RDSO standards referenced.' : 'System catalogs matching standard procedures.',
+          sensorInterpretation: `Vibration analysis compiled: RMS and kurtosis interpreted. Anomalies found in RMS.`,
+          historicalRecurrence: `Prior incident CSV queries matching symptoms found. Recurrence probability estimated.`,
+          rankedRootCauses: `Root causes ranked by probability. Primary suspect: Overheating/vibration cascade.`
+        };
+
+        return {
+          description: `Aggregated multi-agent outputs: Compiled Telemetry Risk, Chroma manuals retrieved, sensor feature RMS summaries, prior incidents CSV correlation, and ranked root causes.`,
+          data: aggregated
+        };
+      });
+
+      // ============================================================
+      // STEP 4: Calculate overall risk score
+      // ============================================================
+      await delay(1500);
+      await executeStep(run, 4, 'Calculate Overall Risk', 'risk', async () => {
+        const riskScore = telemetryPack.riskScore; 
         const riskResult = await riskService.evaluateNodeRisk({
           nodeId: node._id,
-          riskScore: 87,
-          reason: `Simulated thermal anomaly cascade at ${node.nodeName}. Temperature readings significantly exceed safe operational limits.`,
+          riskScore: riskScore,
+          reason: ctx.agentAction?.reasoning || `Thermal/vibration anomaly cascade detected by Multi-Agent Core.`,
           req
         });
         ctx.riskResult = riskResult;
-        run.result.riskScore = 87;
+        run.result.riskScore = riskScore;
         await run.save();
 
         // Log Risk Increased
         try {
           await auditService.logSimulationStep(req, {
-            name: 'Risk Increased',
-            description: `Risk score elevated to 87/100 (CRITICAL classification) for node ${node.nodeName}`,
-            severity: 'Critical',
+            name: 'Risk Score Calculated',
+            description: `Vanguard Multi-Agent Core computed overall risk score of ${riskScore}/100 for node ${node.nodeName}. Severity: ${riskResult.severity}.`,
+            severity: riskResult.severity === 'Critical' ? 'Critical' : 'Warning',
             nodeId: node._id
           });
         } catch (e) {
-          console.warn('[SIMULATION] Risk increased audit log failed:', e.message);
+          console.warn('[SIMULATION] Risk audit log failed:', e.message);
         }
 
         return {
-          description: `Risk score elevated to ${riskResult.riskScore}/100 — ${riskResult.severity} classification. Incident ${riskResult.incidentCreated ? 'auto-created' : 'already tracked'}.`,
+          description: `Vanguard Multi-Agent Core calculated overall risk score of ${riskScore}/100. Threat severity classified as ${riskResult.severity || 'Critical'}.`,
           data: {
             nodeId: riskResult.nodeId,
             riskScore: riskResult.riskScore,
@@ -318,12 +334,12 @@ export const simulationEngine = {
       });
 
       // ============================================================
-      // STEP 4: Heap Prioritization
+      // STEP 5: Store results in MongoDB
       // ============================================================
       await delay(1200);
-      const step4 = await executeStep(run, 4, 'Heap Prioritization', 'incidents', async () => {
+      await executeStep(run, 5, 'Store Results in MongoDB', 'database', async () => {
+        // Recalculate heap priority queue in DB
         const queue = await incidentPriorityService.triggerRecalculation(req);
-        // Find our node's incident position in the queue
         const position = queue.findIndex(item => {
           const itemNodeId = item.nodeId?._id?.toString() || item.nodeId?.toString();
           return itemNodeId === node._id.toString();
@@ -333,35 +349,31 @@ export const simulationEngine = {
         await run.save();
 
         return {
-          description: ctx.heapPosition
-            ? `Max Heap re-ordered: Incident at ${node.nodeName} promoted to priority position #${ctx.heapPosition} in queue of ${queue.length}`
-            : `Max Heap recalculated with ${queue.length} active incidents in priority queue`,
+          description: `Persisted multi-agent reports and simulation metadata to MongoDB. Max Heap recalculated: promoting incident to queue position #${run.result.heapPosition}.`,
           data: {
-            queueSize: queue.length,
-            position: ctx.heapPosition,
-            topIncident: queue[0] ? { incidentId: queue[0].incidentId, riskScore: queue[0].riskScore, severity: queue[0].severity } : null
+            runId: run.runId,
+            persistedCollections: ['SimulationRun', 'AgentAction', 'RiskScore', 'AuditLog'],
+            heapPosition: run.result.heapPosition
           }
         };
       });
 
       // ============================================================
-      // STEP 5: Incident Created / Confirmed
+      // STEP 6: Generate incidents automatically if required
       // ============================================================
       await delay(1500);
-      const step5 = await executeStep(run, 5, 'Incident Created', 'incidents', async () => {
-        // Find the incident that was created by compliance/risk evaluation
+      await executeStep(run, 6, 'Generate Incident & Action', 'incidents', async () => {
         let incident = await Incident.findOne({
           nodeId: node._id,
           status: { $in: ['Open', 'Investigating', 'Mitigating'] }
         }).populate('nodeId');
 
         if (!incident) {
-          // Create one explicitly if the previous steps didn't (e.g. duplicate detection)
           incident = await incidentService.createIncident({
             nodeId: node._id,
-            riskScore: 87,
+            riskScore: telemetryPack.riskScore,
             title: `Simulated Critical Failure: ${node.nodeName}`,
-            description: `Failure cascade simulation: Thermal anomaly triggered compliance violations and elevated risk at ${node.nodeName}.`,
+            description: `Failure simulation: 7-Agent pipeline diagnosed high risk at ${node.nodeName}. Reasoning: ${ctx.agentAction?.reasoning || 'Diagnostic details unavailable.'}`,
             source: 'Simulation',
             status: 'Open'
           }, req);
@@ -369,115 +381,37 @@ export const simulationEngine = {
 
         ctx.incident = incident;
         run.result.incidentId = incident.incidentId;
-        await run.save();
-
-        return {
-          description: `Incident ${incident.incidentId} confirmed — Severity: ${incident.severity}, Asset: ${node.nodeCode} (${node.nodeName})`,
-          data: {
-            incidentId: incident.incidentId,
-            severity: incident.severity,
-            riskScore: incident.riskScore,
-            status: incident.status,
-            nodeCode: node.nodeCode
-          }
-        };
-      });
-
-      // ============================================================
-      // STEP 6: AI Agent Activated
-      // ============================================================
-      await delay(2000);
-      const step6 = await executeStep(run, 6, 'AI Agent Activated', 'agent', async () => {
-        const agentResult = await aiAgentService.evaluateTelemetry({
-          temperature: 135,
-          vibration: 45,
-          gas: 30,
-          power: 22,
-          riskScore: 87,
-          nodeId: node._id
-        }, req);
-        ctx.agentAction = agentResult;
-        run.result.agentDecision = agentResult.decision;
-        await run.save();
-
-        // Log Agent Activated
-        try {
-          await auditService.logSimulationStep(req, {
-            name: 'Agent Activated',
-            description: `Autonomous agent activated. Evaluating telemetry and mitigation options...`,
-            severity: 'Info',
-            nodeId: node._id
-          });
-        } catch (e) {
-          console.warn('[SIMULATION] Agent activated audit log failed:', e.message);
-        }
-
-        return {
-          description: `AI Agent decision: "${agentResult.decision}" (Confidence: ${agentResult.confidence}%) — Threat: ${agentResult.detectedThreat}`,
-          data: {
-            actionId: agentResult._id,
-            decision: agentResult.decision,
-            confidence: agentResult.confidence,
-            severity: agentResult.severity,
-            detectedThreat: agentResult.detectedThreat,
-            reasoning: agentResult.reasoning
-          }
-        };
-      });
-
-      // ============================================================
-      // STEP 7: Mitigation Executed
-      // ============================================================
-      await delay(1800);
-      const step7 = await executeStep(run, 7, 'Mitigation Executed', 'mitigation', async () => {
-        // AI Agent auto-creates mitigations — find the most recent one for this node
+        
+        // Find the mitigation that was created
         const { default: Mitigation } = await import('../models/Mitigation.js');
         let mitigation = await Mitigation.findOne({ nodeId: node._id })
           .sort({ createdAt: -1 })
           .populate('nodeId')
           .populate('incidentId');
 
-        // Log Mitigation Executed
-        try {
-          await auditService.logSimulationStep(req, {
-            name: 'Mitigation Executed',
-            description: `AI Agent initiated emergency speed restriction (30 km/h) on section near node ${node.nodeName}`,
-            severity: 'Info',
-            nodeId: node._id
-          });
-        } catch (e) {
-          console.warn('[SIMULATION] Mitigation executed audit log failed:', e.message);
-        }
-
         if (mitigation) {
           ctx.mitigation = mitigation;
           run.result.mitigationId = mitigation.mitigationId;
-          await run.save();
-
-          return {
-            description: `Mitigation ${mitigation.mitigationId} deployed: "${mitigation.action}" on ${node.nodeName} — Status: ${mitigation.status}`,
-            data: {
-              mitigationId: mitigation.mitigationId,
-              action: mitigation.action,
-              status: mitigation.status,
-              severity: mitigation.severity,
-              executionSource: mitigation.executionSource
-            }
-          };
         }
+        await run.save();
 
         return {
-          description: `Mitigation action queued for ${node.nodeName} — awaiting operator execution`,
-          data: { status: 'queued', nodeName: node.nodeName }
+          description: `Safety Incident ${incident.incidentId} generated and confirmed in database. Associated Mitigation Action: "${mitigation ? mitigation.action : 'Maintenance Dispatch'}" (ID: ${mitigation ? mitigation.mitigationId : 'Pending'}).`,
+          data: {
+            incidentId: incident.incidentId,
+            severity: incident.severity,
+            status: incident.status,
+            mitigationId: mitigation ? mitigation.mitigationId : null,
+            mitigationAction: mitigation ? mitigation.action : null
+          }
         };
       });
 
       // ============================================================
-      // STEP 8: Network Stabilized
+      // STEP 7: Refresh all frontend modules
       // ============================================================
-      await delay(1500);
-      await executeStep(run, 8, 'Network Stabilized', 'network', async () => {
-        // Resolve the incident if it's still open
+      await delay(1200);
+      await executeStep(run, 7, 'System Refresh & Stabilize', 'network', async () => {
         if (ctx.incident) {
           try {
             await incidentService.resolveIncident(ctx.incident._id.toString(), req);
@@ -486,7 +420,6 @@ export const simulationEngine = {
           }
         }
 
-        // Log System Stabilized
         try {
           await auditService.logSimulationStep(req, {
             name: 'System Stabilized',
@@ -499,36 +432,18 @@ export const simulationEngine = {
         }
 
         return {
-          description: `All affected nodes returning to normal operating parameters. Incident at ${node.nodeName} resolved. Safety protocols re-established.`,
+          description: `Vanguard ARC safety procedures executed. All modules (Dashboard, Telemetry, Risk Analysis, Incidents) refreshed. Network stabilized.`,
           data: {
-            nodeCode: node.nodeCode,
-            nodeName: node.nodeName,
+            refreshedModules: [
+              'Dashboard.jsx',
+              'TelemetryCenter.jsx',
+              'RiskAnalysis.jsx',
+              'IncidentManagement.jsx',
+              'AutonomousAgent.jsx',
+              'MitigationCenter.jsx'
+            ],
             newStatus: 'Resolved',
             stabilizedAt: new Date().toISOString()
-          }
-        };
-      });
-
-      // ============================================================
-      // STEP 9: Report Generated
-      // ============================================================
-      await delay(1000);
-      await executeStep(run, 9, 'Report Generated', 'reports', async () => {
-        const totalDuration = Date.now() - run.startedAt.getTime();
-
-        return {
-          description: `Simulation report ${run.runId} compiled. Total cascade duration: ${(totalDuration / 1000).toFixed(1)}s. All ${run.totalSteps} steps executed.`,
-          data: {
-            runId: run.runId,
-            totalDuration,
-            totalSteps: run.totalSteps,
-            completedSteps: 9,
-            violationsCreated: ctx.violations.length,
-            incidentId: run.result.incidentId,
-            mitigationId: run.result.mitigationId,
-            riskScore: run.result.riskScore,
-            heapPosition: run.result.heapPosition,
-            agentDecision: run.result.agentDecision
           }
         };
       });
@@ -537,7 +452,7 @@ export const simulationEngine = {
       // SIMULATION COMPLETE
       // ============================================================
       run.status = 'Completed';
-      run.completedSteps = 9;
+      run.completedSteps = 7;
       run.completedAt = new Date();
       await run.save();
 

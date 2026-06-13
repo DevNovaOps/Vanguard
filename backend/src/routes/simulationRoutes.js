@@ -2,8 +2,81 @@ import express from 'express';
 import simulationEngine from '../services/simulationEngine.js';
 import { authenticateUser } from '../middleware/authMiddleware.js';
 import { authorizeRoles } from '../middleware/roleMiddleware.js';
+import SimulationResult from '../models/SimulationResult.js';
+import { runMultiAgentPipeline } from '../utils/pythonRunner.js';
 
 const router = express.Router();
+
+/**
+ * POST /api/simulation/run
+ * Run failure simulation synchronously, executing the 7-agent pipeline
+ * Access: Authenticated users
+ */
+router.post(
+  '/run',
+  authenticateUser,
+  async (req, res, next) => {
+    try {
+      const { asset_id, asset_type, failure_type, location } = req.body;
+
+      if (!asset_id || !asset_type || !failure_type || !location) {
+        return res.status(400).json({
+          success: false,
+          message: 'Missing required parameters: asset_id, asset_type, failure_type, location'
+        });
+      }
+
+      // Generate AI query
+      const query = `Analyze simulated ${failure_type.replace(/_/g, ' ')} in ${asset_type} ${asset_id} at ${location}. Determine sensor evidence, similar incidents, RDSO guidance, probable root causes, mitigation actions, and executive recommendations.`;
+
+      console.log(`[SIMULATION-API] Generated query: "${query}"`);
+
+      // Simulated telemetry parameters to trigger thresholds (>60C, >6mm/s)
+      const telemetry = {
+        temperature: 105,
+        vibration: 8.5,
+        gas: 15,
+        power: 24,
+        risk_score: 95
+      };
+
+      // Run python multi-agent pipeline
+      const pipelineResult = await runMultiAgentPipeline(query, telemetry);
+
+      // Map risk level to uppercase
+      const rawRiskLevel = pipelineResult.risk_level || 'CRITICAL';
+      const risk_level = rawRiskLevel.toUpperCase();
+
+      // Create and save SimulationResult
+      const resultDoc = new SimulationResult({
+        asset_id,
+        asset_type,
+        location,
+        failure_type,
+        query,
+        retrieval_results: pipelineResult.retrieval_results || '',
+        sensor_evidence: pipelineResult.sensor_evidence || '',
+        historical_incidents: pipelineResult.historical_incidents || '',
+        rdso_guidance: pipelineResult.rdso_guidance || '',
+        root_causes: pipelineResult.root_causes || '',
+        mitigation_actions: pipelineResult.mitigation_actions || '',
+        executive_summary: pipelineResult.executive_summary || '',
+        risk_level
+      });
+
+      await resultDoc.save();
+
+      res.status(200).json({
+        success: true,
+        message: 'Simulation completed and saved successfully',
+        data: resultDoc
+      });
+    } catch (error) {
+      console.error('[SIMULATION-API] Error running simulation:', error);
+      next(error);
+    }
+  }
+);
 
 /**
  * POST /api/simulation/trigger
