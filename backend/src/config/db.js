@@ -39,7 +39,7 @@ const seedInfrastructure = async () => {
     await RiskScore.deleteMany({});
     console.log('[VANGUARD-DB] Cleared old infrastructure collections.');
 
-        console.log('[VANGUARD-DB] Seeding Geographical Railway Nodes...');
+    console.log('[VANGUARD-DB] Seeding Geographical Railway Nodes...');
     const nodeData = [
       { nodeCode: 'DLI', nodeName: 'Delhi Junction', nodeType: 'Junction', latitude: 28.6613, longitude: 77.2299, status: 'healthy', region: 'Northern' },
       { nodeCode: 'GGN', nodeName: 'Gurugram', nodeType: 'Station', latitude: 28.4682, longitude: 77.0195, status: 'healthy', region: 'Northern' },
