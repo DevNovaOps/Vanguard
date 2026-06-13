@@ -9,6 +9,10 @@ export const authService = {
     return api.post('/api/auth/login', { email, password });
   },
 
+  loginUserWithOtp: async (email) => {
+    return api.post('/api/auth/otp-login', { email });
+  },
+
   registerUser: async (userData) => {
     return api.post('/api/auth/register', userData);
   },

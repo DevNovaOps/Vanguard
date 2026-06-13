@@ -34,18 +34,11 @@ export default function RailwayNetwork() {
   const [error, setError] = useState(null);
   const [selectedNode, setSelectedNode] = useState(null);
   const [mapMode, setMapMode] = useState('topology');
-
-  // Layer & Zoom controls
-  const [zoom, setZoom] = useState(5);
-  const [selectedRegion, setSelectedRegion] = useState('All');
-  const [selectedType, setSelectedType] = useState('All');
-  const [showOpenRailwayMap, setShowOpenRailwayMap] = useState(true);
-
+  
   const mapRef = useRef(null);
   const mapInstanceRef = useRef(null);
   const markersGroupRef = useRef(null);
-  const openRailwayMapLayerRef = useRef(null);
-
+  
   const { isRunning } = useSimulation();
 
   const fetchTopology = async () => {
@@ -81,6 +74,10 @@ export default function RailwayNetwork() {
         zoom: 5,
         zoomControl: false,
         attributionControl: false
+      });
+
+      map.on('zoomend', () => {
+        setZoom(map.getZoom());
       });
 
       L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
@@ -227,8 +224,8 @@ export default function RailwayNetwork() {
 
     markersGroupRef.current.clearLayers();
 
-    // 1. Render Polylines for Routes
-    visibleRoutes.forEach(route => {
+    // 1. Draw connections/routes
+    routes.forEach(route => {
       const fromNode = transitNodes.find(n => n.id === route.from);
       const toNode = transitNodes.find(n => n.id === route.to);
       if (!fromNode || !toNode) return;
@@ -236,34 +233,28 @@ export default function RailwayNetwork() {
       const fromCoords = [fromNode.lat, fromNode.lng];
       const toCoords = [toNode.lat, toNode.lng];
 
-      // Support multi-point coordinates or fallback to straight lines
-      const coords = route.coordinates && route.coordinates.length > 0
-        ? route.coordinates
-        : [fromCoords, toCoords];
-
-      const routeColor = route.status === 'warning' ? '#D97706' :
-        route.status === 'critical' ? '#DC2626' : '#5B87DF';
+      const routeColor = route.status === 'warning' ? '#D97706' : '#5B87DF';
       const loadOpacity = 0.15 + (route.load / 100) * 0.4;
-      const loadWidth = 1.5 + (route.load / 100) * 2.5;
+      const loadWidth = 1 + (route.load / 100) * 2;
 
       // Glow path
-      const glowPath = L.polyline(coords, {
+      L.polyline([fromCoords, toCoords], {
         color: routeColor,
         weight: loadWidth + 4,
-        opacity: loadOpacity * 0.35,
+        opacity: loadOpacity * 0.3,
         interactive: false
       }).addTo(markersGroupRef.current);
 
       // Core path
-      const corePath = L.polyline(coords, {
+      L.polyline([fromCoords, toCoords], {
         color: routeColor,
         weight: loadWidth,
         opacity: loadOpacity,
-        interactive: true
+        interactive: false
       }).addTo(markersGroupRef.current);
 
       // Dashed visual overlay
-      const dashedPath = L.polyline(coords, {
+      L.polyline([fromCoords, toCoords], {
         color: routeColor,
         weight: 1,
         opacity: 0.5,
@@ -315,87 +306,44 @@ export default function RailwayNetwork() {
       });
     }
 
-    // 3. Render Nodes and Clusters
-    nodesToRender.forEach(item => {
-      if (item.type === 'node') {
-        const node = item.data;
-        const isSelected = selectedNode?.id === node.id;
-        const markerIcon = L.divIcon({
-          className: '',
-          html: `<div class="custom-node-marker ${node.status} ${isSelected ? 'selected' : ''}">
-            <div class="pulse-ring"></div>
-            <div class="node-shape ${node.type}">
-              <div class="inner-dot"></div>
-            </div>
-          </div>`,
-          iconSize: isSelected ? [44, 44] : [32, 32],
-          iconAnchor: isSelected ? [22, 22] : [16, 16]
-        });
+    // 3. Draw nodes as custom Leaflet markers using DivIcon
+    transitNodes.forEach(node => {
+      const isSelected = selectedNode?.id === node.id;
+      const markerIcon = L.divIcon({
+        className: '',
+        html: `<div class="custom-node-marker ${node.status} ${isSelected ? 'selected' : ''}">
+          <div class="pulse-ring"></div>
+          <div class="node-shape ${node.type}">
+            <div class="inner-dot"></div>
+          </div>
+        </div>`,
+        iconSize: isSelected ? [44, 44] : [32, 32],
+        iconAnchor: isSelected ? [22, 22] : [16, 16]
+      });
 
-        const marker = L.marker([node.lat, node.lng], {
-          icon: markerIcon
-        }).addTo(markersGroupRef.current);
+      const marker = L.marker([node.lat, node.lng], {
+        icon: markerIcon
+      }).addTo(markersGroupRef.current);
 
         marker.on('click', () => {
           setSelectedNode(node);
         });
 
-        marker.bindTooltip(node.name, {
-          permanent: false,
-          direction: 'top',
-          className: 'custom-tooltip',
-          offset: [0, -10]
-        });
-      } else if (item.type === 'cluster') {
-        const cluster = item.data;
-
-        // Bubble status: critical > warning > maintenance > healthy
-        let clusterStatus = 'healthy';
-        if (cluster.nodes.some(n => n.status === 'critical')) {
-          clusterStatus = 'critical';
-        } else if (cluster.nodes.some(n => n.status === 'warning')) {
-          clusterStatus = 'warning';
-        } else if (cluster.nodes.some(n => n.status === 'maintenance')) {
-          clusterStatus = 'maintenance';
-        }
-
-        const clusterIcon = L.divIcon({
-          className: '',
-          html: `<div class="custom-cluster-marker ${clusterStatus}">
-            <div class="pulse-ring"></div>
-            <div class="cluster-shape">
-              <span>${cluster.nodes.length}</span>
-            </div>
-          </div>`,
-          iconSize: [40, 40],
-          iconAnchor: [20, 20]
-        });
-
-        const marker = L.marker([cluster.center.lat, cluster.center.lng], {
-          icon: clusterIcon
-        }).addTo(markersGroupRef.current);
-
-        marker.on('click', () => {
-          mapInstanceRef.current.setView([cluster.center.lat, cluster.center.lng], zoom + 2);
-        });
-
-        const tooltipText = cluster.nodes.map(n => n.name).slice(0, 5).join(', ') +
-          (cluster.nodes.length > 5 ? ` and ${cluster.nodes.length - 5} more...` : '');
-        marker.bindTooltip(`Cluster (${cluster.nodes.length} stations):<br/>${tooltipText}`, {
-          permanent: false,
-          direction: 'top',
-          className: 'custom-tooltip',
-          offset: [0, -10]
-        });
-      }
+      marker.bindTooltip(node.name, {
+        permanent: false,
+        direction: 'top',
+        className: 'custom-tooltip',
+        offset: [0, -10]
+      });
     });
-  }, [nodesToRender, visibleRoutes, selectedNode, mapMode, filteredNodes, zoom]);
+  }, [transitNodes, routes, selectedNode, mapMode]);
 
-  // Data packet simulation animation
+  // Buttery-smooth data packet animation loop using requestAnimationFrame
   useEffect(() => {
     if (!mapInstanceRef.current || visibleRoutes.length === 0) return;
 
-    const runAnimation = isRunning || mapMode === 'topology';
+    // Disable packet animation on large networks (>= 50 routes) to prevent severe lag
+    const runAnimation = (isRunning || mapMode === 'topology') && routes.length < 50;
     if (!runAnimation) return;
 
     const packets = [];

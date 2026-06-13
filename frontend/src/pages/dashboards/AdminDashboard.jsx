@@ -11,7 +11,6 @@ import { webhookService } from '../../utils/webhookService.js';
 import { io } from 'socket.io-client';
 import { formatDateTime, timeAgo } from '../../utils/helpers';
 import { useSimulation } from '../../contexts/SimulationContext';
-import { useNotifications } from '../../contexts/NotificationContext';
 import { Plus, Users, FileText, Play, Settings, Activity, Shield, AlertTriangle, Zap, Bot, LayoutDashboard } from 'lucide-react';
 import { authService } from '../../utils/authService';
 
@@ -65,15 +64,7 @@ const INTEL_ITEMS = [
 
 export default function AdminDashboard() {
   const { events } = useSimulation();
-  const { notifications } = useNotifications();
-
-  const intelItems = notifications.length > 0
-    ? notifications.map(notif => ({
-        text: `${notif.title}: ${notif.message}`,
-        dot: notif.severity === 'Critical' ? 'danger' : (notif.severity === 'High' ? 'warning' : (notif.severity === 'Warning' ? 'warning' : 'info')),
-        time: timeAgo(notif.createdAt)
-      }))
-    : INTEL_ITEMS;
+  const [intelItems, setIntelItems] = useState(INTEL_ITEMS);
 
   const [showUserManagement, setShowUserManagement] = useState(false);
   const [usersList, setUsersList] = useState([]);

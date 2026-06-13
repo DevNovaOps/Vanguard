@@ -194,7 +194,9 @@
 .kpi-card.kpi-info::before { background-image: linear-gradient(90deg, var(--color-info), #3B82F6, var(--color-info)); background-size: 200% 100%; }
 
 /* Subtle shine overlay */
-.kpi-card::after {
+.kpi-card::after,
+.card::after,
+.chart-card::after {
   content: '';
   position: absolute;
   top: 0;
@@ -202,7 +204,7 @@
   width: 60%;
   height: 100%;
   background: linear-gradient(90deg, transparent, rgba(255,255,255,0.03), transparent);
-  animation: subtleShine 6s ease-in-out infinite;
+  animation: subtleShine 4s ease-in-out infinite;
   pointer-events: none;
 }
 
@@ -900,4 +902,12 @@
 .intel-feed-item .feed-dot.success { background: var(--color-success); box-shadow: 0 0 6px rgba(5,150,105,0.4); }
 .intel-feed-item .feed-dot.warning { background: var(--color-warning); box-shadow: 0 0 6px rgba(217,119,6,0.4); }
 .intel-feed-item .feed-dot.danger { background: var(--color-danger); box-shadow: 0 0 6px rgba(220,38,38,0.4); animation: liveDot 2s ease infinite; }
+
+/* Light theme override for card shine animation */
+[data-theme="light"] .kpi-card::after,
+[data-theme="light"] .card::after,
+[data-theme="light"] .chart-card::after {
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.35), transparent);
+}
+
 .intel-feed-item .feed-dot.info { background: var(--color-primary-400); box-shadow: 0 0 6px rgba(26,86,219,0.4); }

@@ -302,3 +302,47 @@ export const rejectUser = async (req, res, next) => {
     next(error);
   }
 };
+
+/**
+ * @desc    Authenticate user via OTP & get token
+ * @route   POST /api/auth/otp-login
+ * @access  Public
+ */
+export const loginUserWithOtp = async (req, res, next) => {
+  const { email } = req.body;
+  try {
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'No user registered with this email address'
+      });
+    }
+
+    if (!user.isActive) {
+      return res.status(403).json({
+        success: false,
+        message: 'Your account has been deactivated or is pending approval. Contact your administrator.'
+      });
+    }
+
+    // Log Login Success
+    await auditService.logLogin(req, user, true);
+
+    res.status(200).json({
+      success: true,
+      token: generateToken(user),
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        permissions: user.permissions,
+        department: user.department,
+        isActive: user.isActive
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};

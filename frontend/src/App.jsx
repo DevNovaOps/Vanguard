@@ -1,8 +1,8 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { useEffect } from 'react';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
-import { ThemeProvider } from './contexts/ThemeContext';
+import { ThemeProvider, useTheme } from './contexts/ThemeContext';
 import { SimulationProvider } from './contexts/SimulationContext';
-import { NotificationProvider } from './contexts/NotificationContext';
 
 import PublicLayout from './components/layout/PublicLayout';
 import AppShell from './components/layout/AppShell';
@@ -16,6 +16,9 @@ import AboutPage from './pages/public/AboutPage';
 import ContactPage from './pages/public/ContactPage';
 import LoginPage from './pages/public/LoginPage';
 import RegisterPage from './pages/public/RegisterPage';
+import PrivacyPolicyPage from './pages/public/PrivacyPolicyPage';
+import TermsOfServicePage from './pages/public/TermsOfServicePage';
+import ForgotPasswordPage from './pages/public/ForgotPasswordPage';
 
 // Dashboards
 import AdminDashboard from './pages/dashboards/AdminDashboard';
@@ -51,6 +54,20 @@ function DashboardRedirect() {
 }
 
 function AppRoutes() {
+  const location = useLocation();
+  const { theme } = useTheme();
+
+  useEffect(() => {
+    if (location.pathname === '/') {
+      document.documentElement.setAttribute('data-theme', 'dark');
+    } else {
+      const resolved = theme === 'system'
+        ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+        : theme;
+      document.documentElement.setAttribute('data-theme', resolved);
+    }
+  }, [location.pathname, theme]);
+
   return (
     <Routes>
       {/* Public Routes */}
@@ -62,6 +79,9 @@ function AppRoutes() {
         <Route path="/contact" element={<ContactPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
+        <Route path="/privacy" element={<PrivacyPolicyPage />} />
+        <Route path="/terms" element={<TermsOfServicePage />} />
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
       </Route>
 
       {/* Protected Routes */}
@@ -97,11 +117,9 @@ export default function App() {
     <BrowserRouter>
       <ThemeProvider>
         <AuthProvider>
-          <NotificationProvider>
-            <SimulationProvider>
-              <AppRoutes />
-            </SimulationProvider>
-          </NotificationProvider>
+          <SimulationProvider>
+            <AppRoutes />
+          </SimulationProvider>
         </AuthProvider>
       </ThemeProvider>
     </BrowserRouter>

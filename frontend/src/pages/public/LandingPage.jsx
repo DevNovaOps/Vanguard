@@ -155,6 +155,19 @@ export default function LandingPage() {
     return () => clearInterval(interval);
   }, []);
 
+  useEffect(() => {
+    const handleRestartVideo = () => {
+      if (videoRef.current) {
+        videoRef.current.currentTime = 0;
+        videoRef.current.play().catch(err => console.log('Video play error:', err));
+        setVideoEnded(false);
+      }
+    };
+
+    window.addEventListener('restart-train-video', handleRestartVideo);
+    return () => window.removeEventListener('restart-train-video', handleRestartVideo);
+  }, []);
+
   return (
     <div>
       {/* ────── HERO SECTION ────── */}
