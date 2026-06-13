@@ -235,7 +235,8 @@ export const riskService = {
    * Fetch all calculated risks with populated node details
    */
   async getRisks() {
-    return await RiskScore.find({}).populate('nodeId', 'nodeCode nodeName status region');
+    const risks = await RiskScore.find({}).populate('nodeId', 'nodeCode nodeName status region');
+    return risks.filter(r => r.nodeId != null);
   },
 
   /**
@@ -263,8 +264,9 @@ export const riskService = {
    */
   async getDashboardStats() {
     const risks = await RiskScore.find({}).populate('nodeId', 'nodeCode nodeName');
+    const validRisks = risks.filter(r => r.nodeId != null);
     
-    const totalNodes = risks.length;
+    const totalNodes = validRisks.length;
     if (totalNodes === 0) {
       return {
         totalNodes: 0,
@@ -276,13 +278,13 @@ export const riskService = {
     }
 
     // Calculations
-    const sumRisk = risks.reduce((sum, r) => sum + r.totalRisk, 0);
+    const sumRisk = validRisks.reduce((sum, r) => sum + r.totalRisk, 0);
     const averageRisk = parseFloat((sumRisk / totalNodes).toFixed(1));
 
     // Highest risk node lookup
     let highestRiskNode = null;
     let maxRisk = -1;
-    risks.forEach(r => {
+    validRisks.forEach(r => {
       if (r.totalRisk > maxRisk) {
         maxRisk = r.totalRisk;
         highestRiskNode = {
@@ -293,10 +295,10 @@ export const riskService = {
       }
     });
 
-    const criticalNodes = risks.filter(r => r.riskLevel === 'Critical').length;
+    const criticalNodes = validRisks.filter(r => r.riskLevel === 'Critical').length;
 
     const riskDistribution = { Low: 0, Medium: 0, High: 0, Critical: 0 };
-    risks.forEach(r => {
+    validRisks.forEach(r => {
       if (r.riskLevel in riskDistribution) {
         riskDistribution[r.riskLevel]++;
       }

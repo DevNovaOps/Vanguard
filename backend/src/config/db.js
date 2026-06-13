@@ -4,6 +4,7 @@ import User from '../models/User.js';
 import RailwayNode from '../models/RailwayNode.js';
 import RailwayConnection from '../models/RailwayConnection.js';
 import ComplianceRule from '../models/ComplianceRule.js';
+import RiskScore from '../models/RiskScore.js';
 import riskService from '../services/riskService.js';
 
 // Setup DNS servers to Google DNS for reliable SRV lookup
@@ -35,6 +36,7 @@ const seedInfrastructure = async () => {
     // Clear old data to transition to geographical nodes
     await RailwayNode.deleteMany({});
     await RailwayConnection.deleteMany({});
+    await RiskScore.deleteMany({});
     console.log('[VANGUARD-DB] Cleared old infrastructure collections.');
 
         console.log('[VANGUARD-DB] Seeding Geographical Railway Nodes...');
