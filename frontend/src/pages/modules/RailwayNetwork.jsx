@@ -238,7 +238,7 @@ export default function RailwayNetwork() {
       const loadWidth = 1 + (route.load / 100) * 2;
 
       // Glow path
-      L.polyline([fromCoords, toCoords], {
+      const glowPath = L.polyline([fromCoords, toCoords], {
         color: routeColor,
         weight: loadWidth + 4,
         opacity: loadOpacity * 0.3,
@@ -246,11 +246,11 @@ export default function RailwayNetwork() {
       }).addTo(markersGroupRef.current);
 
       // Core path
-      L.polyline([fromCoords, toCoords], {
+      const corePath = L.polyline([fromCoords, toCoords], {
         color: routeColor,
         weight: loadWidth,
         opacity: loadOpacity,
-        interactive: false
+        interactive: true
       }).addTo(markersGroupRef.current);
 
       // Dashed visual overlay
