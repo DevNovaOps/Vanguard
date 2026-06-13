@@ -315,25 +315,30 @@ export default function RailwayNetwork() {
           : route.status === 'critical'
             ? '#DC2626'
             : '#5B87DF';
-      const loadOpacity = isHighlighted ? 0.85 : 0.15 + (route.load / 100) * 0.4;
-      const loadWidth = isHighlighted ? 3 + (route.load / 100) * 2 : 1 + (route.load / 100) * 2;
+      const loadOpacity = isHighlighted ? 0.85 : 0.15 + ((route.load || 0) / 100) * 0.4;
+      const loadWidth = isHighlighted ? 3 + ((route.load || 0) / 100) * 2 : 1 + ((route.load || 0) / 100) * 2;
 
-      // Glow path
-      L.polyline([fromCoords, toCoords], {
+      // Derive start/end coords from the full path
+      const fromCoords = routeCoords[0];
+      const toCoords = routeCoords[routeCoords.length - 1];
+
+      // Glow path (wide, low opacity — decorative)
+      const glowPath = L.polyline([fromCoords, toCoords], {
         color: routeColor,
         weight: loadWidth + 4,
         opacity: loadOpacity * 0.3,
         interactive: false
       }).addTo(markersGroupRef.current);
 
-      // Core path
-      L.polyline([fromCoords, toCoords], {
+      // Core path (interactive)
+      const corePath = L.polyline([fromCoords, toCoords], {
         color: routeColor,
         weight: loadWidth,
         opacity: loadOpacity,
         interactive: true
       }).addTo(markersGroupRef.current);
 
+      // Detailed dashed path along full route geometry
       L.polyline(routeCoords, {
         color: routeColor,
         weight: 1,
@@ -355,7 +360,7 @@ export default function RailwayNetwork() {
       });
 
       corePath.bindTooltip(
-        `Route: ${route.routeName}<br/>${route.from} → ${route.to}<br/>Load: ${route.load}%<br/>Distance: ${route.distance} km`,
+        `Route: ${route.routeName || route.id}<br/>${route.from} → ${route.to}<br/>Load: ${route.load || 0}%<br/>Distance: ${route.distance || '—'} km`,
         { sticky: true, className: 'custom-tooltip' }
       );
     };
