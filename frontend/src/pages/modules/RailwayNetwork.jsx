@@ -430,7 +430,7 @@ export default function RailwayNetwork() {
 
       <div className="page-header">
         <div>
-          <h1><Map size={22} style={{ display: 'inline', verticalAlign: 'middle', marginRight: '8px' }} />Railway Network</h1>
+          <h1><Map size={22} style={{ display: 'inline', verticalAlign: 'middle', marginRight: '8px' }} /><span className="gradient-text">Railway Network</span></h1>
           <p>Interactive infrastructure topology — {transitNodes.length} nodes, {routes.length} routes</p>
         </div>
         <div className="page-actions">

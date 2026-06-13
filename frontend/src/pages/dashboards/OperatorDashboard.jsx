@@ -16,6 +16,58 @@ const sensorByType = ['temperature', 'vibration', 'pressure', 'gas', 'power', 's
   warnings: sensors.filter(s => s.type === type && s.status !== 'normal').length,
 }));
 
+const pageVariants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.08
+    }
+  }
+};
+
+const headerVariants = {
+  hidden: { opacity: 0, y: -10 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.45, ease: [0.16, 1, 0.3, 1] }
+  }
+};
+
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.06
+    }
+  }
+};
+
+const itemVariants = {
+  hidden: { opacity: 0, y: 15 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.5, ease: [0.16, 1, 0.3, 1] }
+  }
+};
+
+const rowVariants = {
+  hidden: { opacity: 0, y: 8 },
+  visible: (i) => ({
+    opacity: 1,
+    y: 0,
+    transition: {
+      delay: i * 0.02,
+      duration: 0.3,
+      ease: [0.16, 1, 0.3, 1]
+    }
+  })
+};
+
+
 export default function OperatorDashboard() {
   const [incidents, setIncidents] = useState([]);
   const [stats, setStats] = useState(null);
@@ -71,26 +123,26 @@ export default function OperatorDashboard() {
   });
 
   return (
-    <div>
-      <div className="page-header">
+    <motion.div variants={pageVariants} initial="hidden" animate="visible">
+      <motion.div className="page-header" variants={headerVariants}>
         <div>
-          <h1>Operator Dashboard</h1>
+          <h1><span className="gradient-text">Operator Dashboard</span></h1>
           <p>Railway operations monitoring center</p>
         </div>
         <div className="page-actions">
           <span className="live-indicator">LIVE</span>
         </div>
-      </div>
+      </motion.div>
 
-      <div className="kpi-grid" style={{ gridTemplateColumns: 'repeat(5, 1fr)' }}>
+      <motion.div className="kpi-grid" style={{ gridTemplateColumns: 'repeat(5, 1fr)' }} variants={itemVariants}>
         {liveKPIs.map((kpi, i) => (
           <KPICard key={kpi.label} {...kpi} delay={i * 80} />
         ))}
-      </div>
+      </motion.div>
 
-      <div className="dashboard-grid">
+      <motion.div className="dashboard-grid" variants={containerVariants}>
         {/* Sensor Distribution */}
-        <div className="col-8">
+        <motion.div className="col-8" variants={itemVariants}>
           <ChartCard title="Sensor Distribution" subtitle="Sensors by type with warnings">
             <ResponsiveContainer width="100%" height={260}>
               <BarChart data={sensorByType} barGap={8}>
@@ -109,10 +161,10 @@ export default function OperatorDashboard() {
               </BarChart>
             </ResponsiveContainer>
           </ChartCard>
-        </div>
+        </motion.div>
 
         {/* Active Routes */}
-        <div className="col-4">
+        <motion.div className="col-4" variants={itemVariants}>
           <ChartCard title="Active Routes" subtitle={`${routes.length} routes monitored`}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', maxHeight: '260px', overflowY: 'auto' }}>
               {routes.map((route, i) => (
@@ -126,6 +178,7 @@ export default function OperatorDashboard() {
                     padding: '0.5rem 0.75rem', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-secondary)',
                     borderRadius: 'var(--radius-lg)', transition: 'all 200ms ease',
                   }}
+                  whileHover={{ scale: 1.02, backgroundColor: 'rgba(255,255,255,0.04)' }}
                 >
                   <div>
                     <div style={{ fontSize: 'var(--text-sm)', fontWeight: 'var(--font-medium)' }}>{route.name}</div>
@@ -133,11 +186,16 @@ export default function OperatorDashboard() {
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                     <div style={{ width: 40, height: 4, background: 'var(--bg-tertiary)', borderRadius: 4, overflow: 'hidden' }}>
-                      <div style={{
-                        width: `${route.load}%`, height: '100%',
-                        background: route.load > 85 ? 'var(--color-danger)' : route.load > 70 ? 'var(--color-warning)' : 'var(--color-success)',
-                        borderRadius: 4, boxShadow: route.load > 85 ? '0 0 6px rgba(220,38,38,0.4)' : 'none',
-                      }} />
+                      <motion.div
+                        style={{
+                          height: '100%',
+                          background: route.load > 85 ? 'var(--color-danger)' : route.load > 70 ? 'var(--color-warning)' : 'var(--color-success)',
+                          borderRadius: 4, boxShadow: route.load > 85 ? '0 0 6px rgba(220,38,38,0.4)' : 'none',
+                        }}
+                        initial={{ width: 0 }}
+                        animate={{ width: `${route.load}%` }}
+                        transition={{ duration: 0.8, ease: 'easeOut' }}
+                      />
                     </div>
                     <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-tertiary)', minWidth: 30 }}>{route.load}%</span>
                   </div>
@@ -145,10 +203,10 @@ export default function OperatorDashboard() {
               ))}
             </div>
           </ChartCard>
-        </div>
+        </motion.div>
 
         {/* Incident Queue */}
-        <div className="col-12">
+        <motion.div className="col-12" variants={itemVariants}>
           <ChartCard title="Incident Queue" subtitle="Active incidents sorted by priority">
             <div className="data-table-wrapper">
               <table className="data-table">
@@ -164,7 +222,7 @@ export default function OperatorDashboard() {
                     <th>Actions</th>
                   </tr>
                 </thead>
-                <tbody>
+                <tbody style={{ position: 'relative' }}>
                   {incidents.length === 0 ? (
                     <tr>
                       <td colSpan="8" style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-tertiary)' }}>
@@ -172,8 +230,14 @@ export default function OperatorDashboard() {
                       </td>
                     </tr>
                   ) : (
-                    incidents.slice(0, 5).map(inc => (
-                      <tr key={inc._id || inc.incidentId}>
+                    incidents.slice(0, 5).map((inc, i) => (
+                      <motion.tr
+                        key={inc._id || inc.incidentId}
+                        variants={rowVariants}
+                        custom={i}
+                        initial="hidden"
+                        animate="visible"
+                      >
                         <td style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)' }}>{inc.incidentId || inc._id}</td>
                         <td><StatusBadge status={inc.severity} dot /></td>
                         <td style={{ fontWeight: 'var(--font-medium)' }}>{inc.title}</td>
@@ -191,15 +255,17 @@ export default function OperatorDashboard() {
                           <button className="btn btn-ghost btn-sm" title="View"><Eye size={14} /></button>
                           <button className="btn btn-ghost btn-sm" title="Action"><ArrowUpRight size={14} /></button>
                         </td>
-                      </tr>
+                      </motion.tr>
                     ))
                   )}
                 </tbody>
               </table>
             </div>
           </ChartCard>
-        </div>
-      </div>
-    </div>
+        </motion.div>
+      </motion.div>
+    </motion.div>
   );
 }
+
+

@@ -110,7 +110,7 @@ export default function AuditLogs() {
     <div>
       <div className="page-header">
         <div>
-          <h1><FileText size={22} style={{ display: 'inline', verticalAlign: 'middle', marginRight: '8px' }} />Audit Logs</h1>
+          <h1><FileText size={22} style={{ display: 'inline', verticalAlign: 'middle', marginRight: '8px' }} /><span className="gradient-text">Audit Logs</span></h1>
           <p>Complete system activity trail</p>
         </div>
       </div>

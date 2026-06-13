@@ -1,6 +1,21 @@
 import { useState, useMemo } from 'react';
 import { ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Download } from 'lucide-react';
 import { exportToCSV } from '../../utils/helpers';
+import { motion, AnimatePresence } from 'framer-motion';
+
+const rowVariants = {
+  hidden: { opacity: 0, y: 10 },
+  visible: (i) => ({
+    opacity: 1,
+    y: 0,
+    transition: {
+      delay: i * 0.02,
+      duration: 0.35,
+      ease: [0.16, 1, 0.3, 1],
+    },
+  }),
+  exit: { opacity: 0, y: -8, transition: { duration: 0.15 } },
+};
 
 export default function DataTable({
   data = [],
@@ -12,6 +27,7 @@ export default function DataTable({
   showExport = true,
   onRowClick,
   emptyMessage = 'No data available',
+  loading = false,
 }) {
   const [sortKey, setSortKey] = useState(null);
   const [sortDir, setSortDir] = useState('asc');
@@ -86,28 +102,46 @@ export default function DataTable({
               ))}
             </tr>
           </thead>
-          <tbody>
-            {paged.length === 0 ? (
-              <tr>
-                <td colSpan={columns.length} style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-tertiary)' }}>
-                  {emptyMessage}
-                </td>
-              </tr>
-            ) : (
-              paged.map((row, i) => (
-                <tr
-                  key={row.id || i}
-                  onClick={() => onRowClick?.(row)}
-                  style={onRowClick ? { cursor: 'pointer' } : {}}
-                >
-                  {columns.map(col => (
-                    <td key={col.key}>
-                      {col.render ? col.render(row[col.key], row) : (row[col.key] ?? '—')}
-                    </td>
-                  ))}
+          <tbody style={{ position: 'relative' }}>
+            <AnimatePresence mode="popLayout">
+              {loading ? (
+                Array.from({ length: pageSize }).map((_, i) => (
+                  <tr key={`skeleton-${i}`}>
+                    {columns.map((col, j) => (
+                      <td key={`skeleton-${i}-${j}`}>
+                        <div className="skeleton" style={{ height: '16px', width: col.width || (j === 0 ? '40%' : '80%'), opacity: 0.8 }} />
+                      </td>
+                    ))}
+                  </tr>
+                ))
+              ) : paged.length === 0 ? (
+                <tr key="empty-row">
+                  <td colSpan={columns.length} style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-tertiary)' }}>
+                    {emptyMessage}
+                  </td>
                 </tr>
-              ))
-            )}
+              ) : (
+                paged.map((row, i) => (
+                  <motion.tr
+                    key={row.id || row._id || i}
+                    onClick={() => onRowClick?.(row)}
+                    style={onRowClick ? { cursor: 'pointer' } : {}}
+                    variants={rowVariants}
+                    custom={i}
+                    initial="hidden"
+                    animate="visible"
+                    exit="exit"
+                    layout="position"
+                  >
+                    {columns.map(col => (
+                      <td key={col.key}>
+                        {col.render ? col.render(row[col.key], row) : (row[col.key] ?? '—')}
+                      </td>
+                    ))}
+                  </motion.tr>
+                ))
+              )}
+            </AnimatePresence>
           </tbody>
         </table>
         {totalPages > 1 && (
@@ -137,3 +171,4 @@ export default function DataTable({
     </div>
   );
 }
+

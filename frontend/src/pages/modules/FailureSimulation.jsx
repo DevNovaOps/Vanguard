@@ -159,7 +159,7 @@ export default function FailureSimulation() {
         <div>
           <h1 style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
             <Zap size={28} style={{ color: 'var(--accent-primary)' }} />
-            Failure Simulation Engine
+            <span className="gradient-text">Failure Simulation Engine</span>
           </h1>
           <p style={{ color: 'var(--text-secondary)', marginTop: '0.25rem' }}>
             Orchestrate end-to-end failure cascade simulations across all Vanguard ARC modules

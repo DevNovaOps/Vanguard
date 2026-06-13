@@ -1,7 +1,7 @@
 export default function DocumentationPage() {
   return (
     <div className="info-page">
-      <h1>API Documentation</h1>
+      <h1><span className="gradient-text">API Documentation</span></h1>
       <p>Complete API reference for integrating with the Vanguard ARC platform.</p>
 
       <h2>Authentication</h2>

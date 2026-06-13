@@ -24,6 +24,13 @@ export default function AppShell() {
 
   return (
     <div className="app-shell">
+      {/* Cinematic background motion system */}
+      <div className="dashboard-ambient-bg">
+        <div className="ambient-blob blob-1" />
+        <div className="ambient-blob blob-2" />
+        <div className="ambient-blob blob-3" />
+      </div>
+
       <Sidebar
         collapsed={sidebarCollapsed}
         onToggle={() => {

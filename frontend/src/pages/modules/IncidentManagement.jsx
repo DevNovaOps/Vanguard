@@ -115,7 +115,7 @@ export default function IncidentManagement() {
     <div>
       <div className="page-header">
         <div>
-          <h1><AlertCircle size={22} style={{ display: 'inline', verticalAlign: 'middle', marginRight: '8px' }} />Incident Management</h1>
+          <h1><AlertCircle size={22} style={{ display: 'inline', verticalAlign: 'middle', marginRight: '8px' }} /><span className="gradient-text">Incident Management</span></h1>
           <p>Prioritized incident tracking with Max Heap ordering</p>
         </div>
         <div className="page-actions">

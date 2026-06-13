@@ -302,7 +302,7 @@ export default function ComplianceCenter() {
         <div>
           <h1>
             <Shield size={22} style={{ display: 'inline', verticalAlign: 'middle', marginRight: '8px' }} />
-            Compliance Center
+            <span className="gradient-text">Compliance Center</span>
           </h1>
           <p>Rule enforcement and violation tracking</p>
         </div>

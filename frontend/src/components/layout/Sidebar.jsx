@@ -139,9 +139,22 @@ export default function Sidebar({ collapsed, onToggle }) {
                     to={item.path}
                     className={`nav-item ${active ? 'active' : ''}`}
                     title={collapsed ? item.label : undefined}
+                    style={{ position: 'relative' }}
                   >
+                    {active && (
+                      <motion.div
+                        className="nav-item-active-bg"
+                        layoutId="activeSideNav"
+                        style={{
+                          position: 'absolute',
+                          inset: 0,
+                          zIndex: 0
+                        }}
+                        transition={{ type: 'spring', stiffness: 380, damping: 30 }}
+                      />
+                    )}
                     <motion.div
-                      style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', width: '100%' }}
+                      style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', width: '100%', position: 'relative', zIndex: 1 }}
                       variants={navItemVariants}
                       initial="hidden"
                       animate="visible"

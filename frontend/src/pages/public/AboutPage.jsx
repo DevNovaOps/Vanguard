@@ -3,7 +3,7 @@ import { Shield, Users, Target, Award } from 'lucide-react';
 export default function AboutPage() {
   return (
     <div className="info-page">
-      <h1>About Vanguard ARC</h1>
+      <h1><span className="gradient-text">About Vanguard ARC</span></h1>
       <p>
         Vanguard ARC (Autonomous Railway Control) is an enterprise-grade AI-powered platform
         designed for mission-critical railway infrastructure monitoring, risk analysis,

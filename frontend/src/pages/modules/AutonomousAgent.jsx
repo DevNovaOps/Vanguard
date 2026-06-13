@@ -311,7 +311,7 @@ export default function AutonomousAgent() {
     <div>
       <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
-          <h1><Bot size={22} style={{ display: 'inline', verticalAlign: 'middle', marginRight: '8px' }} />Autonomous Agent</h1>
+          <h1><Bot size={22} style={{ display: 'inline', verticalAlign: 'middle', marginRight: '8px' }} /><span className="gradient-text">Autonomous Agent</span></h1>
           <p>AI-powered threat detection, risk analysis, and autonomous mitigation</p>
         </div>
         <div className="page-actions" style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>

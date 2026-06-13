@@ -380,7 +380,7 @@ export default function WebhookCenter() {
         <div>
           <h1 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             <Webhook size={26} style={{ color: 'var(--accent-primary)' }} />
-            Webhook Center
+            <span className="gradient-text">Webhook Center</span>
           </h1>
           <p style={{ color: 'var(--text-secondary)' }}>Configure external webhooks, view real-time delivery logs, and track integration metrics</p>
         </div>

@@ -142,7 +142,7 @@ export default function RiskAnalysis() {
     <div>
       <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
-          <h1><AlertTriangle size={22} style={{ display: 'inline', verticalAlign: 'middle', marginRight: '8px' }} />Risk Analysis Engine</h1>
+          <h1><AlertTriangle size={22} style={{ display: 'inline', verticalAlign: 'middle', marginRight: '8px' }} /><span className="gradient-text">Risk Analysis Engine</span></h1>
           <p>AI-powered risk assessment and failure prediction</p>
         </div>
         {isAuthorizedToCalculate && (

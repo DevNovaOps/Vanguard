@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence, useScroll, useTransform } from 'framer-motion';
 import { Shield, Radio, AlertTriangle, Bot, BarChart3, Map, ArrowRight, CheckCircle, Activity, Zap, Eye, Thermometer, Gauge, Signal } from 'lucide-react';
+import heroVideo from '../../assets/Train_moves_into_station_202606111616.mp4';
 
 const STATS = [
   { value: '10,000+', label: 'Sensors Monitored' },
@@ -22,7 +23,7 @@ const FEATURES = [
 const FLOATING_PANELS = [
   { value: '284', label: 'Active Sensors', color: '#60A5FA', icon: Radio },
   { value: '99.97%', label: 'System Uptime', color: '#34D399', icon: Activity },
-  { value: '156', label: 'Auto Actions', color: '#A78BFA', icon: Bot },
+  { value: '156', label: 'Auto Actions', color: '#00D2FF', icon: Bot },
   { value: '94.2%', label: 'Compliance', color: '#FBBF24', icon: Shield },
 ];
 
@@ -82,12 +83,60 @@ const PARTICLES = Array.from({ length: 20 }, (_, i) => ({
   delay: Math.random() * 5,
 }));
 
+const featureContainerVariants = {
+  hidden: {},
+  visible: {
+    transition: {
+      staggerChildren: 0.1,
+    },
+  },
+};
+
+const featureCardVariants = {
+  hidden: { opacity: 0, y: 50, scale: 0.95 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    scale: 1,
+    transition: {
+      type: 'spring',
+      stiffness: 80,
+      damping: 15,
+      duration: 0.6,
+    },
+  },
+};
+
+const heroContainerVariants = {
+  hidden: {},
+  visible: {
+    transition: {
+      staggerChildren: 0.15,
+    },
+  },
+};
+
+const heroChildVariants = {
+  hidden: { opacity: 0, y: 35 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      duration: 0.85,
+      ease: [0.16, 1, 0.3, 1],
+    },
+  },
+};
+
 export default function LandingPage() {
   const [feedIndex, setFeedIndex] = useState(0);
   const [visibleFeed, setVisibleFeed] = useState(AI_FEED_ITEMS.slice(0, 4));
+  const [videoEnded, setVideoEnded] = useState(false);
   const heroRef = useRef(null);
+  const videoRef = useRef(null);
   const { scrollYProgress } = useScroll({ target: heroRef, offset: ['start start', 'end start'] });
-  const bgY = useTransform(scrollYProgress, [0, 1], ['0%', '20%']);
+  const videoY = useTransform(scrollYProgress, [0, 1], ['0%', '15%']);
+  const videoScale = useTransform(scrollYProgress, [0, 1], [1, 1.08]);
   const overlayOpacity = useTransform(scrollYProgress, [0, 0.5], [0.55, 0.95]);
 
   useEffect(() => {
@@ -111,12 +160,16 @@ export default function LandingPage() {
       {/* ────── HERO SECTION ────── */}
       <section className="landing-hero" ref={heroRef}>
 
-        {/* Layer 0: Background image with parallax */}
-        <motion.img
-          src="/hero-train.jpg"
-          alt=""
-          className="hero-bg-image"
-          style={{ y: bgY }}
+        {/* Layer 0: Background video — plays once on landing with scroll-linked zoom & parallax */}
+        <motion.video
+          ref={videoRef}
+          className={`hero-bg-video${videoEnded ? ' hero-bg-video--ended' : ''}`}
+          src={heroVideo}
+          autoPlay
+          muted
+          playsInline
+          onEnded={() => setVideoEnded(true)}
+          style={{ y: videoY, scale: videoScale }}
         />
 
         {/* Layer 1: Dark overlay */}
@@ -209,7 +262,7 @@ export default function LandingPage() {
             {NODES.map((node, i) => {
               const baseR = node.type === 'station' ? 5 : node.type === 'junction' ? 4 : 3;
               const color = node.type === 'station' ? '#60A5FA'
-                : node.type === 'junction' ? '#A78BFA'
+                : node.type === 'junction' ? '#00D2FF'
                 : node.type === 'power' ? '#FBBF24'
                 : node.type === 'depot' ? '#34D399'
                 : '#F87171';
@@ -313,31 +366,29 @@ export default function LandingPage() {
           </AnimatePresence>
         </div>
 
-        {/* Layer 6: Hero Content — centered */}
+        {/* Layer 6: Hero Content — centered with stagger */}
         <motion.div
           className="landing-hero-content"
-          initial={{ opacity: 0, y: 40 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1] }}
+          variants={heroContainerVariants}
+          initial="hidden"
+          animate="visible"
         >
           <motion.div
             className="badge badge-accent"
             style={{ marginBottom: '1rem' }}
-            initial={{ opacity: 0, scale: 0.9, y: 10 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            transition={{ delay: 0.4, duration: 0.5 }}
+            variants={heroChildVariants}
           >
             <CheckCircle size={12} /> Enterprise-Grade Railway Intelligence
           </motion.div>
-          <h1>
+          <motion.h1 variants={heroChildVariants}>
             AI-Powered <span className="gradient-text">Railway Infrastructure</span><br />
             Monitoring & Risk Mitigation
-          </h1>
-          <p>
+          </motion.h1>
+          <motion.p variants={heroChildVariants}>
             Vanguard ARC autonomously monitors railway assets, predicts failures, enforces compliance,
             and executes mitigation actions — keeping millions safe across the rail network.
-          </p>
-          <div className="landing-hero-actions">
+          </motion.p>
+          <motion.div className="landing-hero-actions" variants={heroChildVariants}>
             <motion.div whileHover={{ scale: 1.05, y: -2 }} whileTap={{ scale: 0.96 }}>
               <Link to="/login" className="btn btn-primary btn-lg">
                 Access Platform <ArrowRight size={16} />
@@ -348,7 +399,7 @@ export default function LandingPage() {
                 Explore Features
               </Link>
             </motion.div>
-          </div>
+          </motion.div>
         </motion.div>
 
         {/* Layer 7: Stats bar */}
@@ -370,61 +421,75 @@ export default function LandingPage() {
 
       {/* ────── FEATURES SECTION ────── */}
       <section className="landing-features">
-        <motion.h2
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.6 }}
-        >
-          Comprehensive Railway Intelligence
-        </motion.h2>
-        <motion.p
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.6, delay: 0.1 }}
-        >
-          Purpose-built modules for every aspect of railway infrastructure monitoring and autonomous risk mitigation.
-        </motion.p>
-        <div className="landing-feature-grid">
-          {FEATURES.map((f, i) => (
-            <motion.div
-              key={f.title}
-              className="landing-feature-card"
-              initial={{ opacity: 0, y: 30 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: i * 0.1, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-              whileHover={{ y: -6, transition: { duration: 0.2 } }}
-            >
-              <div className="landing-feature-icon">
-                <f.icon size={24} />
-              </div>
-              <h3>{f.title}</h3>
-              <p>{f.description}</p>
-            </motion.div>
-          ))}
+        <div className="landing-features-inner">
+          <motion.h2
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: false, margin: "-100px" }}
+            transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
+          >
+            <span className="gradient-text">Comprehensive Railway Intelligence</span>
+          </motion.h2>
+          <motion.p
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: false, margin: "-100px" }}
+            transition={{ duration: 0.8, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
+          >
+            Purpose-built modules for every aspect of railway infrastructure monitoring and autonomous risk mitigation.
+          </motion.p>
+          <motion.div
+            className="landing-feature-grid"
+            variants={featureContainerVariants}
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: false, margin: "-100px" }}
+          >
+            {FEATURES.map((f, i) => (
+              <motion.div
+                key={f.title}
+                className="landing-feature-card"
+                variants={featureCardVariants}
+                whileHover={{ y: -8, scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+              >
+                <div className="landing-feature-icon">
+                  <f.icon size={24} />
+                </div>
+                <h3>{f.title}</h3>
+                <p>{f.description}</p>
+              </motion.div>
+            ))}
+          </motion.div>
         </div>
       </section>
 
       {/* ────── CTA SECTION ────── */}
       <section className="landing-cta-section">
         <motion.h2
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: 30 }}
           whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
+          viewport={{ once: false, margin: "-100px" }}
+          transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
         >
           Ready to Transform Railway Operations?
         </motion.h2>
         <motion.p
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ delay: 0.1 }}
+          viewport={{ once: false, margin: "-100px" }}
+          transition={{ duration: 0.8, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
         >
           Join India's leading railway operators using Vanguard ARC to ensure safety, compliance, and operational excellence.
         </motion.p>
-        <motion.div whileHover={{ scale: 1.05, y: -2 }} whileTap={{ scale: 0.96 }}>
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          whileInView={{ opacity: 1, scale: 1 }}
+          viewport={{ once: false, margin: "-100px" }}
+          transition={{ duration: 0.6, delay: 0.2 }}
+          whileHover={{ scale: 1.05, y: -2 }}
+          whileTap={{ scale: 0.96 }}
+        >
           <Link to="/register" className="btn btn-primary btn-lg">
             Get Started Now <ArrowRight size={16} />
           </Link>

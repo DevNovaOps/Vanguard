@@ -17,7 +17,7 @@ export default function FeaturesPage() {
   return (
     <div className="info-page" style={{ maxWidth: '1100px' }}>
       <div style={{ textAlign: 'center', marginBottom: '3rem' }}>
-        <h1>Platform Features</h1>
+        <h1><span className="gradient-text">Platform Features</span></h1>
         <p style={{ maxWidth: '600px', margin: '0 auto' }}>
           Vanguard ARC provides 10 integrated modules for complete railway infrastructure intelligence and autonomous risk mitigation.
         </p>
