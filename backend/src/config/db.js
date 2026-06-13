@@ -5,7 +5,9 @@ import RailwayNode from '../models/RailwayNode.js';
 import RailwayConnection from '../models/RailwayConnection.js';
 import ComplianceRule from '../models/ComplianceRule.js';
 import RiskScore from '../models/RiskScore.js';
+import RouteSegment from '../models/RouteSegment.js';
 import riskService from '../services/riskService.js';
+import routeService from '../services/routeService.js';
 
 // Setup DNS servers to Google DNS for reliable SRV lookup
 dns.setServers(['8.8.8.8', '8.8.4.4']);
@@ -37,9 +39,10 @@ const seedInfrastructure = async () => {
     await RailwayNode.deleteMany({});
     await RailwayConnection.deleteMany({});
     await RiskScore.deleteMany({});
+    await RouteSegment.deleteMany({});
     console.log('[VANGUARD-DB] Cleared old infrastructure collections.');
 
-        console.log('[VANGUARD-DB] Seeding Geographical Railway Nodes...');
+    console.log('[VANGUARD-DB] Seeding Geographical Railway Nodes...');
     const nodeData = [
       { nodeCode: 'DLI', nodeName: 'Delhi Junction', nodeType: 'Junction', latitude: 28.6613, longitude: 77.2299, status: 'healthy', region: 'Northern' },
       { nodeCode: 'GGN', nodeName: 'Gurugram', nodeType: 'Station', latitude: 28.4682, longitude: 77.0195, status: 'healthy', region: 'Northern' },
@@ -160,6 +163,7 @@ const connectDB = async () => {
     await seedDemoUsers();
     await seedInfrastructure();
     await seedComplianceRules();
+    await routeService.generateRouteSegments();
     await riskService.calculateAllRisks();
     console.log('[VANGUARD-DB] Initial global risk scores calculated.');
   } catch (error) {
