@@ -15,11 +15,12 @@ export default function RailwayNetwork() {
   const [error, setError] = useState(null);
   const [selectedNode, setSelectedNode] = useState(null);
   const [mapMode, setMapMode] = useState('topology');
-  
+  const [zoom, setZoom] = useState(5);
+
   const mapRef = useRef(null);
   const mapInstanceRef = useRef(null);
   const markersGroupRef = useRef(null);
-  
+
   const { isRunning } = useSimulation();
 
   const fetchTopology = async () => {
@@ -56,6 +57,10 @@ export default function RailwayNetwork() {
         attributionControl: false
       });
 
+      map.on('zoomend', () => {
+        setZoom(map.getZoom());
+      });
+
       L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
         maxZoom: 20
       }).addTo(map);
@@ -81,7 +86,7 @@ export default function RailwayNetwork() {
     // Clear existing layers
     markersGroupRef.current.clearLayers();
 
-    // 1. Draw connections/routes
+    // 1. Draw connections/routes as thin lines
     routes.forEach(route => {
       const fromNode = transitNodes.find(n => n.id === route.from);
       const toNode = transitNodes.find(n => n.id === route.to);
@@ -90,32 +95,14 @@ export default function RailwayNetwork() {
       const fromCoords = [fromNode.lat, fromNode.lng];
       const toCoords = [toNode.lat, toNode.lng];
 
-      const routeColor = route.status === 'warning' ? '#D97706' : '#5B87DF';
-      const loadOpacity = 0.15 + (route.load / 100) * 0.4;
-      const loadWidth = 1 + (route.load / 100) * 2;
+      const routeColor = route.status === 'critical' ? '#DC2626' :
+                         route.status === 'warning' ? '#D97706' : '#5B87DF';
 
-      // Glow path
+      // Draw a single very thin track line
       L.polyline([fromCoords, toCoords], {
         color: routeColor,
-        weight: loadWidth + 4,
-        opacity: loadOpacity * 0.3,
-        interactive: false
-      }).addTo(markersGroupRef.current);
-
-      // Core path
-      L.polyline([fromCoords, toCoords], {
-        color: routeColor,
-        weight: loadWidth,
-        opacity: loadOpacity,
-        interactive: false
-      }).addTo(markersGroupRef.current);
-
-      // Dashed visual overlay
-      L.polyline([fromCoords, toCoords], {
-        color: routeColor,
-        weight: 1,
-        opacity: 0.5,
-        dashArray: '6, 4',
+        weight: 1.0,
+        opacity: 0.6,
         interactive: false
       }).addTo(markersGroupRef.current);
     });
@@ -141,23 +128,30 @@ export default function RailwayNetwork() {
       });
     }
 
-    // 3. Draw nodes as custom Leaflet markers using DivIcon
+    // 3. Draw nodes as tiny dot circle markers unconditionally
     transitNodes.forEach(node => {
       const isSelected = selectedNode?.id === node.id;
-      const markerIcon = L.divIcon({
-        className: '',
-        html: `<div class="custom-node-marker ${node.status} ${isSelected ? 'selected' : ''}">
-          <div class="pulse-ring"></div>
-          <div class="node-shape ${node.type}">
-            <div class="inner-dot"></div>
-          </div>
-        </div>`,
-        iconSize: isSelected ? [44, 44] : [32, 32],
-        iconAnchor: isSelected ? [22, 22] : [16, 16]
-      });
 
-      const marker = L.marker([node.lat, node.lng], {
-        icon: markerIcon
+      // Render as a clean, tiny dot (circleMarker) to avoid lag and clutter
+      const statusColors = {
+        healthy: '#059669',
+        warning: '#D97706',
+        critical: '#DC2626',
+        maintenance: '#3B82F6'
+      };
+      const color = statusColors[node.status] || '#059669';
+      
+      const radius = isSelected ? 5.0 : 2.0;
+      const weight = isSelected ? 1.5 : 0.5;
+      const strokeColor = isSelected ? '#ffffff' : '#0a0e1c';
+
+      const marker = L.circleMarker([node.lat, node.lng], {
+        radius,
+        fillColor: color,
+        color: strokeColor,
+        weight,
+        opacity: isSelected ? 1.0 : 0.7,
+        fillOpacity: isSelected ? 1.0 : 0.8
       }).addTo(markersGroupRef.current);
 
       marker.on('click', () => {
@@ -168,7 +162,7 @@ export default function RailwayNetwork() {
         permanent: false,
         direction: 'top',
         className: 'custom-tooltip',
-        offset: [0, -10]
+        offset: [0, isSelected ? -8 : -4]
       });
     });
   }, [transitNodes, routes, selectedNode, mapMode]);
@@ -177,7 +171,8 @@ export default function RailwayNetwork() {
   useEffect(() => {
     if (!mapInstanceRef.current || routes.length === 0) return;
 
-    const runAnimation = isRunning || mapMode === 'topology';
+    // Disable packet animation on large networks (>= 50 routes) to prevent severe lag
+    const runAnimation = (isRunning || mapMode === 'topology') && routes.length < 50;
     if (!runAnimation) return;
 
     const packets = [];
@@ -453,7 +448,7 @@ export default function RailwayNetwork() {
         {/* Map Mount Point with Overlays */}
         <div className="railway-map-container-inner" style={{ position: 'relative', width: '100%', height: '500px' }}>
           <div ref={mapRef} className="railway-map-svg" style={{ width: '100%', height: '500px', background: '#0a0e1c' }} />
-          
+
           {loading && (
             <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'rgba(10,14,28,0.85)', zIndex: 1000, gap: '1rem', color: 'var(--text-secondary)' }}>
               <div className="loading-spinner" />

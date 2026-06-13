@@ -2,7 +2,6 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { SimulationProvider } from './contexts/SimulationContext';
-import { NotificationProvider } from './contexts/NotificationContext';
 
 import PublicLayout from './components/layout/PublicLayout';
 import AppShell from './components/layout/AppShell';
@@ -97,11 +96,9 @@ export default function App() {
     <BrowserRouter>
       <ThemeProvider>
         <AuthProvider>
-          <NotificationProvider>
-            <SimulationProvider>
-              <AppRoutes />
-            </SimulationProvider>
-          </NotificationProvider>
+          <SimulationProvider>
+            <AppRoutes />
+          </SimulationProvider>
         </AuthProvider>
       </ThemeProvider>
     </BrowserRouter>

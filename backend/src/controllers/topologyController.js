@@ -121,7 +121,7 @@ export const getTopology = async (req, res, next) => {
     // Map database connections to frontend routes structure
     const connections = dbConnections.map(conn => {
       if (!conn.sourceNode || !conn.targetNode) return null;
-      
+
       const key = `${conn.sourceNode.nodeCode}-${conn.targetNode.nodeCode}`;
       const reverseKey = `${conn.targetNode.nodeCode}-${conn.sourceNode.nodeCode}`;
       const mockDetails = mockConnectionDetails[key] || mockConnectionDetails[reverseKey] || { load: 50, name: `${conn.sourceNode.nodeName} - ${conn.targetNode.nodeName}` };
