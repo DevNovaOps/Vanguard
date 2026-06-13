@@ -1,4 +1,5 @@
-import fetch from 'node-fetch'; // wait, we can just use global fetch
+// Use native global fetch
+
 
 async function run() {
   console.log("Fetching auth token...");

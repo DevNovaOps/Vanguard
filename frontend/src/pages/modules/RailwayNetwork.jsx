@@ -7,6 +7,37 @@ import { MapIcon, ZoomIn, ZoomOut, Maximize2, Wifi, Bot, ShieldAlert } from 'luc
 import { networkService } from '../../utils/networkService';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import indiaGeoJSON from '../../data/india-polygon.json';
+
+// Ray-casting point-in-polygon check (works with GeoJSON [lng, lat] rings)
+function pointInPolygon(lat, lng, ring) {
+  let inside = false;
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    const xi = ring[i][0], yi = ring[i][1];
+    const xj = ring[j][0], yj = ring[j][1];
+    const intersect = ((yi > lat) !== (yj > lat)) &&
+      (lng < (xj - xi) * (lat - yi) / (yj - yi) + xi);
+    if (intersect) inside = !inside;
+  }
+  return inside;
+}
+
+// Check if a point [lat, lng] falls inside the India MultiPolygon
+function isInsideIndia(lat, lng) {
+  const multiPoly = indiaGeoJSON.features[0].geometry.coordinates;
+  for (const polygon of multiPoly) {
+    // polygon[0] is the outer ring; polygon[1..n] are holes
+    if (pointInPolygon(lat, lng, polygon[0])) {
+      // Check that the point is NOT inside any hole
+      let inHole = false;
+      for (let h = 1; h < polygon.length; h++) {
+        if (pointInPolygon(lat, lng, polygon[h])) { inHole = true; break; }
+      }
+      if (!inHole) return true;
+    }
+  }
+  return false;
+}
 
 // Path interpolation helper for visual telemetry packets along multi-point polylines
 function interpolatePath(coords, progress) {
@@ -45,6 +76,7 @@ export default function RailwayNetwork() {
   const mapInstanceRef = useRef(null);
   const markersGroupRef = useRef(null);
   const openRailwayMapLayerRef = useRef(null);
+  const indiaMaskLayerRef = useRef(null);
   
   const { isRunning } = useSimulation();
 
@@ -101,11 +133,72 @@ export default function RailwayNetwork() {
         setZoom(map.getZoom());
       });
 
+      // Create a custom pane for the India mask so it sits above tile layers
+      // but below our interactive markers/routes
+      map.createPane('indiaMaskPane');
+      map.getPane('indiaMaskPane').style.zIndex = 450;
+      map.getPane('indiaMaskPane').style.pointerEvents = 'none';
+
+      map.createPane('indiaBorderPane');
+      map.getPane('indiaBorderPane').style.zIndex = 451;
+      map.getPane('indiaBorderPane').style.pointerEvents = 'none';
+
       // Dark CartoDB basemap
       L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
         maxZoom: 20,
         opacity: 1.0
       }).addTo(map);
+
+      // ── India boundary mask: blacks out everything outside India ──
+      const worldOuter = [
+        [-90, -180], [90, -180], [90, 180], [-90, 180], [-90, -180]
+      ];
+
+      // Convert India MultiPolygon rings to Leaflet [lat, lng] format
+      const multiPoly = indiaGeoJSON.features[0].geometry.coordinates;
+      const indiaHoles = [];
+      const indiaOutlines = [];
+      multiPoly.forEach((polygon) => {
+        polygon.forEach((ring, ringIdx) => {
+          const latLngs = ring.map(c => [c[1], c[0]]); // GeoJSON is [lng, lat] → Leaflet [lat, lng]
+          if (ringIdx === 0) {
+            indiaHoles.push(latLngs);
+            indiaOutlines.push(latLngs);
+          }
+        });
+      });
+
+      // Create the mask: world polygon with India cut out as holes
+      const maskCoords = [worldOuter, ...indiaHoles];
+      const maskLayer = L.polygon(maskCoords, {
+        color: 'none',
+        fillColor: '#080b16',
+        fillOpacity: 1.0,
+        interactive: false,
+        pane: 'indiaMaskPane'
+      }).addTo(map);
+      indiaMaskLayerRef.current = maskLayer;
+
+      // Draw glowing India border outline
+      indiaOutlines.forEach((outline) => {
+        // Glow layer (wider, semi-transparent)
+        L.polyline(outline, {
+          color: '#38BDF8',
+          weight: 2.5,
+          opacity: 0.15,
+          interactive: false,
+          pane: 'indiaBorderPane'
+        }).addTo(map);
+        // Core border line
+        L.polyline(outline, {
+          color: '#1E40AF',
+          weight: 1,
+          opacity: 0.45,
+          dashArray: '6, 3',
+          interactive: false,
+          pane: 'indiaBorderPane'
+        }).addTo(map);
+      });
 
       const layerGroup = L.layerGroup().addTo(map);
       markersGroupRef.current = layerGroup;
@@ -150,9 +243,14 @@ export default function RailwayNetwork() {
     }
   }, [showOpenRailwayMap]);
 
+  // Pre-filter nodes to only those inside India's boundary
+  const indiaNodes = useMemo(() => {
+    return transitNodes.filter(node => isInsideIndia(node.lat, node.lng));
+  }, [transitNodes]);
+
   // Derive filtered datasets
   const filteredNodes = useMemo(() => {
-    return transitNodes.filter(node => {
+    return indiaNodes.filter(node => {
       if (selectedRegion !== 'All' && node.zone !== selectedRegion) return false;
       if (selectedType !== 'All') {
         if (selectedType === 'junction' && node.type !== 'junction') return false;
@@ -160,13 +258,13 @@ export default function RailwayNetwork() {
       }
       return true;
     });
-  }, [transitNodes, selectedRegion, selectedType]);
+  }, [indiaNodes, selectedRegion, selectedType]);
 
   const nodeMap = useMemo(() => {
     const map = new Map();
-    transitNodes.forEach((node) => map.set(node.id, node));
+    indiaNodes.forEach((node) => map.set(node.id, node));
     return map;
-  }, [transitNodes]);
+  }, [indiaNodes]);
 
   const highlightedRouteIds = useMemo(() => {
     if (!selectedNode) return new Set();
@@ -179,9 +277,12 @@ export default function RailwayNetwork() {
 
   const filteredRoutes = useMemo(() => {
     return routes.filter(route => {
+      // Only include routes whose both endpoints are inside India
+      const fromNode = nodeMap.get(route.from);
+      const toNode = nodeMap.get(route.to);
+      if (!fromNode || !toNode) return false;
+
       if (selectedRegion !== 'All' && route.region !== selectedRegion) {
-        const fromNode = nodeMap.get(route.from);
-        const toNode = nodeMap.get(route.to);
         if (fromNode?.zone !== selectedRegion && toNode?.zone !== selectedRegion) return false;
       }
       return true;
