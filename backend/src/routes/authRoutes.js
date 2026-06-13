@@ -8,7 +8,8 @@ import {
   getAllUsers,
   approveAllUsers,
   approveUser,
-  rejectUser
+  rejectUser,
+  loginUserWithOtp
 } from '../controllers/authController.js';
 import { authenticateUser } from '../middleware/authMiddleware.js';
 import { authorizeRoles } from '../middleware/roleMiddleware.js';
@@ -54,6 +55,7 @@ const loginValidationRules = [
 // Routes Configuration
 router.post('/register', registerValidationRules, registerUser);
 router.post('/login', loginValidationRules, loginUser);
+router.post('/otp-login', loginUserWithOtp);
 router.get('/profile', authenticateUser, getUserProfile);
 router.post('/logout', authenticateUser, logoutUser);
 
