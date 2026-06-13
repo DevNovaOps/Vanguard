@@ -60,11 +60,11 @@ export const getCorridors = async (req, res, next) => {
  */
 export const getNodeConnections = async (req, res, next) => {
   try {
-    const connections = await routeService.getNodeConnections(req.params.id);
+    const result = await routeService.getNodeConnections(req.params.id);
     res.status(200).json({
       success: true,
-      count: connections.length,
-      connections
+      count: result.connectionCount,
+      ...result
     });
   } catch (error) {
     next(error);

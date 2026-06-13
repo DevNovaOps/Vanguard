@@ -5,8 +5,24 @@ import { api } from './api.js';
  * Exposes API mapping functions for Railway Nodes, Connections, and Network Topology.
  */
 export const networkService = {
-  getTopology: async () => {
-    return api.get('/api/network/topology');
+  getTopology: async (params = {}) => {
+    const query = new URLSearchParams(params).toString();
+    const suffix = query ? `?${query}` : '';
+    return api.get(`/api/network/topology${suffix}`);
+  },
+
+  getRoutes: async (params = {}) => {
+    const query = new URLSearchParams(params).toString();
+    const suffix = query ? `?${query}` : '';
+    return api.get(`/api/network/routes${suffix}`);
+  },
+
+  getCorridors: async () => {
+    return api.get('/api/network/corridors');
+  },
+
+  getNodeConnections: async (nodeCode) => {
+    return api.get(`/api/network/nodes/${nodeCode}/connections`);
   },
 
   getNodes: async () => {

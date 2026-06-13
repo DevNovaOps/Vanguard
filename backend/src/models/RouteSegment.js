@@ -46,7 +46,25 @@ const routeSegmentSchema = new mongoose.Schema(
     region: {
       type: String,
       required: [true, 'Region is required'],
-      trim: true
+      trim: true,
+      index: true
+    },
+    tier: {
+      type: String,
+      enum: ['major', 'regional', 'local'],
+      default: 'local',
+      index: true
+    },
+    corridorId: {
+      type: String,
+      trim: true,
+      index: true
+    },
+    load: {
+      type: Number,
+      min: 0,
+      max: 100,
+      default: 50
     }
   },
   {
