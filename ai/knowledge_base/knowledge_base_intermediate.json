@@ -1,0 +1,765 @@
+{
+  "started_at": "2026-06-11T02:14:57.116065+00:00",
+  "files_completed": [
+    "json_output/extraction_report.json",
+    "json_output/ingestion_checkpoint.json",
+    "json_output/mat_data.json",
+    "json_output/pdf_data.json",
+    "json_output/txt_data.json",
+    "json_output_test/csv_data.json",
+    "json_output_test/extraction_report.json",
+    "json_output_test/mat_data.json",
+    "json_output_test/pdf_data.json",
+    "json_output_test/txt_data.json"
+  ],
+  "file_summaries": {
+    "json_output_test/csv_data.json": {
+      "file_name": "json_output_test/csv_data.json",
+      "absolute_path": "D:\\ai\\knowledge_base\\json_output_test\\csv_data.json",
+      "size_bytes": 4,
+      "structure_type": "array",
+      "analyzed_at": "2026-06-11T02:14:57.117060+00:00",
+      "record_count": 0,
+      "fields": [],
+      "sample_records": [],
+      "missing_values": 0,
+      "duplicates_found": 0,
+      "processing_seconds": 0,
+      "notes": "Empty or trivial file"
+    },
+    "json_output_test/txt_data.json": {
+      "file_name": "json_output_test/txt_data.json",
+      "absolute_path": "D:\\ai\\knowledge_base\\json_output_test\\txt_data.json",
+      "size_bytes": 4,
+      "structure_type": "array",
+      "analyzed_at": "2026-06-11T02:14:57.119078+00:00",
+      "record_count": 0,
+      "fields": [],
+      "sample_records": [],
+      "missing_values": 0,
+      "duplicates_found": 0,
+      "processing_seconds": 0,
+      "notes": "Empty or trivial file"
+    },
+    "json_output/extraction_report.json": {
+      "file_name": "json_output/extraction_report.json",
+      "absolute_path": "D:\\ai\\knowledge_base\\json_output\\extraction_report.json",
+      "size_bytes": 211,
+      "structure_type": "dict",
+      "analyzed_at": "2026-06-11T02:14:57.120069+00:00",
+      "record_count": 1,
+      "fields": [
+        "csv_files_processed",
+        "failed_files",
+        "mat_files_processed",
+        "pdf_files_processed",
+        "resumed",
+        "total_records",
+        "txt_files_processed"
+      ],
+      "sample_records": [
+        {
+          "pdf_files_processed": 0,
+          "mat_files_processed": 0,
+          "csv_files_processed": 43623,
+          "txt_files_processed": 115,
+          "failed_files": [],
+          "total_records": "skipped_large_files",
+          "resumed": true
+        }
+      ],
+      "missing_values": 1,
+      "duplicates_found": 0,
+      "missing_by_field_top_level": {},
+      "processing_seconds": 0.0,
+      "is_metadata_dict": true,
+      "notes": "Single metadata object (not a record array)"
+    },
+    "json_output_test/extraction_report.json": {
+      "file_name": "json_output_test/extraction_report.json",
+      "absolute_path": "D:\\ai\\knowledge_base\\json_output_test\\extraction_report.json",
+      "size_bytes": 265,
+      "structure_type": "dict",
+      "analyzed_at": "2026-06-11T02:14:57.122066+00:00",
+      "record_count": 1,
+      "fields": [
+        "csv_files_processed",
+        "failed_files",
+        "mat_files_processed",
+        "pdf_files_processed",
+        "total_records",
+        "total_records.csv_records",
+        "total_records.mat_records",
+        "total_records.pdf_records",
+        "total_records.txt_records",
+        "txt_files_processed"
+      ],
+      "sample_records": [
+        {
+          "pdf_files_processed": 2,
+          "mat_files_processed": 80,
+          "csv_files_processed": 0,
+          "txt_files_processed": 0,
+          "failed_files": [],
+          "total_records": {
+            "pdf_records": 2,
+            "mat_records": 6080,
+            "csv_records": 0,
+            "txt_records": 0
+          }
+        }
+      ],
+      "missing_values": 1,
+      "duplicates_found": 0,
+      "missing_by_field_top_level": {},
+      "processing_seconds": 0.0,
+      "is_metadata_dict": true,
+      "notes": "Single metadata object (not a record array)"
+    },
+    "json_output_test/pdf_data.json": {
+      "file_name": "json_output_test/pdf_data.json",
+      "absolute_path": "D:\\ai\\knowledge_base\\json_output_test\\pdf_data.json",
+      "size_bytes": 6887,
+      "structure_type": "array",
+      "analyzed_at": "2026-06-11T02:14:57.124054+00:00",
+      "record_count": 2,
+      "fields": [
+        "content",
+        "dataset",
+        "document",
+        "file_name",
+        "id",
+        "metadata",
+        "metadata.dataset",
+        "metadata.file_name",
+        "metadata.source_type",
+        "page_number",
+        "source_type"
+      ],
+      "sample_records": [
+        {
+          "source_type": "pdf",
+          "dataset": "K001",
+          "file_name": "K001.pdf",
+          "page_number": 1,
+          "content": "Profile of rolling bearing damage Dipl.-Ing. Christian Lessmeier  Chair of Design and Drive Technology \n Pohlweg 47-49, 33098 Paderborn, Germany Prof. Dr.-Ing. Detmar Zimmer \n Tel.: +49 5251-60-2299  \n Email: christian.lessmeier@upb.de \n   1/1 \n \nProfile of rolling bearing damage (Bearing: K001) \nCategory Unit Specification/Value \nGeneral \ninfo \n Bearing Type - deep groove ball bearing \nBearing designation \n(dimension series, bore code) - 6203 \nSuffix - - \nManufacturer specific information \nGeom... [1259 chars total]",
+          "id": "pdf::K001::K001.pdf::p1",
+          "document": "Profile of rolling bearing damage Dipl.-Ing. Christian Lessmeier  Chair of Design and Drive Technology \n Pohlweg 47-49, 33098 Paderborn, Germany Prof. Dr.-Ing. Detmar Zimmer \n Tel.: +49 5251-60-2299  \n Email: christian.lessmeier@upb.de \n   1/1 \n \nProfile of rolling bearing damage (Bearing: K001) \nCategory Unit Specification/Value \nGeneral \ninfo \n Bearing Type - deep groove ball bearing \nBearing designation \n(dimension series, bore code) - 6203 \nSuffix - - \nManufacturer specific information \nGeom... [1259 chars total]",
+          "metadata": {
+            "source_type": "pdf",
+            "dataset": "K001",
+            "file_name": "K001.pdf"
+          }
+        },
+        {
+          "source_type": "pdf",
+          "dataset": "K001",
+          "file_name": "measuring_log_K001.pdf",
+          "page_number": 1,
+          "content": "Measuring log  Dipl.-Ing. Christian Lessmeier  Chair of Design and Drive Technology \nBearing data center Pohlweg 47-49, 33098 Paderborn, Germany Prof. Dr.-Ing. Detmar Zimmer \nhttp://mb.uni-paderborn.de/kat/datacenter Tel.: +49 5251-60-2299  \n Email: christian.lessmeier@upb.de \n   1/1 \nmeasuring log \nbearing code: K001 \nbearing designation: - \ntest setup: \n- test motor module (Hanning-Motor SD4CDu8S-009/425W/Y230V); operation by frequency \nconverter KEB Combivert 07F5E 1D-2B0A \n- measuring shaft ... [1841 chars total]",
+          "id": "pdf::K001::measuring_log_K001.pdf::p1",
+          "document": "Measuring log  Dipl.-Ing. Christian Lessmeier  Chair of Design and Drive Technology \nBearing data center Pohlweg 47-49, 33098 Paderborn, Germany Prof. Dr.-Ing. Detmar Zimmer \nhttp://mb.uni-paderborn.de/kat/datacenter Tel.: +49 5251-60-2299  \n Email: christian.lessmeier@upb.de \n   1/1 \nmeasuring log \nbearing code: K001 \nbearing designation: - \ntest setup: \n- test motor module (Hanning-Motor SD4CDu8S-009/425W/Y230V); operation by frequency \nconverter KEB Combivert 07F5E 1D-2B0A \n- measuring shaft ... [1841 chars total]",
+          "metadata": {
+            "source_type": "pdf",
+            "dataset": "K001",
+            "file_name": "measuring_log_K001.pdf"
+          }
+        }
+      ],
+      "missing_values": 0,
+      "duplicates_found": 0,
+      "missing_by_field_top_level": {},
+      "processing_seconds": 0.0,
+      "is_metadata_dict": false
+    },
+    "json_output/ingestion_checkpoint.json": {
+      "file_name": "json_output/ingestion_checkpoint.json",
+      "absolute_path": "D:\\ai\\knowledge_base\\json_output\\ingestion_checkpoint.json",
+      "size_bytes": 5583968,
+      "structure_type": "dict",
+      "analyzed_at": "2026-06-11T02:14:57.126075+00:00",
+      "record_count": 1,
+      "fields": [
+        "failed_files",
+        "processed",
+        "processed.csv",
+        "processed.mat",
+        "processed.pdf",
+        "processed.txt"
+      ],
+      "sample_records": [
+        {
+          "processed": {
+            "pdf": [],
+            "mat": [],
+            "csv": [
+              ".venv\\Lib\\site-packages\\numpy\\_core\\tests\\data\\umath-validation-set-arccos.csv",
+              ".venv\\Lib\\site-packages\\numpy\\_core\\tests\\data\\umath-validation-set-arccosh.csv",
+              ".venv\\Lib\\site-packages\\numpy\\_core\\tests\\data\\umath-validation-set-arcsin.csv",
+              ".venv\\Lib\\site-packages\\numpy\\_core\\tests\\data\\umath-validation-set-arcsinh.csv",
+              ".venv\\Lib\\site-packages\\numpy\\_core\\tests\\data\\umath-validation-set-arctan.csv",
+              ".venv\\Lib\\site-packages\\numpy\\_core\\tests\\data\\umath-validation-set-arctanh.csv",
+              ".venv\\Lib\\site-packages\\numpy\\_core\\tests\\data\\umath-validation-set-cbrt.csv",
+              ".venv\\Lib\\site-packages\\numpy\\_core\\tests\\data\\umath-validation-set-cos.csv",
+              ".venv\\Lib\\site-packages\\numpy\\_core\\tests\\data\\umath-validation-set-cosh.csv",
+              ".venv\\Lib\\site-packages\\numpy\\_core\\tests\\data\\umath-validation-set-exp.csv",
+              ".venv\\Lib\\site-packages\\numpy\\_core\\tests\\data\\umath-validation-set-exp2.csv",
+              ".venv\\Lib\\site-packages\\numpy\\_core\\tests\\data\\umath-validation-set-expm1.csv",
+              ".venv\\Lib\\site-packages\\numpy\\_core\\tests\\data\\umath-validation-set-log.csv",
+              ".venv\\Lib\\site-packages\\numpy\\_core\\tests\\data\\umath-validation-set-log10.csv",
+              ".venv\\Lib\\site-packages\\numpy\\_core\\tests\\data\\umath-validation-set-log1p.csv",
+              ".venv\\Lib\\site-packages\\numpy\\_core\\tests\\data\\umath-validation-set-log2.csv",
+              ".venv\\Lib\\site-packages\\numpy\\_core\\tests\\data\\umath-validation-set-sin.csv",
+              ".venv\\Lib\\site-packages\\numpy\\_core\\tests\\data\\umath-validation-set-sinh.csv",
+              ".venv\\Lib\\site-packages\\numpy\\_core\\tests\\data\\umath-validation-set-tan.csv",
+              ".venv\\Lib\\site-packages\\numpy\\_core\\tests\\data\\umath-validation-set-tanh.csv",
+              "... [43623 items total]"
+            ],
+            "txt": [
+              "Vanguard Dataset::requirements.txt",
+              "_vendor::vendor.txt",
+              "data::cdist-X1.txt",
+              "data::cdist-X2.txt",
+              "data::iris.txt",
+              "data::japanese_utf8.txt",
+              "data::label_inputs.txt",
+              "data::label_results.txt",
+              "data::label_strels.txt",
+              "data::pdist-boolean-inp.txt",
+              "data::pdist-chebyshev-ml-iris.txt",
+              "data::pdist-chebyshev-ml.txt",
+              "data::pdist-cityblock-ml-iris.txt",
+              "data::pdist-cityblock-ml.txt",
+              "data::pdist-correlation-ml-iris.txt",
+              "data::pdist-correlation-ml.txt",
+              "data::pdist-cosine-ml-iris.txt",
+              "data::pdist-cosine-ml.txt",
+              "data::pdist-double-inp.txt",
+              "data::pdist-euclidean-ml-iris.txt",
+              "... [57 items total]"
+            ]
+          },
+          "failed_files": []
+        }
+      ],
+      "missing_values": 3,
+      "duplicates_found": 0,
+      "missing_by_field_top_level": {},
+      "processing_seconds": 0.04,
+      "is_metadata_dict": true,
+      "notes": "Single metadata object (not a record array)"
+    },
+    "json_output/pdf_data.json": {
+      "file_name": "json_output/pdf_data.json",
+      "absolute_path": "D:\\ai\\knowledge_base\\json_output\\pdf_data.json",
+      "size_bytes": 6286597,
+      "structure_type": "array",
+      "analyzed_at": "2026-06-11T02:14:57.205672+00:00",
+      "record_count": 3209,
+      "fields": [
+        "content",
+        "dataset",
+        "document",
+        "file_name",
+        "id",
+        "metadata",
+        "metadata.dataset",
+        "metadata.file_name",
+        "metadata.source_type",
+        "page_number",
+        "source_type"
+      ],
+      "sample_records": [
+        {
+          "source_type": "pdf",
+          "dataset": "K002",
+          "file_name": "measuring_log_K002.pdf",
+          "page_number": 1,
+          "content": "Measuring log  Dipl.-Ing. Christian Lessmeier  Chair of Design and Drive Technology \nBearing data center Pohlweg 47-49, 33098 Paderborn, Germany Prof. Dr.-Ing. Detmar Zimmer \nhttp://mb.uni-paderborn.de/kat/datacenter Tel.: +49 5251-60-2299  \n Email: christian.lessmeier@upb.de \n   1/1 \nmeasuring log \nbearing code: K002 \nbearing designation: 10-03 \ntest setup: \n- test motor module (Hanning-Motor SD4CDu8S-009/425W/Y230V); operation by frequency \nconverter KEB Combivert 07F5E 1D-2B0A \n- measuring sh... [1847 chars total]",
+          "id": "pdf::K002::measuring_log_K002.pdf::p1",
+          "document": "Measuring log  Dipl.-Ing. Christian Lessmeier  Chair of Design and Drive Technology \nBearing data center Pohlweg 47-49, 33098 Paderborn, Germany Prof. Dr.-Ing. Detmar Zimmer \nhttp://mb.uni-paderborn.de/kat/datacenter Tel.: +49 5251-60-2299  \n Email: christian.lessmeier@upb.de \n   1/1 \nmeasuring log \nbearing code: K002 \nbearing designation: 10-03 \ntest setup: \n- test motor module (Hanning-Motor SD4CDu8S-009/425W/Y230V); operation by frequency \nconverter KEB Combivert 07F5E 1D-2B0A \n- measuring sh... [1847 chars total]",
+          "metadata": {
+            "source_type": "pdf",
+            "dataset": "K002",
+            "file_name": "measuring_log_K002.pdf"
+          }
+        },
+        {
+          "source_type": "pdf",
+          "dataset": "K004",
+          "file_name": "K004.pdf",
+          "page_number": 1,
+          "content": "Profile of rolling bearing damage Dipl.-Ing. Christian Lessmeier  Chair of Design and Drive Technology \n Pohlweg 47-49, 33098 Paderborn, Germany Prof. Dr.-Ing. Detmar Zimmer \n Tel.: +49 5251-60-2299  \n Email: christian.lessmeier@upb.de \n   1/1 \n \nProfile of rolling bearing damage (Bearing: K004) \nCategory Unit Specification/Value \nGeneral \ninfo \n Bearing Type - deep groove ball bearing \nBearing designation \n(dimension series, bore code) - 6203 \nSuffix - - \nManufacturer specific information \nGeom... [1247 chars total]",
+          "id": "pdf::K004::K004.pdf::p1",
+          "document": "Profile of rolling bearing damage Dipl.-Ing. Christian Lessmeier  Chair of Design and Drive Technology \n Pohlweg 47-49, 33098 Paderborn, Germany Prof. Dr.-Ing. Detmar Zimmer \n Tel.: +49 5251-60-2299  \n Email: christian.lessmeier@upb.de \n   1/1 \n \nProfile of rolling bearing damage (Bearing: K004) \nCategory Unit Specification/Value \nGeneral \ninfo \n Bearing Type - deep groove ball bearing \nBearing designation \n(dimension series, bore code) - 6203 \nSuffix - - \nManufacturer specific information \nGeom... [1247 chars total]",
+          "metadata": {
+            "source_type": "pdf",
+            "dataset": "K004",
+            "file_name": "K004.pdf"
+          }
+        },
+        {
+          "source_type": "pdf",
+          "dataset": "K004",
+          "file_name": "measuring_log_K004.pdf",
+          "page_number": 1,
+          "content": "Measuring log  Dipl.-Ing. Christian Lessmeier  Chair of Design and Drive Technology \nBearing data center Pohlweg 47-49, 33098 Paderborn, Germany Prof. Dr.-Ing. Detmar Zimmer \nhttp://mb.uni-paderborn.de/kat/datacenter Tel.: +49 5251-60-2299  \n Email: christian.lessmeier@upb.de \n   1/1 \nmeasuring log \nbearing code: K004 \nbearing designation: - \ntest setup: \n- test motor module (Hanning-Motor SD4CDu8S-009/425W/Y230V); operation by frequency \nconverter KEB Combivert 07F5E 1D-2B0A \n- measuring shaft ... [1924 chars total]",
+          "id": "pdf::K004::measuring_log_K004.pdf::p1",
+          "document": "Measuring log  Dipl.-Ing. Christian Lessmeier  Chair of Design and Drive Technology \nBearing data center Pohlweg 47-49, 33098 Paderborn, Germany Prof. Dr.-Ing. Detmar Zimmer \nhttp://mb.uni-paderborn.de/kat/datacenter Tel.: +49 5251-60-2299  \n Email: christian.lessmeier@upb.de \n   1/1 \nmeasuring log \nbearing code: K004 \nbearing designation: - \ntest setup: \n- test motor module (Hanning-Motor SD4CDu8S-009/425W/Y230V); operation by frequency \nconverter KEB Combivert 07F5E 1D-2B0A \n- measuring shaft ... [1924 chars total]",
+          "metadata": {
+            "source_type": "pdf",
+            "dataset": "K004",
+            "file_name": "measuring_log_K004.pdf"
+          }
+        },
+        {
+          "source_type": "pdf",
+          "dataset": "K005",
+          "file_name": "K005.pdf",
+          "page_number": 1,
+          "content": "Profile of rolling bearing damage Dipl.-Ing. Christian Lessmeier  Chair of Design and Drive Technology \n Pohlweg 47-49, 33098 Paderborn, Germany Prof. Dr.-Ing. Detmar Zimmer \n Tel.: +49 5251-60-2299  \n Email: christian.lessmeier@upb.de \n   1/1 \n \nProfile of rolling bearing damage (Bearing: K005) \nCategory Unit Specification/Value \nGeneral \ninfo \n Bearing Type - deep groove ball bearing \nBearing designation \n(dimension series, bore code) - 6203 \nSuffix - - \nManufacturer specific information \nGeom... [1248 chars total]",
+          "id": "pdf::K005::K005.pdf::p1",
+          "document": "Profile of rolling bearing damage Dipl.-Ing. Christian Lessmeier  Chair of Design and Drive Technology \n Pohlweg 47-49, 33098 Paderborn, Germany Prof. Dr.-Ing. Detmar Zimmer \n Tel.: +49 5251-60-2299  \n Email: christian.lessmeier@upb.de \n   1/1 \n \nProfile of rolling bearing damage (Bearing: K005) \nCategory Unit Specification/Value \nGeneral \ninfo \n Bearing Type - deep groove ball bearing \nBearing designation \n(dimension series, bore code) - 6203 \nSuffix - - \nManufacturer specific information \nGeom... [1248 chars total]",
+          "metadata": {
+            "source_type": "pdf",
+            "dataset": "K005",
+            "file_name": "K005.pdf"
+          }
+        },
+        {
+          "source_type": "pdf",
+          "dataset": "IMS",
+          "file_name": "Readme Document for IMS Bearing Data.pdf",
+          "page_number": 1,
+          "content": "1 \n \nIMS Bearing Data \n \nThe data was generated by  the NSF I/UCR Center for Intelligent Maintenance Systems (IMS – \nwww.imscenter.net) with support from Rexnord Corp. in Milwaukee, WI. \n \nTest Rig Setup \nFour bearings were installed on a shaft. The rotation speed was kept constant at 2000 RPM by an AC \nmotor coupled to the shaft via rub belts.  A radial load of 6000 lb s is applied onto the shaft and bearing \nby a spring mechanism. All bearings are force lubricated. \nRexnord ZA-2115 double row ... [944 chars total]",
+          "id": "pdf::IMS::Readme Document for IMS Bearing Data.pdf::p1",
+          "document": "1 \n \nIMS Bearing Data \n \nThe data was generated by  the NSF I/UCR Center for Intelligent Maintenance Systems (IMS – \nwww.imscenter.net) with support from Rexnord Corp. in Milwaukee, WI. \n \nTest Rig Setup \nFour bearings were installed on a shaft. The rotation speed was kept constant at 2000 RPM by an AC \nmotor coupled to the shaft via rub belts.  A radial load of 6000 lb s is applied onto the shaft and bearing \nby a spring mechanism. All bearings are force lubricated. \nRexnord ZA-2115 double row ... [944 chars total]",
+          "metadata": {
+            "source_type": "pdf",
+            "dataset": "IMS",
+            "file_name": "Readme Document for IMS Bearing Data.pdf"
+          }
+        }
+      ],
+      "missing_values": 3126,
+      "duplicates_found": 0,
+      "missing_by_field_top_level": {},
+      "processing_seconds": 0.07,
+      "is_metadata_dict": false
+    },
+    "json_output_test/mat_data.json": {
+      "file_name": "json_output_test/mat_data.json",
+      "absolute_path": "D:\\ai\\knowledge_base\\json_output_test\\mat_data.json",
+      "size_bytes": 258177659,
+      "structure_type": "array",
+      "analyzed_at": "2026-06-11T02:15:16.521031+00:00",
+      "record_count": 6080,
+      "fields": [
+        "dataset",
+        "document",
+        "file_name",
+        "id",
+        "metadata",
+        "metadata.dataset",
+        "metadata.file_name",
+        "metadata.source_type",
+        "original_size",
+        "shape",
+        "source_type",
+        "truncated",
+        "values",
+        "variable_name"
+      ],
+      "sample_records": [
+        {
+          "source_type": "mat",
+          "dataset": "K001",
+          "file_name": "N09_M07_F10_K001_1.mat",
+          "variable_name": "N09_M07_F10_K001_1[0].Info[0].RevisionMajor",
+          "shape": "1x1",
+          "values": [
+            2
+          ],
+          "id": "mat::K001::N09_M07_F10_K001_1.mat::N09_M07_F10_K001_1[0].Info[0].RevisionMajor",
+          "document": "{\"variable\": \"N09_M07_F10_K001_1[0].Info[0].RevisionMajor\", \"shape\": \"1x1\", \"values\": [2]}",
+          "metadata": {
+            "source_type": "mat",
+            "dataset": "K001",
+            "file_name": "N09_M07_F10_K001_1.mat"
+          }
+        },
+        {
+          "source_type": "mat",
+          "dataset": "K001",
+          "file_name": "N09_M07_F10_K001_1.mat",
+          "variable_name": "N09_M07_F10_K001_1[0].Info[0].RevisionMinor",
+          "shape": "1x1",
+          "values": [
+            1
+          ],
+          "id": "mat::K001::N09_M07_F10_K001_1.mat::N09_M07_F10_K001_1[0].Info[0].RevisionMinor",
+          "document": "{\"variable\": \"N09_M07_F10_K001_1[0].Info[0].RevisionMinor\", \"shape\": \"1x1\", \"values\": [1]}",
+          "metadata": {
+            "source_type": "mat",
+            "dataset": "K001",
+            "file_name": "N09_M07_F10_K001_1.mat"
+          }
+        },
+        {
+          "source_type": "mat",
+          "dataset": "K001",
+          "file_name": "N09_M07_F10_K001_1.mat",
+          "variable_name": "N09_M07_F10_K001_1[0].Info[0].MeasurementID",
+          "shape": "1x1",
+          "values": [
+            22
+          ],
+          "id": "mat::K001::N09_M07_F10_K001_1.mat::N09_M07_F10_K001_1[0].Info[0].MeasurementID",
+          "document": "{\"variable\": \"N09_M07_F10_K001_1[0].Info[0].MeasurementID\", \"shape\": \"1x1\", \"values\": [22]}",
+          "metadata": {
+            "source_type": "mat",
+            "dataset": "K001",
+            "file_name": "N09_M07_F10_K001_1.mat"
+          }
+        },
+        {
+          "source_type": "mat",
+          "dataset": "K001",
+          "file_name": "N09_M07_F10_K001_1.mat",
+          "variable_name": "N09_M07_F10_K001_1[0].X[0].Type",
+          "shape": "1x1",
+          "values": [
+            4
+          ],
+          "id": "mat::K001::N09_M07_F10_K001_1.mat::N09_M07_F10_K001_1[0].X[0].Type",
+          "document": "{\"variable\": \"N09_M07_F10_K001_1[0].X[0].Type\", \"shape\": \"1x1\", \"values\": [4]}",
+          "metadata": {
+            "source_type": "mat",
+            "dataset": "K001",
+            "file_name": "N09_M07_F10_K001_1.mat"
+          }
+        },
+        {
+          "source_type": "mat",
+          "dataset": "K001",
+          "file_name": "N09_M07_F10_K001_1.mat",
+          "variable_name": "N09_M07_F10_K001_1[0].X[0].Data",
+          "shape": "1x16008",
+          "values": [
+            "-0.00022241631372343917",
+            "0.000027802039215374386",
+            "0.00027759266847393604",
+            "0.0005273832977323867",
+            "0.0007771739269909483",
+            "0.0010273922799296509",
+            "0.0012771829091882125",
+            "0.0015269735384467742",
+            "0.0017767641677052248",
+            "0.0020269825206440384",
+            "0.0022767731499026",
+            "0.0025265637791610507",
+            "0.0027763544084196123",
+            "0.003026572761358315",
+            "0.0032763633906168765",
+            "0.003526154019875438",
+            "0.003775944649133889",
+            "0.004026163002072702",
+            "0.004275953631331264",
+            "0.004525744260589715",
+            "... [10000 items total]"
+          ],
+          "truncated": true,
+          "original_size": 16008,
+          "id": "mat::K001::N09_M07_F10_K001_1.mat::N09_M07_F10_K001_1[0].X[0].Data",
+          "document": "{\"variable\": \"N09_M07_F10_K001_1[0].X[0].Data\", \"shape\": \"1x16008\", \"values\": [-0.00022241631372343917, 2.7802039215374386e-05, 0.00027759266847393604, 0.0005273832977323867, 0.0007771739269909483, 0.0010273922799296509, 0.0012771829091882125, 0.0015269735384467742, 0.0017767641677052248, 0.0020269825206440384, 0.0022767731499026, 0.0025265637791610507, 0.0027763544084196123, 0.003026572761358315, 0.0032763633906168765, 0.003526154019875438, 0.003775944649133889, 0.004026163002072702, 0.00427595... [199175 chars total]",
+          "metadata": {
+            "source_type": "mat",
+            "dataset": "K001",
+            "file_name": "N09_M07_F10_K001_1.mat"
+          }
+        }
+      ],
+      "missing_values": 0,
+      "duplicates_found": 0,
+      "missing_by_field_top_level": {
+        "truncated": 5436,
+        "original_size": 5436
+      },
+      "processing_seconds": 5.05,
+      "is_metadata_dict": false
+    },
+    "json_output/mat_data.json": {
+      "file_name": "json_output/mat_data.json",
+      "absolute_path": "D:\\ai\\knowledge_base\\json_output\\mat_data.json",
+      "size_bytes": 8260723990,
+      "structure_type": "array",
+      "analyzed_at": "2026-06-11T02:15:31.191051+00:00",
+      "record_count": 194606,
+      "fields": [
+        "dataset",
+        "document",
+        "file_name",
+        "id",
+        "metadata",
+        "metadata.dataset",
+        "metadata.file_name",
+        "metadata.source_type",
+        "original_size",
+        "shape",
+        "source_type",
+        "truncated",
+        "values",
+        "variable_name"
+      ],
+      "sample_records": [
+        {
+          "source_type": "mat",
+          "dataset": "data",
+          "file_name": "big_endian.mat",
+          "variable_name": "floats",
+          "shape": "2x2",
+          "values": [
+            "2.0",
+            "3.0",
+            "3.0",
+            "4.0"
+          ],
+          "id": "mat::data::big_endian.mat::floats",
+          "document": "{\"variable\": \"floats\", \"shape\": \"2x2\", \"values\": [2.0, 3.0, 3.0, 4.0]}",
+          "metadata": {
+            "source_type": "mat",
+            "dataset": "data",
+            "file_name": "big_endian.mat"
+          }
+        },
+        {
+          "source_type": "mat",
+          "dataset": "data",
+          "file_name": "miuint32_for_miint32.mat",
+          "variable_name": "an_array",
+          "shape": "1x10",
+          "values": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9
+          ],
+          "id": "mat::data::miuint32_for_miint32.mat::an_array",
+          "document": "{\"variable\": \"an_array\", \"shape\": \"1x10\", \"values\": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]}",
+          "metadata": {
+            "source_type": "mat",
+            "dataset": "data",
+            "file_name": "miuint32_for_miint32.mat"
+          }
+        },
+        {
+          "source_type": "mat",
+          "dataset": "data",
+          "file_name": "miutf8_array_name.mat",
+          "variable_name": "array_name",
+          "shape": "1x1",
+          "values": [
+            1
+          ],
+          "id": "mat::data::miutf8_array_name.mat::array_name",
+          "document": "{\"variable\": \"array_name\", \"shape\": \"1x1\", \"values\": [1]}",
+          "metadata": {
+            "source_type": "mat",
+            "dataset": "data",
+            "file_name": "miutf8_array_name.mat"
+          }
+        },
+        {
+          "source_type": "mat",
+          "dataset": "data",
+          "file_name": "nasty_duplicate_fieldnames.mat",
+          "variable_name": "Summary[0].Top_Q",
+          "shape": "34x1",
+          "values": [
+            "0.0",
+            "0.0",
+            "0.0",
+            "0.0",
+            "0.0",
+            "0.0",
+            "0.0",
+            "0.0",
+            "0.0",
+            "0.0",
+            "0.0",
+            "0.0",
+            "0.0",
+            "0.0",
+            "0.0",
+            "0.0",
+            "0.0",
+            "0.0",
+            "0.0",
+            "0.0",
+            "... [34 items total]"
+          ],
+          "id": "mat::data::nasty_duplicate_fieldnames.mat::Summary[0].Top_Q",
+          "document": "{\"variable\": \"Summary[0].Top_Q\", \"shape\": \"34x1\", \"values\": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]}",
+          "metadata": {
+            "source_type": "mat",
+            "dataset": "data",
+            "file_name": "nasty_duplicate_fieldnames.mat"
+          }
+        },
+        {
+          "source_type": "mat",
+          "dataset": "data",
+          "file_name": "nasty_duplicate_fieldnames.mat",
+          "variable_name": "Summary[0].Middle_Q",
+          "shape": "34x1",
+          "values": [
+            "0.0",
+            "0.0",
+            "0.0",
+            "0.0",
+            "0.0",
+            "0.0",
+            "0.0",
+            "0.0",
+            "0.0",
+            "0.0",
+            "0.0",
+            "0.0",
+            "0.0",
+            "0.0",
+            "0.0",
+            "0.0",
+            "0.0",
+            "0.0",
+            "0.0",
+            "0.0",
+            "... [34 items total]"
+          ],
+          "id": "mat::data::nasty_duplicate_fieldnames.mat::Summary[0].Middle_Q",
+          "document": "{\"variable\": \"Summary[0].Middle_Q\", \"shape\": \"34x1\", \"values\": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]}",
+          "metadata": {
+            "source_type": "mat",
+            "dataset": "data",
+            "file_name": "nasty_duplicate_fieldnames.mat"
+          }
+        }
+      ],
+      "missing_values": 0,
+      "duplicates_found": 0,
+      "missing_by_field_top_level": {
+        "truncated": 174009,
+        "original_size": 174009
+      },
+      "processing_seconds": 203.44,
+      "is_metadata_dict": false
+    },
+    "json_output/txt_data.json": {
+      "file_name": "json_output/txt_data.json",
+      "absolute_path": "D:\\ai\\knowledge_base\\json_output\\txt_data.json",
+      "size_bytes": 36589084,
+      "structure_type": "multi_array",
+      "analyzed_at": "2026-06-11T02:21:31.282001+00:00",
+      "record_count": 15042,
+      "fields": [
+        "chunk_id",
+        "content",
+        "dataset",
+        "document",
+        "file_name",
+        "id",
+        "metadata",
+        "metadata.dataset",
+        "metadata.file_name",
+        "metadata.source_path",
+        "metadata.source_type",
+        "source_path",
+        "source_type"
+      ],
+      "sample_records": [
+        {
+          "source_type": "txt",
+          "dataset": "random",
+          "file_name": "LICENSE.txt",
+          "chunk_id": 0,
+          "content": "zlib License\n  ------------\n\n  Copyright (C) 2010 - 2019 ridiculous_fish, <libdivide@ridiculousfish.com>\n  Copyright (C) 2016 - 2019 Kim Walisch, <kim.walisch@gmail.com>\n\n  This software is provided 'as-is', without any express or implied\n  warranty.  In no event will the authors be held liable for any damages\n  arising from the use of this software.\n\n  Permission is granted to anyone to use this software for any purpose,\n  including commercial applications, and to alter it and redistribute it\n ... [1000 chars total]",
+          "id": "txt::random::LICENSE.txt::c0",
+          "document": "zlib License\n  ------------\n\n  Copyright (C) 2010 - 2019 ridiculous_fish, <libdivide@ridiculousfish.com>\n  Copyright (C) 2016 - 2019 Kim Walisch, <kim.walisch@gmail.com>\n\n  This software is provided 'as-is', without any express or implied\n  warranty.  In no event will the authors be held liable for any damages\n  arising from the use of this software.\n\n  Permission is granted to anyone to use this software for any purpose,\n  including commercial applications, and to alter it and redistribute it\n ... [1000 chars total]",
+          "metadata": {
+            "source_type": "txt",
+            "dataset": "random",
+            "file_name": "LICENSE.txt"
+          }
+        },
+        {
+          "source_type": "txt",
+          "dataset": "random",
+          "file_name": "LICENSE.txt",
+          "chunk_id": 1,
+          "content": "required.\n  2. Altered source versions must be plainly marked as such, and must not be\n     misrepresented as being the original software.\n  3. This notice may not be removed or altered from any source distribution.",
+          "id": "txt::random::LICENSE.txt::c1",
+          "document": "required.\n  2. Altered source versions must be plainly marked as such, and must not be\n     misrepresented as being the original software.\n  3. This notice may not be removed or altered from any source distribution.",
+          "metadata": {
+            "source_type": "txt",
+            "dataset": "random",
+            "file_name": "LICENSE.txt"
+          }
+        },
+        {
+          "source_type": "txt",
+          "dataset": "licenses",
+          "file_name": "LICENSE.txt",
+          "chunk_id": 0,
+          "content": "Copyright (c) 2010 Jonathan Hartley\nAll rights reserved.\n\nRedistribution and use in source and binary forms, with or without\nmodification, are permitted provided that the following conditions are met:\n\n* Redistributions of source code must retain the above copyright notice, this\n  list of conditions and the following disclaimer.\n\n* Redistributions in binary form must reproduce the above copyright notice,\n  this list of conditions and the following disclaimer in the documentation\n  and/or other m... [1000 chars total]",
+          "id": "txt::licenses::LICENSE.txt::c0",
+          "document": "Copyright (c) 2010 Jonathan Hartley\nAll rights reserved.\n\nRedistribution and use in source and binary forms, with or without\nmodification, are permitted provided that the following conditions are met:\n\n* Redistributions of source code must retain the above copyright notice, this\n  list of conditions and the following disclaimer.\n\n* Redistributions in binary form must reproduce the above copyright notice,\n  this list of conditions and the following disclaimer in the documentation\n  and/or other m... [1000 chars total]",
+          "metadata": {
+            "source_type": "txt",
+            "dataset": "licenses",
+            "file_name": "LICENSE.txt"
+          }
+        },
+        {
+          "source_type": "txt",
+          "dataset": "licenses",
+          "file_name": "LICENSE.txt",
+          "chunk_id": 1,
+          "content": "RS \"AS IS\" AND\nANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED\nWARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE\nDISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE\nFOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL\nDAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR\nSERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER\nCAUSED AND ON ANY THEORY OF LIABIL... [690 chars total]",
+          "id": "txt::licenses::LICENSE.txt::c1",
+          "document": "RS \"AS IS\" AND\nANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED\nWARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE\nDISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE\nFOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL\nDAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR\nSERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER\nCAUSED AND ON ANY THEORY OF LIABIL... [690 chars total]",
+          "metadata": {
+            "source_type": "txt",
+            "dataset": "licenses",
+            "file_name": "LICENSE.txt"
+          }
+        },
+        {
+          "source_type": "txt",
+          "dataset": "numpy-2.4.6.dist-info",
+          "file_name": "entry_points.txt",
+          "chunk_id": 0,
+          "content": "[pkg_config]\nnumpy = numpy._core.lib.pkgconfig\n\n[array_api]\nnumpy = numpy\n\n[pyinstaller40]\nhook-dirs = numpy:_pyinstaller_hooks_dir\n\n[console_scripts]\nf2py = numpy.f2py.f2py2e:main\nnumpy-config = numpy._configtool:main",
+          "id": "txt::numpy-2.4.6.dist-info::entry_points.txt::c0",
+          "document": "[pkg_config]\nnumpy = numpy._core.lib.pkgconfig\n\n[array_api]\nnumpy = numpy\n\n[pyinstaller40]\nhook-dirs = numpy:_pyinstaller_hooks_dir\n\n[console_scripts]\nf2py = numpy.f2py.f2py2e:main\nnumpy-config = numpy._configtool:main",
+          "metadata": {
+            "source_type": "txt",
+            "dataset": "numpy-2.4.6.dist-info",
+            "file_name": "entry_points.txt"
+          }
+        }
+      ],
+      "missing_values": 0,
+      "duplicates_found": 12537,
+      "missing_by_field_top_level": {},
+      "processing_seconds": 0.49,
+      "is_metadata_dict": false,
+      "notes": "File contains multiple concatenated JSON arrays (invalid single JSON document)"
+    }
+  },
+  "last_updated": "2026-06-11T02:21:31.769313+00:00"
+}

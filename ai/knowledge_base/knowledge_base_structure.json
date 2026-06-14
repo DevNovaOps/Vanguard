@@ -1,0 +1,266 @@
+[
+  {
+    "file_name": "pdf_data.json",
+    "file_size_mb": 6.0,
+    "record_count": 3209,
+    "fields": [
+      "content",
+      "dataset",
+      "document",
+      "file_name",
+      "id",
+      "metadata",
+      "metadata.dataset",
+      "metadata.file_name",
+      "metadata.source_type",
+      "page_number",
+      "source_type"
+    ],
+    "field_types": {
+      "content": [
+        "string"
+      ],
+      "dataset": [
+        "string"
+      ],
+      "document": [
+        "string"
+      ],
+      "file_name": [
+        "string"
+      ],
+      "id": [
+        "string"
+      ],
+      "metadata": [
+        "object"
+      ],
+      "metadata.dataset": [
+        "string"
+      ],
+      "metadata.file_name": [
+        "string"
+      ],
+      "metadata.source_type": [
+        "string"
+      ],
+      "page_number": [
+        "integer"
+      ],
+      "source_type": [
+        "string"
+      ]
+    }
+  },
+  {
+    "file_name": "txt_data.json",
+    "file_size_mb": 34.89,
+    "record_count": 15042,
+    "fields": [
+      "chunk_id",
+      "content",
+      "dataset",
+      "document",
+      "file_name",
+      "id",
+      "metadata",
+      "metadata.dataset",
+      "metadata.file_name",
+      "metadata.source_path",
+      "metadata.source_type",
+      "source_path",
+      "source_type"
+    ],
+    "field_types": {
+      "chunk_id": [
+        "integer"
+      ],
+      "content": [
+        "string"
+      ],
+      "dataset": [
+        "string"
+      ],
+      "document": [
+        "string"
+      ],
+      "file_name": [
+        "string"
+      ],
+      "id": [
+        "string"
+      ],
+      "metadata": [
+        "object"
+      ],
+      "metadata.dataset": [
+        "string"
+      ],
+      "metadata.file_name": [
+        "string"
+      ],
+      "metadata.source_path": [
+        "string"
+      ],
+      "metadata.source_type": [
+        "string"
+      ],
+      "source_path": [
+        "string"
+      ],
+      "source_type": [
+        "string"
+      ]
+    }
+  },
+  {
+    "file_name": "mat_data.json",
+    "file_size_mb": 7878.04,
+    "record_count": 194606,
+    "fields": [
+      "dataset",
+      "document",
+      "file_name",
+      "id",
+      "metadata",
+      "metadata.dataset",
+      "metadata.file_name",
+      "metadata.source_type",
+      "original_size",
+      "shape",
+      "source_type",
+      "truncated",
+      "values",
+      "variable_name"
+    ],
+    "field_types": {
+      "dataset": [
+        "string"
+      ],
+      "document": [
+        "string"
+      ],
+      "file_name": [
+        "string"
+      ],
+      "id": [
+        "string"
+      ],
+      "metadata": [
+        "object"
+      ],
+      "metadata.dataset": [
+        "string"
+      ],
+      "metadata.file_name": [
+        "string"
+      ],
+      "metadata.source_type": [
+        "string"
+      ],
+      "original_size": [
+        "integer"
+      ],
+      "shape": [
+        "string"
+      ],
+      "source_type": [
+        "string"
+      ],
+      "truncated": [
+        "boolean"
+      ],
+      "values": [
+        "array"
+      ],
+      "variable_name": [
+        "string"
+      ]
+    }
+  },
+  {
+    "file_name": "csv_data.json",
+    "file_size_mb": 71645.28,
+    "record_count": 282084577,
+    "fields": [
+      "dataset",
+      "document",
+      "file_name",
+      "id",
+      "metadata",
+      "metadata.dataset",
+      "metadata.file_name",
+      "metadata.source_type",
+      "record",
+      "record. 0x0",
+      "record. 0xdeadbeaf",
+      "record.dtype",
+      "record.input",
+      "record.output",
+      "record.seed",
+      "record.ulperrortol",
+      "row_index",
+      "source_type"
+    ],
+    "field_types": {
+      "dataset": [
+        "string"
+      ],
+      "document": [
+        "string"
+      ],
+      "file_name": [
+        "string"
+      ],
+      "id": [
+        "string"
+      ],
+      "metadata": [
+        "object"
+      ],
+      "metadata.dataset": [
+        "string"
+      ],
+      "metadata.file_name": [
+        "string"
+      ],
+      "metadata.source_type": [
+        "string"
+      ],
+      "record": [
+        "object"
+      ],
+      "record. 0x0": [
+        "string"
+      ],
+      "record. 0xdeadbeaf": [
+        "string"
+      ],
+      "record.dtype": [
+        "string"
+      ],
+      "record.input": [
+        "null",
+        "string"
+      ],
+      "record.output": [
+        "null",
+        "string"
+      ],
+      "record.seed": [
+        "integer"
+      ],
+      "record.ulperrortol": [
+        "integer",
+        "null",
+        "number"
+      ],
+      "row_index": [
+        "integer"
+      ],
+      "source_type": [
+        "string"
+      ]
+    }
+  }
+]

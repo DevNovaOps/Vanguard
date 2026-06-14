@@ -1,0 +1,8 @@
+{
+  "existing_documents_preserved": 392260,
+  "summary_documents_processed": 209254,
+  "chromadb_documents_added": 209254,
+  "duplicate_documents_skipped": 209254,
+  "collection_name": "vanguard_knowledge",
+  "chromadb_location": "D:\\ai\\chroma_db"
+}

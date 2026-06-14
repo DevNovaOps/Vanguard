@@ -1,0 +1,7 @@
+{
+  "csv_records_processed": 32151723,
+  "new_csv_records_processed": 4751723,
+  "incidents_generated": 12653,
+  "skipped_records": 655,
+  "output_file": "D:\\ai\\knowledge_base\\csv_incident_summaries.json"
+}
