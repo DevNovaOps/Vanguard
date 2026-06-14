@@ -4,6 +4,7 @@ import {
   registerUser,
   loginUser,
   getUserProfile,
+  updateUserProfile,
   logoutUser,
   getAllUsers,
   approveAllUsers,
@@ -58,6 +59,24 @@ const loginValidationRules = [
     .withMessage('Password is required')
 ];
 
+// Profile Update Validation Schema
+const updateProfileValidationRules = [
+  body('name')
+    .optional()
+    .trim()
+    .notEmpty()
+    .withMessage('Name cannot be empty'),
+  body('email')
+    .optional()
+    .trim()
+    .isEmail()
+    .withMessage('Please enter a valid email address')
+    .normalizeEmail(),
+  body('department')
+    .optional()
+    .trim()
+];
+
 // Routes Configuration
 router.post('/register', registerValidationRules, registerUser);
 router.post('/login', loginValidationRules, loginUser);
@@ -72,6 +91,7 @@ router.post('/verify-login-otp', verifyLoginOtp);
 router.post('/resend-otp', resendOtp);
 
 router.get('/profile', authenticateUser, getUserProfile);
+router.put('/profile', authenticateUser, updateProfileValidationRules, updateUserProfile);
 router.post('/logout', authenticateUser, logoutUser);
 
 // Admin user approval/rejection endpoints

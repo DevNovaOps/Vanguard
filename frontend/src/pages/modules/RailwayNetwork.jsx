@@ -80,16 +80,18 @@ export default function RailwayNetwork() {
   
   const { isRunning, simulationStore } = useSimulation();
 
-  const displayNodes = transitNodes.map(node => {
-    if (simulationStore && node.id === 'TN-011') {
-      return {
-        ...node,
-        status: 'critical',
-        riskScore: 95
-      };
-    }
-    return node;
-  });
+  const displayNodes = useMemo(() => {
+    return transitNodes.map(node => {
+      if (simulationStore && node.id === 'TN-011') {
+        return {
+          ...node,
+          status: 'critical',
+          riskScore: 95
+        };
+      }
+      return node;
+    });
+  }, [transitNodes, simulationStore]);
 
   const displaySelectedNode = selectedNode
     ? (displayNodes.find(n => n.id === selectedNode.id) || selectedNode)
@@ -507,6 +509,7 @@ export default function RailwayNetwork() {
       });
     }
 
+<<<<<<< HEAD
     // 3. Draw nodes and clusters
     nodesToRender.forEach(item => {
       if (item.type === 'node') {
@@ -580,6 +583,7 @@ export default function RailwayNetwork() {
       }
     });
   }, [nodesToRender, displaySelectedNode, mapMode, zoom]);
+
 
   // Buttery-smooth data packet animation loop using requestAnimationFrame
   useEffect(() => {

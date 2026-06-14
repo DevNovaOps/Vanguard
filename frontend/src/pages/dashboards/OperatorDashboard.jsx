@@ -7,7 +7,8 @@ import StatusBadge from '../../components/common/StatusBadge';
 import { operatorKPIs as mockKPIs, sensors, routes } from '../../data/mockData';
 import { incidentService } from '../../utils/incidentService';
 import { timeAgo } from '../../utils/helpers';
-import { Eye, AlertCircle, ArrowUpRight } from 'lucide-react';
+import { Eye, AlertCircle, ArrowUpRight, FileText } from 'lucide-react';
+import { downloadReport } from '../../utils/reportService';
 import { io } from 'socket.io-client';
 
 const sensorByType = ['temperature', 'vibration', 'pressure', 'gas', 'power', 'signal'].map(type => ({
@@ -71,6 +72,18 @@ const rowVariants = {
 export default function OperatorDashboard() {
   const [incidents, setIncidents] = useState([]);
   const [stats, setStats] = useState(null);
+  const [exporting, setExporting] = useState(false);
+
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      await downloadReport('incidents', 'pdf', 'Incident Report');
+    } catch (err) {
+      alert('Failed to export report: ' + err.message);
+    } finally {
+      setExporting(false);
+    }
+  };
 
   const fetchIncidentsAndStats = useCallback(async () => {
     try {
@@ -129,7 +142,16 @@ export default function OperatorDashboard() {
           <h1><span className="gradient-text">Operator Dashboard</span></h1>
           <p>Railway operations monitoring center</p>
         </div>
-        <div className="page-actions">
+        <div className="page-actions" style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          <motion.button
+            className="btn btn-primary btn-sm"
+            whileHover={{ scale: 1.03 }}
+            whileTap={{ scale: 0.97 }}
+            onClick={handleExport}
+            disabled={exporting}
+          >
+            <FileText size={14} /> {exporting ? 'Exporting...' : 'Incident Report'}
+          </motion.button>
           <span className="live-indicator">LIVE</span>
         </div>
       </motion.div>
