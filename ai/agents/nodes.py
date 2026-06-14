@@ -454,5 +454,7 @@ def executive_summary_agent(state: VanguardState) -> dict:
     res = executive_decision_agent(state)
     return {
         "executive_summary": res["executive_summary"],
-        "risk_level": res["risk_level"]
+        "risk_level": res["risk_level"],
+        "escalation_level": res.get("escalation_level", "LOW"),
+        "alerts": res.get("alerts", [])
     }

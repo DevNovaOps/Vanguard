@@ -2,6 +2,7 @@ import { motion } from 'framer-motion';
 import { BarChart3, Database, Shield, AlertCircle, AlertTriangle, Bot, Download, FileSpreadsheet, FileText, FileJson } from 'lucide-react';
 import { useSimulation } from '../../contexts/SimulationContext';
 import { useAuth } from '../../contexts/AuthContext';
+import { downloadReport } from '../../utils/reportService';
 
 const REPORTS = [
   { id: 1, title: 'Infrastructure Report', desc: 'Complete asset inventory with maintenance history, sensor health, and capacity utilization across all transit nodes.', icon: Database, color: 'var(--color-primary-500)', lastGenerated: '2 hours ago' },
@@ -18,11 +19,6 @@ export default function Reports() {
 
   const allowedReports = REPORTS.filter(report => {
     if (userRole === 'admin') return true;
-
-    // Infrastructure Report: NOT allowed for Safety Officer
-    if (report.title === 'Infrastructure Report') {
-      return userRole === 'operator' || userRole === 'manager';
-    }
 
     // Compliance Report, Risk Analysis Report, Autonomous Actions Report: NOT allowed for Operator
     if (

@@ -290,155 +290,157 @@ export default function FailureSimulation() {
       )}
 
       {/* Simulation Configuration Control Panel */}
-      <motion.div
-        initial={{ opacity: 0, y: 15 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4, delay: 0.1 }}
-        style={{
-          background: 'var(--bg-secondary)',
-          border: '1px solid var(--glass-border)',
-          borderRadius: 'var(--radius-lg)',
-          padding: '1.5rem',
-          marginBottom: '1.5rem',
-          backdropFilter: 'blur(10px)'
-        }}
-      >
-        <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.25rem', fontSize: 'var(--text-md)', fontWeight: 700 }}>
-          <Radio size={18} style={{ color: 'var(--accent-primary)' }} />
-          Simulation Configuration
-        </h3>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1.5rem', alignItems: 'end' }}>
-          {/* Target Station Select */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-            <label style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', fontWeight: 600 }}>TARGET RAILWAY NODE</label>
-            <select
-              value={selectedNodeCode}
-              onChange={(e) => setSelectedNodeCode(e.target.value)}
-              disabled={isRunning}
-              style={{
-                background: 'var(--bg-primary)',
-                border: '1px solid var(--glass-border)',
-                borderRadius: 'var(--radius-md)',
-                padding: '0.6rem 0.8rem',
-                color: 'var(--text-primary)',
-                fontSize: 'var(--text-sm)',
-                outline: 'none',
-                cursor: 'pointer',
-                width: '100%',
-                height: '42px'
-              }}
-            >
-              {rawNodes.map((n) => (
-                <option key={n.nodeCode} value={n.nodeCode}>
-                  {n.nodeName} ({n.nodeCode})
-                </option>
-              ))}
-            </select>
-          </div>
+      {canTrigger && (
+        <motion.div
+          initial={{ opacity: 0, y: 15 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, delay: 0.1 }}
+          style={{
+            background: 'var(--bg-secondary)',
+            border: '1px solid var(--glass-border)',
+            borderRadius: 'var(--radius-lg)',
+            padding: '1.5rem',
+            marginBottom: '1.5rem',
+            backdropFilter: 'blur(10px)'
+          }}
+        >
+          <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.25rem', fontSize: 'var(--text-md)', fontWeight: 700 }}>
+            <Radio size={18} style={{ color: 'var(--accent-primary)' }} />
+            Simulation Configuration
+          </h3>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1.5rem', alignItems: 'end' }}>
+            {/* Target Station Select */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+              <label style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', fontWeight: 600 }}>TARGET RAILWAY NODE</label>
+              <select
+                value={selectedNodeCode}
+                onChange={(e) => setSelectedNodeCode(e.target.value)}
+                disabled={isRunning}
+                style={{
+                  background: 'var(--bg-primary)',
+                  border: '1px solid var(--glass-border)',
+                  borderRadius: 'var(--radius-md)',
+                  padding: '0.6rem 0.8rem',
+                  color: 'var(--text-primary)',
+                  fontSize: 'var(--text-sm)',
+                  outline: 'none',
+                  cursor: 'pointer',
+                  width: '100%',
+                  height: '42px'
+                }}
+              >
+                {rawNodes.map((n) => (
+                  <option key={n.nodeCode} value={n.nodeCode}>
+                    {n.nodeName} ({n.nodeCode})
+                  </option>
+                ))}
+              </select>
+            </div>
 
-          {/* Temperature Parameter */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 'var(--text-xs)' }}>
-              <span style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>TEMPERATURE</span>
-              <span style={{ color: 'var(--accent-primary)', fontWeight: 700 }}>{temperature} °C</span>
+            {/* Temperature Parameter */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 'var(--text-xs)' }}>
+                <span style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>TEMPERATURE</span>
+                <span style={{ color: 'var(--accent-primary)', fontWeight: 700 }}>{temperature} °C</span>
+              </div>
+              <input
+                type="range"
+                min="0"
+                max="150"
+                value={temperature}
+                onChange={(e) => setTemperature(Number(e.target.value))}
+                disabled={isRunning}
+                style={{ width: '100%', accentColor: 'var(--accent-primary)', cursor: 'pointer', marginTop: '6px' }}
+              />
             </div>
-            <input
-              type="range"
-              min="0"
-              max="150"
-              value={temperature}
-              onChange={(e) => setTemperature(Number(e.target.value))}
-              disabled={isRunning}
-              style={{ width: '100%', accentColor: 'var(--accent-primary)', cursor: 'pointer', marginTop: '6px' }}
-            />
-          </div>
 
-          {/* Vibration Parameter */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 'var(--text-xs)' }}>
-              <span style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>VIBRATION</span>
-              <span style={{ color: 'var(--accent-primary)', fontWeight: 700 }}>{vibration} mm/s</span>
+            {/* Vibration Parameter */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 'var(--text-xs)' }}>
+                <span style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>VIBRATION</span>
+                <span style={{ color: 'var(--accent-primary)', fontWeight: 700 }}>{vibration} mm/s</span>
+              </div>
+              <input
+                type="range"
+                min="0"
+                max="120"
+                value={vibration}
+                onChange={(e) => setVibration(Number(e.target.value))}
+                disabled={isRunning}
+                style={{ width: '100%', accentColor: 'var(--accent-primary)', cursor: 'pointer', marginTop: '6px' }}
+              />
             </div>
-            <input
-              type="range"
-              min="0"
-              max="120"
-              value={vibration}
-              onChange={(e) => setVibration(Number(e.target.value))}
-              disabled={isRunning}
-              style={{ width: '100%', accentColor: 'var(--accent-primary)', cursor: 'pointer', marginTop: '6px' }}
-            />
-          </div>
 
-          {/* Hazardous Gas Parameter */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 'var(--text-xs)' }}>
-              <span style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>HAZARDOUS GAS</span>
-              <span style={{ color: 'var(--accent-primary)', fontWeight: 700 }}>{gas} ppm</span>
+            {/* Hazardous Gas Parameter */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 'var(--text-xs)' }}>
+                <span style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>HAZARDOUS GAS</span>
+                <span style={{ color: 'var(--accent-primary)', fontWeight: 700 }}>{gas} ppm</span>
+              </div>
+              <input
+                type="range"
+                min="0"
+                max="100"
+                value={gas}
+                onChange={(e) => setGas(Number(e.target.value))}
+                disabled={isRunning}
+                style={{ width: '100%', accentColor: 'var(--accent-primary)', cursor: 'pointer', marginTop: '6px' }}
+              />
             </div>
-            <input
-              type="range"
-              min="0"
-              max="100"
-              value={gas}
-              onChange={(e) => setGas(Number(e.target.value))}
-              disabled={isRunning}
-              style={{ width: '100%', accentColor: 'var(--accent-primary)', cursor: 'pointer', marginTop: '6px' }}
-            />
-          </div>
 
-          {/* Power Grid voltage Parameter */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 'var(--text-xs)' }}>
-              <span style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>POWER GRID VOLTAGE</span>
-              <span style={{ color: 'var(--accent-primary)', fontWeight: 700 }}>{power} kV</span>
+            {/* Power Grid voltage Parameter */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 'var(--text-xs)' }}>
+                <span style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>POWER GRID VOLTAGE</span>
+                <span style={{ color: 'var(--accent-primary)', fontWeight: 700 }}>{power} kV</span>
+              </div>
+              <input
+                type="range"
+                min="0"
+                max="50"
+                value={power}
+                onChange={(e) => setPower(Number(e.target.value))}
+                disabled={isRunning}
+                style={{ width: '100%', accentColor: 'var(--accent-primary)', cursor: 'pointer', marginTop: '6px' }}
+              />
             </div>
-            <input
-              type="range"
-              min="0"
-              max="50"
-              value={power}
-              onChange={(e) => setPower(Number(e.target.value))}
-              disabled={isRunning}
-              style={{ width: '100%', accentColor: 'var(--accent-primary)', cursor: 'pointer', marginTop: '6px' }}
-            />
-          </div>
 
-          {/* Calculated Output Preview */}
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            padding: '0.5rem 1rem',
-            background: 'var(--bg-primary)',
-            borderRadius: 'var(--radius-md)',
-            border: '1px dashed var(--glass-border)',
-            minWidth: '220px',
-            height: '42px'
-          }}>
-            <div style={{ display: 'flex', flexDirection: 'column' }}>
-              <span style={{ fontSize: '9px', color: 'var(--text-tertiary)', textTransform: 'uppercase' }}>Calculated Risk</span>
-              <span style={{
-                fontSize: 'var(--text-sm)',
-                fontWeight: 700,
-                color: calculatedSeverity === 'Critical' ? '#ef4444' : calculatedSeverity === 'High' ? '#f59e0b' : calculatedSeverity === 'Medium' ? '#3b82f6' : '#10b981'
-              }}>
-                {calculatedRiskScore}/100
-              </span>
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
-              <span style={{ fontSize: '9px', color: 'var(--text-tertiary)', textTransform: 'uppercase' }}>Severity Level</span>
-              <span style={{
-                fontSize: 'var(--text-xs)',
-                fontWeight: 600,
-                color: calculatedSeverity === 'Critical' ? '#ef4444' : calculatedSeverity === 'High' ? '#f59e0b' : calculatedSeverity === 'Medium' ? '#3b82f6' : '#10b981'
-              }}>
-                {calculatedSeverity}
-              </span>
+            {/* Calculated Output Preview */}
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              padding: '0.5rem 1rem',
+              background: 'var(--bg-primary)',
+              borderRadius: 'var(--radius-md)',
+              border: '1px dashed var(--glass-border)',
+              minWidth: '220px',
+              height: '42px'
+            }}>
+              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                <span style={{ fontSize: '9px', color: 'var(--text-tertiary)', textTransform: 'uppercase' }}>Calculated Risk</span>
+                <span style={{
+                  fontSize: 'var(--text-sm)',
+                  fontWeight: 700,
+                  color: calculatedSeverity === 'Critical' ? '#ef4444' : calculatedSeverity === 'High' ? '#f59e0b' : calculatedSeverity === 'Medium' ? '#3b82f6' : '#10b981'
+                }}>
+                  {calculatedRiskScore}/100
+                </span>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
+                <span style={{ fontSize: '9px', color: 'var(--text-tertiary)', textTransform: 'uppercase' }}>Severity Level</span>
+                <span style={{
+                  fontSize: 'var(--text-xs)',
+                  fontWeight: 600,
+                  color: calculatedSeverity === 'Critical' ? '#ef4444' : calculatedSeverity === 'High' ? '#f59e0b' : calculatedSeverity === 'Medium' ? '#3b82f6' : '#10b981'
+                }}>
+                  {calculatedSeverity}
+                </span>
+              </div>
             </div>
           </div>
-        </div>
-      </motion.div>
+        </motion.div>
+      )}
 
       {/* Main Content Grid */}
       <div className="dashboard-grid">

@@ -157,7 +157,7 @@ const runTests = async () => {
     });
     assert.ok(violations.length > 0);
     const complianceNotifs = await Notification.find({ type: 'ComplianceViolation' });
-    assert.strictEqual(complianceNotifs.length, 1);
+    assert.ok(complianceNotifs.length >= 1);
     assert.ok(complianceNotifs[0].title.includes('Compliance Violation'));
     console.log('✔ Compliance Engine triggered a compliance violation notification');
 

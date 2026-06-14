@@ -57,7 +57,9 @@ def main() -> None:
             "root_causes": result.get("root_causes", ""),
             "mitigation_actions": result.get("mitigation_actions", ""),
             "executive_summary": result.get("executive_summary", ""),
-            "risk_level": result.get("risk_level", "LOW")
+            "risk_level": result.get("risk_level", "LOW"),
+            "escalation_level": result.get("escalation_level", "LOW"),
+            "alerts": result.get("alerts", [])
         }
         print(json.dumps(output, ensure_ascii=False, indent=2))
 

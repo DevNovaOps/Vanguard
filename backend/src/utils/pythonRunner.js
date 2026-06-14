@@ -71,20 +71,8 @@ export const runMultiAgentPipeline = (query, telemetry) => {
       clearTimeout(timeoutId);
       console.timeEnd('[PYTHON-RUNNER] Total Python execution');
 
-      // Try to parse JSON from stdout regardless of exit code
-      // (Python script now always exits 0 and puts errors in JSON)
       try {
-        const cleanLines = stdoutData.split('\n')
-          .filter(line => !line.trim().startsWith('PYTHON RECEIVED '))
-          .join('\n');
-
-        const startIdx = cleanLines.indexOf('{');
-        const endIdx = cleanLines.lastIndexOf('}');
-        if (startIdx === -1 || endIdx === -1 || endIdx < startIdx) {
-          throw new Error('No JSON object found in stdout');
-        }
-        const jsonString = cleanLines.substring(startIdx, endIdx + 1);
-        const parsed = JSON.parse(jsonString);
+        const parsed = extractJsonFromStdout(stdoutData);
         if (parsed.success === false) {
           console.warn('[PYTHON-RUNNER] Python script returned success=false:', parsed.error);
           return resolve(getFallbackResponse(query, telemetry, parsed.error));
@@ -102,6 +90,69 @@ export const runMultiAgentPipeline = (query, telemetry) => {
     });
   });
 };
+
+/**
+ * Extracts a valid JSON object matching the schema from the stdout buffer.
+ * Utilizes a brace-matching parser that correctly handles strings, escapes,
+ * and ignores non-JSON segments (like warnings or other logs).
+ */
+function extractJsonFromStdout(stdout) {
+  let braceCount = 0;
+  let inString = false;
+  let escape = false;
+  let firstBraceIdx = -1;
+
+  for (let i = 0; i < stdout.length; i++) {
+    const char = stdout[i];
+    if (escape) {
+      escape = false;
+      continue;
+    }
+    if (char === '\\') {
+      escape = true;
+      continue;
+    }
+    if (char === '"') {
+      inString = !inString;
+      continue;
+    }
+    if (!inString) {
+      if (char === '{') {
+        if (braceCount === 0) {
+          firstBraceIdx = i;
+        }
+        braceCount++;
+      } else if (char === '}') {
+        braceCount--;
+        if (braceCount === 0 && firstBraceIdx !== -1) {
+          const candidate = stdout.substring(firstBraceIdx, i + 1);
+          try {
+            const parsed = JSON.parse(candidate);
+            if (parsed && typeof parsed === 'object' && ('success' in parsed || 'risk_level' in parsed)) {
+              return parsed;
+            }
+          } catch (e) {
+            // Ignore syntax errors in other brace blocks and continue scanning
+          }
+        }
+      }
+    }
+  }
+
+  // Fallback to searching backwards if brace matching failed to find the target object
+  const startIdx = stdout.indexOf('{');
+  const endIdx = stdout.lastIndexOf('}');
+  if (startIdx !== -1 && endIdx !== -1 && endIdx > startIdx) {
+    const candidate = stdout.substring(startIdx, endIdx + 1);
+    try {
+      return JSON.parse(candidate);
+    } catch (e) {
+      // Ignore
+    }
+  }
+
+  throw new Error('No valid JSON object matching schema found in stdout');
+}
 
 /**
  * Generates rule-based fallback response if the Python pipeline or Ollama fails.

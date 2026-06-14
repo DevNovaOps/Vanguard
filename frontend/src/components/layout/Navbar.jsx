@@ -51,6 +51,13 @@ export default function Navbar({ sidebarCollapsed, onMobileMenuOpen }) {
     }
   };
 
+  const canTriggerSimulation = user && (
+    user.role === 'admin' ||
+    user.role === 'Admin' ||
+    user.role === 'safety_officer' ||
+    user.role === 'SafetyOfficer'
+  );
+
   return (
     <nav className={`navbar ${sidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
       <div className="navbar-left">
@@ -66,16 +73,18 @@ export default function Navbar({ sidebarCollapsed, onMobileMenuOpen }) {
 
       <div className="navbar-right">
         {/* Simulation Button — Cinematic */}
-        <motion.button
-          className={`navbar-simulation-btn ${isRunning ? 'running' : ''}`}
-          onClick={handleSimulationClick}
-          whileHover={{ scale: 1.04, y: -2 }}
-          whileTap={{ scale: 0.96 }}
-          transition={{ type: 'spring', stiffness: 400, damping: 17 }}
-        >
-          {isRunning ? <Square size={14} /> : <Play size={14} />}
-          <span>{isRunning ? `STEP ${currentStep}/${totalSteps}` : 'RUN FAILURE SIMULATION'}</span>
-        </motion.button>
+        {canTriggerSimulation && (
+          <motion.button
+            className={`navbar-simulation-btn ${isRunning ? 'running' : ''}`}
+            onClick={handleSimulationClick}
+            whileHover={{ scale: 1.04, y: -2 }}
+            whileTap={{ scale: 0.96 }}
+            transition={{ type: 'spring', stiffness: 400, damping: 17 }}
+          >
+            {isRunning ? <Square size={14} /> : <Play size={14} />}
+            <span>{isRunning ? `STEP ${currentStep}/${totalSteps}` : 'RUN FAILURE SIMULATION'}</span>
+          </motion.button>
+        )}
 
         {/* Theme Switcher */}
         <div className="theme-switcher">
