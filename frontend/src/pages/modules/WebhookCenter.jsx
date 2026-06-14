@@ -374,9 +374,9 @@ export default function WebhookCenter() {
   ];
 
   return (
-    <div className="module-page" id="webhook-center-page">
+    <div id="webhook-center-page">
       {/* Page Header */}
-      <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+      <div className="page-header">
         <div>
           <h1 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             <Webhook size={26} style={{ color: 'var(--accent-primary)' }} />
@@ -392,7 +392,7 @@ export default function WebhookCenter() {
       </div>
 
       {/* KPI Cards Row */}
-      <div className="kpi-grid animate-fade-in" style={{ gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem', marginBottom: '1.5rem' }}>
+      <div className="kpi-grid animate-fade-in">
         <KPICard label="Active Integrations" value={`${stats.activeWebhooks}/${stats.totalWebhooks}`} icon="Server" color="blue" delay={0} />
         <KPICard label="Success Rate" value={`${stats.successRate || 100}%`} icon="CheckCircle2" color="green" delay={60} />
         <KPICard label="Avg Latency" value={stats.averageLatency ? `${stats.averageLatency}ms` : '—'} icon="Clock" color="purple" delay={120} />

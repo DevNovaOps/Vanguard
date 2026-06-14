@@ -188,8 +188,8 @@ export const riskService = {
         status === 'critical'
           ? Math.round(80 + Math.random() * 15)
           : status === 'warning'
-          ? Math.round(50 + Math.random() * 15)
-          : Math.round(10 + Math.random() * 15)
+            ? Math.round(50 + Math.random() * 15)
+            : Math.round(10 + Math.random() * 15)
       )
     );
 
@@ -299,7 +299,7 @@ export const riskService = {
   async getDashboardStats() {
     const risks = await RiskScore.find({}).populate('nodeId', 'nodeCode nodeName');
     const validRisks = risks.filter(r => r.nodeId != null);
-    
+
     const totalNodes = validRisks.length;
     if (totalNodes === 0) {
       return {

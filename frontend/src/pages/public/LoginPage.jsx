@@ -64,6 +64,18 @@ export default function LoginPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError(null);
+
+    const isLengthValid = password.length >= 8;
+    const hasUppercase = /[A-Z]/.test(password);
+    const hasNumber = /[0-9]/.test(password);
+    const hasSpecialChar = /[!@#$%^&*(),.?":{}|<>]/.test(password);
+    const isPasswordValid = isLengthValid && hasUppercase && hasNumber && hasSpecialChar;
+
+    if (!isPasswordValid) {
+      setError('Password does not meet the required security criteria.');
+      return;
+    }
+
     try {
       const user = await login(email, password);
       const roleRoutes = {
@@ -210,7 +222,17 @@ export default function LoginPage() {
 
           {/* Password */}
           <div className={`input-group auth-input-group ${focusedField === 'password' ? 'focused' : ''}`}>
-            <label><Lock size={13} style={{ display: 'inline', verticalAlign: 'middle', marginRight: '4px' }} />Password</label>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', marginBottom: '2px' }}>
+              <label style={{ margin: 0 }}><Lock size={13} style={{ display: 'inline', verticalAlign: 'middle', marginRight: '4px' }} />Password</label>
+              <Link 
+                to="/forgot-password"
+                style={{ fontSize: 'var(--text-xs)', color: 'var(--color-primary-400)', cursor: 'pointer', fontWeight: 'var(--font-medium)', textDecoration: 'none' }}
+                onMouseOver={(e) => e.target.style.textDecoration = 'underline'}
+                onMouseOut={(e) => e.target.style.textDecoration = 'none'}
+              >
+                Forgot?
+              </Link>
+            </div>
             <input
               className="input"
               type="password"
@@ -220,6 +242,41 @@ export default function LoginPage() {
               onFocus={() => setFocusedField('password')}
               onBlur={() => setFocusedField(null)}
             />
+
+            {/* Password Validation Criteria */}
+            <div style={{ marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '4px', textAlign: 'left', paddingLeft: '4px' }}>
+              {[
+                { label: 'At least 8 characters', met: password.length >= 8 },
+                { label: 'One uppercase letter', met: /[A-Z]/.test(password) },
+                { label: 'One number', met: /[0-9]/.test(password) },
+                { label: 'One special symbol (@#$... )', met: /[!@#$%^&*(),.?":{}|<>]/.test(password) }
+              ].map((crit, idx) => (
+                <div 
+                  key={idx} 
+                  style={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    gap: '6px', 
+                    fontSize: '11px', 
+                    color: crit.met ? 'var(--color-success)' : 'var(--text-tertiary)',
+                    transition: 'color 0.2s ease'
+                  }}
+                >
+                  <span 
+                    style={{ 
+                      width: '6px', 
+                      height: '6px', 
+                      borderRadius: '50%', 
+                      backgroundColor: crit.met ? 'var(--color-success)' : 'var(--text-tertiary)',
+                      boxShadow: crit.met ? '0 0 6px var(--color-success)' : 'none',
+                      display: 'inline-block',
+                      transition: 'all 0.2s ease'
+                    }} 
+                  />
+                  <span>{crit.label}</span>
+                </div>
+              ))}
+            </div>
           </div>
 
           {error && (

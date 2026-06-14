@@ -101,6 +101,27 @@ export function AuthProvider({ children }) {
     }
   }, [normalizeUserRole]);
 
+  const loginWithOtp = useCallback(async (email, otp) => {
+    setLoading(true);
+    try {
+      const res = await authService.verifyLoginOtp(email, otp);
+      if (res.success && res.token && res.user) {
+        localStorage.setItem('arc_token', res.token);
+        const normalized = normalizeUserRole(res.user);
+        setUser(normalized);
+        setIsAuthenticated(true);
+        localStorage.setItem('arc_user', JSON.stringify(normalized));
+        setLoading(false);
+        return normalized;
+      } else {
+        throw new Error(res.message || 'OTP Login failed');
+      }
+    } catch (error) {
+      setLoading(false);
+      throw error;
+    }
+  }, [normalizeUserRole]);
+
   const register = useCallback(async (name, email, password, role, department) => {
     setLoading(true);
     try {
@@ -156,6 +177,7 @@ export function AuthProvider({ children }) {
       isAuthenticated,
       loading,
       login,
+      loginWithOtp,
       logout,
       register,
       hasPermission,

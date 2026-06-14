@@ -251,6 +251,7 @@ export default function RiskAnalysis() {
         {/* Risk Heatmap */}
         <div className="col-6">
           <ChartCard title="Risk Heatmap" subtitle="Asset risk distribution">
+            <div style={{ maxHeight: '360px', overflowY: 'auto', paddingRight: '4px' }}>
             <div className="risk-heatmap">
               {displayRisks.length === 0 ? (
                 <div style={{ gridColumn: 'span 4', color: 'var(--text-tertiary)', textAlign: 'center', padding: '2rem' }}>
@@ -267,6 +268,7 @@ export default function RiskAnalysis() {
                   </div>
                 ))
               )}
+            </div>
             </div>
           </ChartCard>
         </div>

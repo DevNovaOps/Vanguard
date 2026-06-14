@@ -46,7 +46,7 @@ export default function Navbar({ sidebarCollapsed, onMobileMenuOpen }) {
     if (isRunning) {
       stopSimulation();
     } else {
-      startSimulation();
+      // Navigate to the simulation page so user can configure parameters
       navigate('/simulation');
     }
   };

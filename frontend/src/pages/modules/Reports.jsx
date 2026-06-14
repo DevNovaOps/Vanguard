@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion';
 import { BarChart3, Database, Shield, AlertCircle, AlertTriangle, Bot, Download, FileSpreadsheet, FileText, FileJson } from 'lucide-react';
 import { useSimulation } from '../../contexts/SimulationContext';
+import { useAuth } from '../../contexts/AuthContext';
 
 const REPORTS = [
   { id: 1, title: 'Infrastructure Report', desc: 'Complete asset inventory with maintenance history, sensor health, and capacity utilization across all transit nodes.', icon: Database, color: 'var(--color-primary-500)', lastGenerated: '2 hours ago' },
@@ -12,6 +13,28 @@ const REPORTS = [
 
 export default function Reports() {
   const { simulationStore } = useSimulation();
+  const { user } = useAuth();
+  const userRole = user?.role;
+
+  const allowedReports = REPORTS.filter(report => {
+    if (userRole === 'admin') return true;
+
+    // Infrastructure Report: NOT allowed for Safety Officer
+    if (report.title === 'Infrastructure Report') {
+      return userRole === 'operator' || userRole === 'manager';
+    }
+
+    // Compliance Report, Risk Analysis Report, Autonomous Actions Report: NOT allowed for Operator
+    if (
+      report.title === 'Compliance Report' ||
+      report.title === 'Risk Analysis Report' ||
+      report.title === 'Autonomous Actions Report'
+    ) {
+      return userRole === 'safety_officer' || userRole === 'manager';
+    }
+
+    return true;
+  });
 
   const handleExport = async (format, report) => {
     const endpointMap = {
@@ -176,10 +199,10 @@ export default function Reports() {
       )}
 
       <div className="reports-grid">
-        {REPORTS.map((report, i) => (
+        {allowedReports.map((report, i) => (
           <motion.div
             key={report.id}
-            className="report-card"
+            className="card report-card"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: i * 0.1, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}

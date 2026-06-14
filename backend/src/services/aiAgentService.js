@@ -14,6 +14,15 @@ export const aiAgentService = {
    */
   async evaluateTelemetry(telemetry, req) {
     const { temperature, vibration, gas, power, riskScore, nodeId } = telemetry;
+    const agentPayload = {
+      nodeId,
+      temperature,
+      vibration,
+      gas,
+      power,
+      riskScore
+    };
+    console.log("AGENT INPUT:", agentPayload);
 
     // Validate if node exists
     const nodeExists = await RailwayNode.findById(nodeId);
@@ -46,24 +55,76 @@ export const aiAgentService = {
       };
     }
 
-    // VANGUARD FIX: Implement severity normalization layer before creating database records
-    const severityMap = {
-        LOW: "Low",
-        MEDIUM: "Medium",
-        HIGH: "High",
-        CRITICAL: "Critical",
-        SEVERE: "Critical",
-        INFO: "Low"
+    // VANGUARD FIX: Implement priority-based severity normalization layer before creating database records
+    const temp = Number(temperature);
+    const vib = Number(vibration);
+    const gs = Number(gas);
+    const pwr = Number(power);
+
+    let totalPoints = 0;
+    if (temp < 70) totalPoints += 10;
+    else if (temp <= 90) totalPoints += 25;
+    else totalPoints += 40;
+
+    if (vib < 40) totalPoints += 10;
+    else if (vib <= 80) totalPoints += 25;
+    else totalPoints += 35;
+
+    if (gs < 30) totalPoints += 5;
+    else if (gs <= 70) totalPoints += 15;
+    else totalPoints += 30;
+
+    if (pwr >= 15 && pwr <= 30) totalPoints += 0;
+    else totalPoints += 20;
+
+    const calcRiskScore = Math.min(totalPoints, 100);
+
+    let calcSeverity = 'Low';
+    if (calcRiskScore <= 29) calcSeverity = 'Low';
+    else if (calcRiskScore <= 59) calcSeverity = 'Medium';
+    else if (calcRiskScore <= 79) calcSeverity = 'High';
+    else calcSeverity = 'Critical';
+
+    // Normalization helper
+    const normalizeVal = (val) => {
+      if (!val) return null;
+      const upper = String(val).toUpperCase().trim();
+      if (upper.includes('CRITICAL') || upper.includes('SEVERE')) return 'Critical';
+      if (upper.includes('HIGH') || upper.includes('MAJOR')) return 'High';
+      if (upper.includes('MEDIUM') || upper.includes('MODERATE')) return 'Medium';
+      if (upper.includes('LOW') || upper.includes('MINOR') || upper.includes('INFO')) return 'Low';
+      return null;
     };
 
-    const severity =
-        severityMap[
-            (
-                result.escalation_level ||
-                result.risk_level ||
-                "Medium"
-            ).toUpperCase()
-        ] || "Medium";
+    // Extract from executive summary
+    const getSummarySeverity = (summary) => {
+      if (!summary) return null;
+      const upper = String(summary).toUpperCase();
+      if (upper.includes('CRITICAL') || upper.includes('SEVERE')) return 'Critical';
+      if (upper.includes('HIGH')) return 'High';
+      if (upper.includes('MEDIUM')) return 'Medium';
+      if (upper.includes('LOW')) return 'Low';
+      return null;
+    };
+
+    // Determine final severity using priority order:
+    // 1. escalation_level
+    // 2. executive_summary keywords
+    // 3. risk_level
+    // 4. telemetry-derived severity
+    let severity = normalizeVal(result.escalation_level);
+    if (!severity) {
+      severity = getSummarySeverity(result.executive_summary);
+    }
+    if (!severity) {
+      severity = normalizeVal(result.risk_level);
+    }
+    if (!severity) {
+      severity = calcSeverity;
+    }
+
+    // Ensure we use calcRiskScore if riskScore is missing or hardcoded
+    const finalRiskScore = riskScore || calcRiskScore;
 
     const decision = result.alerts && result.alerts[0] ? result.alerts[0] : 'Keep Monitoring';
     
@@ -78,7 +139,7 @@ export const aiAgentService = {
       detectedThreat = 'Vibration Anomaly';
     } else if (riskAnalysisLower.includes('voltage') || riskAnalysisLower.includes('power') || power < 15 || power > 30) {
       detectedThreat = 'Voltage Anomaly';
-    } else if (riskScore > 85) {
+    } else if (finalRiskScore > 85) {
       detectedThreat = 'Risk Score Anomaly';
     }
 
@@ -107,7 +168,7 @@ export const aiAgentService = {
     try {
       action = await AgentAction.create({
         nodeId,
-        telemetryData: { temperature, vibration, gas, power, riskScore },
+        telemetryData: { temperature, vibration, gas, power, riskScore: finalRiskScore },
         detectedThreat,
         severity,
         decision,

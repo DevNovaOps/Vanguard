@@ -29,3 +29,4 @@ process.on('unhandledRejection', (err) => {
   server.close(() => process.exit(1));
 });
 
+// Trigger nodemon restart - reload env and email debug

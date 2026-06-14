@@ -207,7 +207,7 @@ export default function SettingsPage() {
                   {[
                     ['Platform Version', 'v2.4.1'],
                     ['API Version', 'v3.0'],
-                    ['Database', 'PostgreSQL 16'],
+                    ['Database', 'MongoDB'],
                     ['Cache', 'Redis 7.2'],
                     ['Environment', 'Production'],
                     ['Region', 'ap-south-1 (Mumbai)'],

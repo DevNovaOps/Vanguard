@@ -8,7 +8,7 @@ import Modal from '../../components/common/Modal';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import SearchInput from '../../components/common/SearchInput';
 import { timeAgo } from '../../utils/helpers';
-import { Wrench, Zap, Route, Power, Bell, Siren, Bot, AlertTriangle, CheckCircle, Clock, Plus } from 'lucide-react';
+import { Wrench, Zap, Route, Power, Bell, Siren, Bot, AlertTriangle, CheckCircle, Clock, Plus, Eye } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { mitigationService } from '../../utils/mitigationService';
 import { incidentService } from '../../utils/incidentService';
@@ -43,7 +43,44 @@ const columns = [
     </span>
   )},
   { key: 'executedAt', label: 'Executed', render: (v) => v ? <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-tertiary)' }}>{timeAgo(v)}</span> : <span style={{ color: 'var(--text-tertiary)' }}>—</span> },
-  { key: 'outcome', label: 'Outcome', render: (v) => v || <span style={{ color: 'var(--text-tertiary)' }}>Pending</span> },
+  { key: 'outcome', label: 'Outcome', width: '260px', render: (v) => {
+    if (!v) return <span style={{ color: 'var(--text-tertiary)' }}>Pending</span>;
+    const isLong = v.length > 60;
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', maxWidth: '260px' }}>
+        <span style={{ 
+          fontSize: 'var(--text-xs)', 
+          lineHeight: 1.4,
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          display: '-webkit-box',
+          WebkitLineClamp: 2,
+          WebkitBoxOrient: 'vertical',
+          flex: 1
+        }}>
+          {v}
+        </span>
+        {isLong && (
+          <button
+            className="btn btn-secondary"
+            style={{ 
+              padding: '2px 8px', 
+              fontSize: '10px', 
+              flexShrink: 0,
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '3px',
+              borderRadius: 'var(--radius-sm)',
+              lineHeight: 1
+            }}
+            onClick={(e) => { /* let row click propagate to open detail modal */ }}
+          >
+            <Eye size={10} /> View
+          </button>
+        )}
+      </div>
+    );
+  }},
 ];
 
 export default function MitigationCenter() {
@@ -394,7 +431,7 @@ export default function MitigationCenter() {
       </div>
 
       {/* Summary Cards */}
-      <div className="kpi-grid" style={{ gridTemplateColumns: 'repeat(4, 1fr)', marginBottom: '1.5rem' }}>
+      <div className="kpi-grid">
         {[
           { label: 'Total Actions', value: stats.totalMitigations, color: 'blue', icon: 'Wrench' },
           { label: 'Executed / Completed', value: stats.completedActions, color: 'green', icon: 'CheckCircle' },

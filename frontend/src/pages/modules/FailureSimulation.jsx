@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import StatusBadge from '../../components/common/StatusBadge';
@@ -10,6 +10,7 @@ import { useSimulation } from '../../contexts/SimulationContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { api } from '../../utils/api';
 import { timeAgo } from '../../utils/helpers';
+import rawNodes from '../../data/vanguard_railway_nodes_1200.json';
 import {
   Zap, Play, Square, Clock, CheckCircle, XCircle, AlertTriangle,
   Radio, Shield, BarChart3, Bot, Wrench, Wifi, FileText,
@@ -33,6 +34,7 @@ export default function FailureSimulation() {
   const {
     isRunning, currentStep, totalSteps, completedSteps,
     events, liveStepData, simulationRunId,
+    simulationError, clearSimulationError,
     runFailureSimulation, SIMULATION_STEPS
   } = useSimulation();
 
@@ -42,6 +44,45 @@ export default function FailureSimulation() {
   const [selectedRun, setSelectedRun] = useState(null);
   const [selectedRunEvents, setSelectedRunEvents] = useState([]);
   const [showRunDetails, setShowRunDetails] = useState(false);
+
+  const [selectedNodeCode, setSelectedNodeCode] = useState('BRC');
+  const [temperature, setTemperature] = useState(135);
+  const [vibration, setVibration] = useState(85);
+  const [gas, setGas] = useState(40);
+  const [power, setPower] = useState(24);
+
+  // Dynamic risk calculation in UI
+  const calculatedRiskScore = useMemo(() => {
+    let totalPoints = 0;
+
+    // Temperature
+    if (temperature < 70) totalPoints += 10;
+    else if (temperature <= 90) totalPoints += 25;
+    else totalPoints += 40;
+
+    // Vibration
+    if (vibration < 40) totalPoints += 10;
+    else if (vibration <= 80) totalPoints += 25;
+    else totalPoints += 35;
+
+    // Gas
+    if (gas < 30) totalPoints += 5;
+    else if (gas <= 70) totalPoints += 15;
+    else totalPoints += 30;
+
+    // Power
+    if (power >= 15 && power <= 30) totalPoints += 0;
+    else totalPoints += 20;
+
+    return Math.min(totalPoints, 100);
+  }, [temperature, vibration, gas, power]);
+
+  const calculatedSeverity = useMemo(() => {
+    if (calculatedRiskScore <= 29) return 'Low';
+    if (calculatedRiskScore <= 59) return 'Medium';
+    if (calculatedRiskScore <= 79) return 'High';
+    return 'Critical';
+  }, [calculatedRiskScore]);
   const eventLogRef = useRef(null);
   const detailsRef = useRef(null);
 
@@ -59,12 +100,10 @@ export default function FailureSimulation() {
     }
   }, [events]);
 
-  // Reload history when simulation completes
+  // Reload history when simulation starts or completes
   useEffect(() => {
-    if (!isRunning && completedSteps.length === 7) {
-      setTimeout(() => loadData(), 1500);
-    }
-  }, [isRunning, completedSteps]);
+    loadData();
+  }, [isRunning]);
 
   // Scroll to details panel when opened
   useEffect(() => {
@@ -148,10 +187,10 @@ export default function FailureSimulation() {
   ];
 
   return (
-    <div className="module-page" id="failure-simulation-page">
+    <div id="failure-simulation-page">
       {/* Page Header */}
       <motion.div
-        className="module-page-header"
+        className="page-header"
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4 }}
@@ -181,7 +220,7 @@ export default function FailureSimulation() {
             <button
               id="simulation-trigger-btn"
               className={`btn ${isRunning ? 'btn-secondary' : 'btn-primary'}`}
-              onClick={() => runFailureSimulation(navigate)}
+              onClick={() => runFailureSimulation(selectedNodeCode, temperature, vibration, gas, power, calculatedRiskScore, navigate)}
               disabled={isRunning}
               style={{ minWidth: '220px' }}
             >
@@ -191,9 +230,58 @@ export default function FailureSimulation() {
         </div>
       </motion.div>
 
+      {/* VANGUARD FIX: Error Banner — displayed when simulation fails */}
+      <AnimatePresence>
+        {simulationError && (
+          <motion.div
+            initial={{ opacity: 0, y: -10, scaleY: 0.9 }}
+            animate={{ opacity: 1, y: 0, scaleY: 1 }}
+            exit={{ opacity: 0, y: -10, scaleY: 0.9 }}
+            transition={{ duration: 0.3 }}
+            style={{
+              marginBottom: '1.5rem',
+              padding: '1rem 1.5rem',
+              background: 'rgba(239, 68, 68, 0.08)',
+              border: '1px solid rgba(239, 68, 68, 0.3)',
+              borderRadius: 'var(--radius-lg)',
+              borderLeft: '4px solid #ef4444',
+              display: 'flex',
+              alignItems: 'flex-start',
+              gap: '0.75rem'
+            }}
+          >
+            <AlertTriangle size={20} style={{ color: '#ef4444', flexShrink: 0, marginTop: '2px' }} />
+            <div style={{ flex: 1 }}>
+              <div style={{ fontWeight: 700, fontSize: 'var(--text-sm)', color: '#ef4444', marginBottom: '0.25rem' }}>
+                Simulation Failed
+              </div>
+              <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+                {simulationError}
+              </div>
+            </div>
+            <button
+              onClick={clearSimulationError}
+              style={{
+                background: 'rgba(239, 68, 68, 0.15)',
+                border: '1px solid rgba(239, 68, 68, 0.3)',
+                borderRadius: 'var(--radius-md)',
+                color: '#ef4444',
+                padding: '0.25rem 0.75rem',
+                fontSize: 'var(--text-xs)',
+                fontWeight: 600,
+                cursor: 'pointer',
+                flexShrink: 0
+              }}
+            >
+              Dismiss
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* KPI Stats Row */}
       {stats && (
-        <div className="kpi-row" style={{ marginBottom: '1.5rem' }}>
+        <div className="kpi-grid" style={{ gridTemplateColumns: 'repeat(4, 1fr)', marginBottom: '1.5rem' }}>
           <KPICard label="Total Runs" value={stats.totalRuns} icon="Activity" color="blue" delay={100} />
           <KPICard label="Completed" value={stats.completedRuns} icon="CheckCircle" color="green" delay={200} />
           <KPICard label="Success Rate" value={`${stats.successRate}%`} icon="TrendingUp" color="purple" delay={300} />
@@ -201,11 +289,163 @@ export default function FailureSimulation() {
         </div>
       )}
 
+      {/* Simulation Configuration Control Panel */}
+      <motion.div
+        initial={{ opacity: 0, y: 15 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4, delay: 0.1 }}
+        style={{
+          background: 'var(--bg-secondary)',
+          border: '1px solid var(--glass-border)',
+          borderRadius: 'var(--radius-lg)',
+          padding: '1.5rem',
+          marginBottom: '1.5rem',
+          backdropFilter: 'blur(10px)'
+        }}
+      >
+        <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.25rem', fontSize: 'var(--text-md)', fontWeight: 700 }}>
+          <Radio size={18} style={{ color: 'var(--accent-primary)' }} />
+          Simulation Configuration
+        </h3>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1.5rem', alignItems: 'end' }}>
+          {/* Target Station Select */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+            <label style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', fontWeight: 600 }}>TARGET RAILWAY NODE</label>
+            <select
+              value={selectedNodeCode}
+              onChange={(e) => setSelectedNodeCode(e.target.value)}
+              disabled={isRunning}
+              style={{
+                background: 'var(--bg-primary)',
+                border: '1px solid var(--glass-border)',
+                borderRadius: 'var(--radius-md)',
+                padding: '0.6rem 0.8rem',
+                color: 'var(--text-primary)',
+                fontSize: 'var(--text-sm)',
+                outline: 'none',
+                cursor: 'pointer',
+                width: '100%',
+                height: '42px'
+              }}
+            >
+              {rawNodes.map((n) => (
+                <option key={n.nodeCode} value={n.nodeCode}>
+                  {n.nodeName} ({n.nodeCode})
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Temperature Parameter */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 'var(--text-xs)' }}>
+              <span style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>TEMPERATURE</span>
+              <span style={{ color: 'var(--accent-primary)', fontWeight: 700 }}>{temperature} °C</span>
+            </div>
+            <input
+              type="range"
+              min="0"
+              max="150"
+              value={temperature}
+              onChange={(e) => setTemperature(Number(e.target.value))}
+              disabled={isRunning}
+              style={{ width: '100%', accentColor: 'var(--accent-primary)', cursor: 'pointer', marginTop: '6px' }}
+            />
+          </div>
+
+          {/* Vibration Parameter */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 'var(--text-xs)' }}>
+              <span style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>VIBRATION</span>
+              <span style={{ color: 'var(--accent-primary)', fontWeight: 700 }}>{vibration} mm/s</span>
+            </div>
+            <input
+              type="range"
+              min="0"
+              max="120"
+              value={vibration}
+              onChange={(e) => setVibration(Number(e.target.value))}
+              disabled={isRunning}
+              style={{ width: '100%', accentColor: 'var(--accent-primary)', cursor: 'pointer', marginTop: '6px' }}
+            />
+          </div>
+
+          {/* Hazardous Gas Parameter */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 'var(--text-xs)' }}>
+              <span style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>HAZARDOUS GAS</span>
+              <span style={{ color: 'var(--accent-primary)', fontWeight: 700 }}>{gas} ppm</span>
+            </div>
+            <input
+              type="range"
+              min="0"
+              max="100"
+              value={gas}
+              onChange={(e) => setGas(Number(e.target.value))}
+              disabled={isRunning}
+              style={{ width: '100%', accentColor: 'var(--accent-primary)', cursor: 'pointer', marginTop: '6px' }}
+            />
+          </div>
+
+          {/* Power Grid voltage Parameter */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 'var(--text-xs)' }}>
+              <span style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>POWER GRID VOLTAGE</span>
+              <span style={{ color: 'var(--accent-primary)', fontWeight: 700 }}>{power} kV</span>
+            </div>
+            <input
+              type="range"
+              min="0"
+              max="50"
+              value={power}
+              onChange={(e) => setPower(Number(e.target.value))}
+              disabled={isRunning}
+              style={{ width: '100%', accentColor: 'var(--accent-primary)', cursor: 'pointer', marginTop: '6px' }}
+            />
+          </div>
+
+          {/* Calculated Output Preview */}
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            padding: '0.5rem 1rem',
+            background: 'var(--bg-primary)',
+            borderRadius: 'var(--radius-md)',
+            border: '1px dashed var(--glass-border)',
+            minWidth: '220px',
+            height: '42px'
+          }}>
+            <div style={{ display: 'flex', flexDirection: 'column' }}>
+              <span style={{ fontSize: '9px', color: 'var(--text-tertiary)', textTransform: 'uppercase' }}>Calculated Risk</span>
+              <span style={{
+                fontSize: 'var(--text-sm)',
+                fontWeight: 700,
+                color: calculatedSeverity === 'Critical' ? '#ef4444' : calculatedSeverity === 'High' ? '#f59e0b' : calculatedSeverity === 'Medium' ? '#3b82f6' : '#10b981'
+              }}>
+                {calculatedRiskScore}/100
+              </span>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
+              <span style={{ fontSize: '9px', color: 'var(--text-tertiary)', textTransform: 'uppercase' }}>Severity Level</span>
+              <span style={{
+                fontSize: 'var(--text-xs)',
+                fontWeight: 600,
+                color: calculatedSeverity === 'Critical' ? '#ef4444' : calculatedSeverity === 'High' ? '#f59e0b' : calculatedSeverity === 'Medium' ? '#3b82f6' : '#10b981'
+              }}>
+                {calculatedSeverity}
+              </span>
+            </div>
+          </div>
+        </div>
+      </motion.div>
+
       {/* Main Content Grid */}
-      <div className="grid-2-1" style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '1.5rem', marginBottom: '1.5rem' }}>
+      <div className="dashboard-grid">
 
         {/* Left: 9-Step Timeline */}
-        <ChartCard title="Simulation Pipeline" subtitle={isRunning ? `Running — Step ${currentStep}/${totalSteps}` : 'Ready to execute'}>
+        <div className="col-8">
+          <ChartCard title="Simulation Pipeline" subtitle={isRunning ? `Running — Step ${currentStep}/${totalSteps}` : 'Ready to execute'}>
           <div className="simulation-timeline" style={{ padding: '1rem 0' }}>
             {STEP_META.map((step, idx) => {
               const status = getStepStatus(step.id);
@@ -320,10 +560,12 @@ export default function FailureSimulation() {
               );
             })}
           </div>
-        </ChartCard>
+          </ChartCard>
+        </div>
 
         {/* Right: Live Event Log */}
-        <ChartCard title="Live Event Log" subtitle={`${events.length} events`}>
+        <div className="col-4">
+          <ChartCard title="Live Event Log" subtitle={`${events.length} events`}>
           <div
             ref={eventLogRef}
             style={{
@@ -371,7 +613,8 @@ export default function FailureSimulation() {
               </AnimatePresence>
             )}
           </div>
-        </ChartCard>
+          </ChartCard>
+        </div>
       </div>
 
       {/* Progress Bar (shown only during simulation) */}

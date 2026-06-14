@@ -6,7 +6,8 @@
   "type": "module",
   "scripts": {
     "start": "node src/server.js",
-    "dev": "nodemon src/server.js"
+    "dev": "nodemon src/server.js",
+    "export:infrastructure": "node scripts/exportInfrastructureDB.js"
   },
   "dependencies": {
     "axios": "^1.17.0",
@@ -21,6 +22,7 @@
     "jsonwebtoken": "^9.0.3",
     "mongoose": "^8.24.0",
     "morgan": "^1.10.0",
+    "nodemailer": "^8.0.11",
     "pdfkit": "^0.19.1",
     "socket.io": "^4.8.3"
   },

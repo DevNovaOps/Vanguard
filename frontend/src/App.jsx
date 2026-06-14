@@ -1,6 +1,7 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { useEffect } from 'react';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
-import { ThemeProvider } from './contexts/ThemeContext';
+import { ThemeProvider, useTheme } from './contexts/ThemeContext';
 import { SimulationProvider } from './contexts/SimulationContext';
 
 import PublicLayout from './components/layout/PublicLayout';
@@ -15,6 +16,10 @@ import AboutPage from './pages/public/AboutPage';
 import ContactPage from './pages/public/ContactPage';
 import LoginPage from './pages/public/LoginPage';
 import RegisterPage from './pages/public/RegisterPage';
+import PrivacyPolicyPage from './pages/public/PrivacyPolicyPage';
+import TermsOfServicePage from './pages/public/TermsOfServicePage';
+import ForgotPasswordPage from './pages/public/ForgotPasswordPage';
+import ResetPasswordPage from './pages/public/ResetPasswordPage';
 
 // Dashboards
 import AdminDashboard from './pages/dashboards/AdminDashboard';
@@ -50,6 +55,20 @@ function DashboardRedirect() {
 }
 
 function AppRoutes() {
+  const location = useLocation();
+  const { theme } = useTheme();
+
+  useEffect(() => {
+    if (location.pathname === '/') {
+      document.documentElement.setAttribute('data-theme', 'dark');
+    } else {
+      const resolved = theme === 'system'
+        ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+        : theme;
+      document.documentElement.setAttribute('data-theme', resolved);
+    }
+  }, [location.pathname, theme]);
+
   return (
     <Routes>
       {/* Public Routes */}
@@ -61,6 +80,10 @@ function AppRoutes() {
         <Route path="/contact" element={<ContactPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
+        <Route path="/privacy" element={<PrivacyPolicyPage />} />
+        <Route path="/terms" element={<TermsOfServicePage />} />
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+        <Route path="/reset-password/:token" element={<ResetPasswordPage />} />
       </Route>
 
       {/* Protected Routes */}

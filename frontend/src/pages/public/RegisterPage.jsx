@@ -52,6 +52,18 @@ export default function RegisterPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError(null);
+
+    const isLengthValid = password.length >= 8;
+    const hasUppercase = /[A-Z]/.test(password);
+    const hasNumber = /[0-9]/.test(password);
+    const hasSpecialChar = /[!@#$%^&*(),.?":{}|<>]/.test(password);
+    const isPasswordValid = isLengthValid && hasUppercase && hasNumber && hasSpecialChar;
+
+    if (!isPasswordValid) {
+      setError('Password does not meet the required security criteria.');
+      return;
+    }
+
     try {
       const user = await register(name, email, password, selectedRole, department);
       if (user && !user.isActive) {
@@ -278,6 +290,41 @@ export default function RegisterPage() {
               onFocus={() => setFocusedField('password')}
               onBlur={() => setFocusedField(null)}
             />
+
+            {/* Password Validation Criteria */}
+            <div style={{ marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '4px', textAlign: 'left', paddingLeft: '4px' }}>
+              {[
+                { label: 'At least 8 characters', met: password.length >= 8 },
+                { label: 'One uppercase letter', met: /[A-Z]/.test(password) },
+                { label: 'One number', met: /[0-9]/.test(password) },
+                { label: 'One special symbol (@#$... )', met: /[!@#$%^&*(),.?":{}|<>]/.test(password) }
+              ].map((crit, idx) => (
+                <div 
+                  key={idx} 
+                  style={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    gap: '6px', 
+                    fontSize: '11px', 
+                    color: crit.met ? 'var(--color-success)' : 'var(--text-tertiary)',
+                    transition: 'color 0.2s ease'
+                  }}
+                >
+                  <span 
+                    style={{ 
+                      width: '6px', 
+                      height: '6px', 
+                      borderRadius: '50%', 
+                      backgroundColor: crit.met ? 'var(--color-success)' : 'var(--text-tertiary)',
+                      boxShadow: crit.met ? '0 0 6px var(--color-success)' : 'none',
+                      display: 'inline-block',
+                      transition: 'all 0.2s ease'
+                    }} 
+                  />
+                  <span>{crit.label}</span>
+                </div>
+              ))}
+            </div>
           </div>
 
           <div className={`input-group auth-input-group ${focusedField === 'department' ? 'focused' : ''}`}>

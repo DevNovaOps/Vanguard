@@ -29,7 +29,7 @@ const simulationRunSchema = new mongoose.Schema(
     },
     totalSteps: {
       type: Number,
-      default: 9
+      default: 7
     },
     completedSteps: {
       type: Number,

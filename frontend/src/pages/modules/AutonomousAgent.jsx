@@ -25,6 +25,7 @@ export default function AutonomousAgent() {
   const { isRunning, currentStep, events, totalSteps, simulationStore } = useSimulation();
 
   const [activeStepIndex, setActiveStepIndex] = useState(-1);
+  const [evaluationState, setEvaluationState] = useState('idle'); // 'idle' | 'running' | 'completed'
   const [terminalLines, setTerminalLines] = useState([]);
   const [nodes, setNodes] = useState([]);
   const [actions, setActions] = useState([]);
@@ -67,6 +68,7 @@ export default function AutonomousAgent() {
   const printedActionIds = useRef(new Set());
   const lastSimStepRef = useRef(-1);
   const terminalRef = useRef(null);
+  const nodeIdInitialized = useRef(false);
 
   // Roles boundary definitions
   const isManager = user?.role === 'manager';
@@ -78,15 +80,43 @@ export default function AutonomousAgent() {
   const canViewActions = isAdmin || isSafetyOfficer || isOperator;
   const canEvaluate = isAdmin || isOperator;
 
-  // Pipeline step transition animations
+  // Pipeline step transition animations — sequential progress sweep linked to simulation and manual evaluation
   useEffect(() => {
-    if (!isRunning && activeStepIndex < 0) {
-      const interval = setInterval(() => {
-        setActiveStepIndex(prev => (prev + 1) % PIPELINE_STEPS.length);
-      }, 2500);
-      return () => clearInterval(interval);
+    let interval;
+    if (evaluationState === 'running') {
+      setActiveStepIndex(0);
+      interval = setInterval(() => {
+        setActiveStepIndex(prev => {
+          if (prev >= PIPELINE_STEPS.length - 1) {
+            clearInterval(interval);
+            return PIPELINE_STEPS.length - 1; // Hold at the last step (Execute)
+          }
+          return prev + 1;
+        });
+      }, 12000); // 12 seconds per step to align with LLM pipeline runtime
+    } else if (evaluationState === 'completed') {
+      setActiveStepIndex(PIPELINE_STEPS.length); // Show all checkmarks
+    } else if (isRunning && currentStep === 2) {
+      setActiveStepIndex(0);
+      interval = setInterval(() => {
+        setActiveStepIndex(prev => {
+          if (prev >= PIPELINE_STEPS.length - 1) {
+            clearInterval(interval);
+            return PIPELINE_STEPS.length - 1;
+          }
+          return prev + 1;
+        });
+      }, 12000);
+    } else if (isRunning && currentStep > 2) {
+      setActiveStepIndex(PIPELINE_STEPS.length);
+    } else {
+      setActiveStepIndex(-1); // Idle / clean slate
     }
-  }, [isRunning, activeStepIndex]);
+
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [evaluationState, isRunning, currentStep]);
 
   // Terminal reasoning log formatter
   const printActionToTerminal = useCallback((action) => {
@@ -179,8 +209,15 @@ export default function AutonomousAgent() {
 
       if (nodesRes && nodesRes.success) {
         setNodes(nodesRes.nodes || []);
-        if (nodesRes.nodes?.length > 0 && !formData.nodeId) {
-          setFormData(prev => ({ ...prev, nodeId: nodesRes.nodes[0]._id }));
+        // Initialize nodeId once when nodes are first fetched
+        if (nodesRes.nodes?.length > 0 && !nodeIdInitialized.current) {
+          nodeIdInitialized.current = true;
+          setFormData(prev => {
+            if (!prev.nodeId) {
+              return { ...prev, nodeId: nodesRes.nodes[0]._id };
+            }
+            return prev;
+          });
         }
       }
     } catch (err) {
@@ -192,7 +229,7 @@ export default function AutonomousAgent() {
         setLoading(false);
       }
     }
-  }, [canViewStats, canViewActions, canEvaluate, formData.nodeId, printActionToTerminal]);
+  }, [canViewStats, canViewActions, canEvaluate, printActionToTerminal]);
 
   // Handle Fetching and Polling
   useEffect(() => {
@@ -253,11 +290,12 @@ export default function AutonomousAgent() {
 
     setSubmitting(true);
     setFormError(null);
+    setEvaluationState('running');
+    setIsModalOpen(false); // Close the modal immediately so the user can see the pipeline progress on the main page.
 
     try {
       const res = await agentService.evaluateTelemetry(formData);
       if (res.success && res.action) {
-        setIsModalOpen(false);
         await fetchData(true);
         if (!printedActionIds.current.has(res.action._id)) {
           printActionToTerminal(res.action);
@@ -271,9 +309,23 @@ export default function AutonomousAgent() {
           power: 24,
           riskScore: 20
         }));
+        
+        setEvaluationState('completed');
+        setTimeout(() => {
+          setEvaluationState('idle');
+        }, 5000);
+      } else {
+        setEvaluationState('idle');
       }
     } catch (err) {
-      setFormError(err.message || 'Telemetry evaluation pipeline failed.');
+      console.error(err);
+      // Print the error directly to the live reasoning stream terminal since the modal is already closed
+      const timeStr = new Date().toLocaleTimeString();
+      setTerminalLines(prev => [
+        ...prev,
+        { text: `▸ [${timeStr}] PIPELINE EXCEPTION: ${err.message || 'Telemetry evaluation failed.'}`, type: 'danger' }
+      ].slice(-35));
+      setEvaluationState('idle');
     } finally {
       setSubmitting(false);
     }
@@ -369,8 +421,12 @@ export default function AutonomousAgent() {
         </div>
         <div className="page-actions" style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
           {canEvaluate && (
-            <button className="btn btn-primary btn-sm" onClick={() => setIsModalOpen(true)}>
-              <Zap size={14} /> Evaluate Telemetry
+            <button
+              className="btn btn-primary btn-sm"
+              onClick={() => setIsModalOpen(true)}
+              disabled={evaluationState === 'running'}
+            >
+              <Zap size={14} /> {evaluationState === 'running' ? 'Evaluating Telemetry...' : 'Evaluate Telemetry'}
             </button>
           )}
           <span className="live-indicator">AI ACTIVE</span>
@@ -386,8 +442,8 @@ export default function AutonomousAgent() {
         <ChartCard title="AI Processing Pipeline" subtitle="Real-time autonomous decision workflow">
           <div className="agent-workflow">
             {PIPELINE_STEPS.map((step, i) => {
-              const isActive = i === activeStepIndex;
               const isCompleted = i < activeStepIndex;
+              const isActive = i === activeStepIndex;
               return (
                 <div key={step.label} style={{ display: 'flex', alignItems: 'center' }}>
                   <motion.div
@@ -398,8 +454,8 @@ export default function AutonomousAgent() {
                   >
                     <motion.div
                       className="agent-step-icon"
-                      animate={isActive ? { scale: [1, 1.08, 1] } : {}}
-                      transition={{ duration: 1.5, repeat: Infinity }}
+                      animate={isActive ? { scale: [1, 1.08, 1] } : isCompleted ? { scale: [1, 1.15, 1] } : {}}
+                      transition={isCompleted ? { duration: 0.3 } : { duration: 1.5, repeat: Infinity }}
                     >
                       {isCompleted ? <CheckCircle size={20} /> : <step.icon size={20} />}
                     </motion.div>
@@ -409,7 +465,6 @@ export default function AutonomousAgent() {
                   {i < PIPELINE_STEPS.length - 1 && (
                     <motion.div
                       className="agent-step-arrow"
-                      initial={{ opacity: 0 }}
                       animate={{ opacity: isCompleted ? 1 : 0.3 }}
                       style={{ color: isCompleted ? 'var(--color-success)' : 'var(--text-tertiary)' }}
                     >
@@ -667,7 +722,7 @@ export default function AutonomousAgent() {
             <select
               className="select"
               value={formData.nodeId}
-              onChange={e => setFormData({ ...formData, nodeId: e.target.value })}
+              onChange={e => setFormData(prev => ({ ...prev, nodeId: e.target.value }))}
               required
               style={{ width: '100%', padding: '0.5rem', background: 'var(--bg-tertiary)', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-md)', color: 'var(--text-primary)' }}
             >
@@ -684,7 +739,7 @@ export default function AutonomousAgent() {
               min="0"
               max="120"
               value={formData.temperature}
-              onChange={e => setFormData({ ...formData, temperature: Number(e.target.value) })}
+              onChange={e => setFormData(prev => ({ ...prev, temperature: Number(e.target.value) }))}
               style={{ width: '100%', accentColor: 'var(--color-primary-500)' }}
             />
           </div>
@@ -695,7 +750,7 @@ export default function AutonomousAgent() {
               min="0"
               max="100"
               value={formData.gas}
-              onChange={e => setFormData({ ...formData, gas: Number(e.target.value) })}
+              onChange={e => setFormData(prev => ({ ...prev, gas: Number(e.target.value) }))}
               style={{ width: '100%', accentColor: 'var(--color-primary-500)' }}
             />
           </div>
@@ -706,7 +761,7 @@ export default function AutonomousAgent() {
               min="0"
               max="100"
               value={formData.vibration}
-              onChange={e => setFormData({ ...formData, vibration: Number(e.target.value) })}
+              onChange={e => setFormData(prev => ({ ...prev, vibration: Number(e.target.value) }))}
               style={{ width: '100%', accentColor: 'var(--color-primary-500)' }}
             />
           </div>
@@ -717,7 +772,7 @@ export default function AutonomousAgent() {
               min="15"
               max="30"
               value={formData.power}
-              onChange={e => setFormData({ ...formData, power: Number(e.target.value) })}
+              onChange={e => setFormData(prev => ({ ...prev, power: Number(e.target.value) }))}
               style={{ width: '100%', accentColor: 'var(--color-primary-500)' }}
             />
           </div>
@@ -728,7 +783,7 @@ export default function AutonomousAgent() {
               min="0"
               max="100"
               value={formData.riskScore}
-              onChange={e => setFormData({ ...formData, riskScore: Number(e.target.value) })}
+              onChange={e => setFormData(prev => ({ ...prev, riskScore: Number(e.target.value) }))}
               style={{ width: '100%', accentColor: 'var(--color-primary-500)' }}
             />
           </div>

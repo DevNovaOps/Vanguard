@@ -8,6 +8,9 @@ const __dirname = path.dirname(__filename);
 // Path to the Python run script
 const SCRIPT_PATH = path.resolve(__dirname, '../../../ai/scripts/run_agents.py');
 
+// Python process timeout: 120 seconds maximum
+const PYTHON_TIMEOUT_MS = 300000;
+
 /**
  * Execute the Vanguard 7-agent Python LangGraph pipeline.
  * @param {string} query - The inquiry/context query for retrieval.
@@ -17,7 +20,9 @@ const SCRIPT_PATH = path.resolve(__dirname, '../../../ai/scripts/run_agents.py')
 export const runMultiAgentPipeline = (query, telemetry) => {
   return new Promise((resolve) => {
     const telemetryString = JSON.stringify(telemetry || {});
+    console.log("PYTHON PAYLOAD:", telemetry);
     console.log(`[PYTHON-RUNNER] Spawning python for run_agents.py... Query: "${query}"`);
+    console.time('[PYTHON-RUNNER] Total Python execution');
 
     // Determine the Python command (try explicit Python 3.11 path first on Windows, then fallback)
     let pythonCmd = process.platform === 'win32'
@@ -29,6 +34,18 @@ export const runMultiAgentPipeline = (query, telemetry) => {
 
     let stdoutData = '';
     let stderrData = '';
+    let resolved = false;
+
+    // Timeout: kill the process if it takes longer than 120 seconds
+    const timeoutId = setTimeout(() => {
+      if (!resolved) {
+        resolved = true;
+        console.timeEnd('[PYTHON-RUNNER] Total Python execution');
+        console.warn(`[PYTHON-RUNNER] Python process timed out after ${PYTHON_TIMEOUT_MS / 1000} seconds. Killing...`);
+        child.kill('SIGKILL');
+        resolve(getFallbackResponse(query, telemetry, `Python process timed out after ${PYTHON_TIMEOUT_MS / 1000} seconds`));
+      }
+    }, PYTHON_TIMEOUT_MS);
 
     child.stdout.on('data', (data) => {
       stdoutData += data.toString();
@@ -39,19 +56,35 @@ export const runMultiAgentPipeline = (query, telemetry) => {
     });
 
     child.on('error', (err) => {
+      if (resolved) return;
+      resolved = true;
+      clearTimeout(timeoutId);
+      console.timeEnd('[PYTHON-RUNNER] Total Python execution');
       console.error('[PYTHON-RUNNER] Failed to spawn python process:', err.message);
       // Generate standard fallback response to keep the app operational
       return resolve(getFallbackResponse(query, telemetry, `Spawn failed: ${err.message}`));
     });
 
     child.on('close', (code) => {
-      if (code !== 0) {
-        console.warn(`[PYTHON-RUNNER] Python script exited with code ${code}. Stderr: ${stderrData.trim()}`);
-        return resolve(getFallbackResponse(query, telemetry, stderrData.trim() || `Exit code ${code}`));
-      }
+      if (resolved) return;
+      resolved = true;
+      clearTimeout(timeoutId);
+      console.timeEnd('[PYTHON-RUNNER] Total Python execution');
 
+      // Try to parse JSON from stdout regardless of exit code
+      // (Python script now always exits 0 and puts errors in JSON)
       try {
-        const parsed = JSON.parse(stdoutData.trim());
+        const cleanLines = stdoutData.split('\n')
+          .filter(line => !line.trim().startsWith('PYTHON RECEIVED '))
+          .join('\n');
+
+        const startIdx = cleanLines.indexOf('{');
+        const endIdx = cleanLines.lastIndexOf('}');
+        if (startIdx === -1 || endIdx === -1 || endIdx < startIdx) {
+          throw new Error('No JSON object found in stdout');
+        }
+        const jsonString = cleanLines.substring(startIdx, endIdx + 1);
+        const parsed = JSON.parse(jsonString);
         if (parsed.success === false) {
           console.warn('[PYTHON-RUNNER] Python script returned success=false:', parsed.error);
           return resolve(getFallbackResponse(query, telemetry, parsed.error));
@@ -59,6 +92,10 @@ export const runMultiAgentPipeline = (query, telemetry) => {
         console.log('[PYTHON-RUNNER] Python script completed successfully.');
         resolve(parsed);
       } catch (err) {
+        // JSON parsing failed — use exit code info for diagnostics
+        if (code !== 0) {
+          console.warn(`[PYTHON-RUNNER] Python script exited with code ${code}. Stderr: ${stderrData.trim()}`);
+        }
         console.error('[PYTHON-RUNNER] Failed to parse stdout JSON:', err.message, '\nRaw stdout:', stdoutData);
         resolve(getFallbackResponse(query, telemetry, `JSON Parse error: ${err.message}`));
       }

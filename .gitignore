@@ -1,21 +1,99 @@
-# Dependency directories
-node_modules/
-frontend/node_modules/
-backend/node_modules/
-
-# Zip files and archives
-*.zip
-*.tar.gz
-*.tgz
-
-# Logs
-*.log
-
-# OS files
+# ==========================================
+# OS Files
+# ==========================================
 .DS_Store
 Thumbs.db
 
-# Environmental variables
+# ==========================================
+# VS Code
+# ==========================================
+.vscode/
+
+# ==========================================
+# Python
+# ==========================================
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+
+# ==========================================
+# Environment Variables
+# ==========================================
 .env
-backend/.env
-frontend/.env
+.env.*
+
+# ==========================================
+# Logs
+# ==========================================
+*.log
+
+# ==========================================
+# Node / React
+# ==========================================
+node_modules/
+dist/
+build/
+.next/
+coverage/
+
+# ==========================================
+# AI / RAG Generated Artifacts
+# ==========================================
+ai/chroma_db/
+ai/json_output/
+ai/json_output_test/
+ai/outputs/
+
+# ==========================================
+# Python Generated Cache
+# ==========================================
+**/__pycache__/
+
+# ==========================================
+# Temporary Files
+# ==========================================
+*.tmp
+*.temp
+*.bak
+*.swp
+
+# ==========================================
+# Jupyter
+# ==========================================
+.ipynb_checkpoints/
+
+# ==========================================
+# Large Archives
+# ==========================================
+*.zip
+*.7z
+*.rar
+*.tar
+*.gz
+
+# ==========================================
+# Optional: Ignore local databases
+# ==========================================
+*.sqlite
+*.db
+
+# AI generated data
+ai/chroma_db/
+ai/json_output/
+ai/json_output_test/
+ai/outputs/
+
+# Python
+__pycache__/
+*.pyc
+
+# Node
+node_modules/
+
+# VS Code
+.vscode/
+
+# Logs
+*.log

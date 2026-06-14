@@ -11,7 +11,7 @@ import { webhookService } from '../../utils/webhookService.js';
 import { io } from 'socket.io-client';
 import { formatDateTime, timeAgo } from '../../utils/helpers';
 import { useSimulation } from '../../contexts/SimulationContext';
-import { Plus, Users, FileText, Play, Settings, Activity, Shield, AlertTriangle, Zap, Bot, LayoutDashboard } from 'lucide-react';
+import { Users, Play, Settings, Activity, Shield, AlertTriangle, Zap, Bot, LayoutDashboard } from 'lucide-react';
 import { authService } from '../../utils/authService';
 
 const pageVariants = {
@@ -218,7 +218,6 @@ export default function AdminDashboard() {
           <p>Complete platform administration and oversight</p>
         </div>
         <div className="page-actions">
-          <motion.button className="btn btn-secondary btn-sm" whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}><Plus size={14} /> Add Node</motion.button>
           <motion.button
             className={`btn ${showUserManagement ? 'btn-primary' : 'btn-secondary'} btn-sm`}
             onClick={() => setShowUserManagement(!showUserManagement)}
@@ -228,11 +227,10 @@ export default function AdminDashboard() {
             {showUserManagement ? <LayoutDashboard size={14} /> : <Users size={14} />}
             {showUserManagement ? 'View Dashboard' : 'Users'}
           </motion.button>
-          <motion.button className="btn btn-primary btn-sm" whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}><FileText size={14} /> Generate Report</motion.button>
         </div>
       </motion.div>
 
-      <motion.div className="kpi-grid" style={{ gridTemplateColumns: 'repeat(4, 1fr)' }} variants={itemVariants}>
+      <motion.div className="kpi-grid" variants={itemVariants}>
         {(() => {
           const displayKPIs = [
             adminKPIs[0],

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { NavLink, useLocation } from 'react-router-dom';
+import { NavLink, useLocation, Link } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -101,19 +101,19 @@ export default function Sidebar({ collapsed, onToggle }) {
 
   return (
     <aside className={`sidebar ${collapsed ? 'collapsed' : ''}`}>
-      <div className="sidebar-logo">
+      <Link to="/dashboard" className="sidebar-logo" style={{ textDecoration: 'none' }}>
         <motion.div
           className="sidebar-logo-icon"
           whileHover={{ scale: 1.1, rotate: 5 }}
           transition={{ type: 'spring', stiffness: 400, damping: 17 }}
         >
-          <VanguardARCIcon size={38} />
+          <VanguardARCIcon size={32} />
         </motion.div>
         <div className="sidebar-logo-text">
           <span>Vanguard ARC</span>
           <span>Railway Intelligence</span>
         </div>
-      </div>
+      </Link>
 
       <nav className="sidebar-nav">
         {NAV_GROUPS.map(group => {

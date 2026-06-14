@@ -324,7 +324,7 @@ export default function ComplianceCenter() {
             ))}
           </div>
         ) : error ? null : (
-          <div className="kpi-grid" style={{ gridTemplateColumns: 'repeat(4, 1fr)', marginBottom: '1.5rem' }}>
+          <div className="kpi-grid">
             <KPICard label="Compliance Score" value={complianceScore} color={totalOpenViolations > 0 ? 'amber' : 'green'} icon="Shield" />
             <KPICard label="Active Rules" value={stats?.rules.active || 0} color="blue" icon="CheckSquare" />
             <KPICard label="Open Violations" value={totalOpenViolations} color="red" icon="AlertTriangle" />
