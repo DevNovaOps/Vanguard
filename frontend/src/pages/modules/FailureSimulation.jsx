@@ -85,8 +85,8 @@ export default function FailureSimulation() {
   }, [calculatedRiskScore]);
   const eventLogRef = useRef(null);
   const detailsRef = useRef(null);
-
-  const canTrigger = user?.role === 'admin' || user?.role === 'safety_officer' || user?.role === 'Admin' || user?.role === 'SafetyOfficer';
+  const userRoleNorm = (user?.role || '').toLowerCase().replace(/_/g, '');
+  const canTrigger = userRoleNorm === 'admin' || userRoleNorm === 'safetyofficer';
 
   // Load history and stats on mount
   useEffect(() => {

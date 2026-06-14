@@ -6,6 +6,7 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
+import chromadb
 from langchain_chroma import Chroma
 from langchain_core.documents import Document
 from langchain_core.output_parsers import StrOutputParser
@@ -22,6 +23,7 @@ from rag_chain import (  # noqa: E402
     deduplicate_documents,
     format_context,
     load_retriever,
+    get_vectorstore,
 )
 
 from agents.state import VanguardState
@@ -35,15 +37,10 @@ MMR_SEARCH_KWARGS = {
 
 
 def get_llm() -> ChatOllama:
-    return ChatOllama(model=LLM_MODEL)
-
-
-def get_vectorstore() -> Chroma:
-    embeddings = OllamaEmbeddings(model="nomic-embed-text")
-    return Chroma(
-        collection_name=COLLECTION_NAME,
-        embedding_function=embeddings,
-        persist_directory=str(CHROMA_DIR),
+    return ChatOllama(
+        model=LLM_MODEL,
+        temperature=0.0,
+        num_predict=400
     )
 
 

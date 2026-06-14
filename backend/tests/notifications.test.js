@@ -1,6 +1,8 @@
 import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
+
+process.env.VANGUARD_TEST = 'true';
 import mongoose from 'mongoose';
 import assert from 'assert';
 import http from 'http';
@@ -219,16 +221,13 @@ const runTests = async () => {
 
     // Test F: Simulation Cascade Triggers
     console.log('\nTesting Simulation Cascade Notification Triggers...');
-    const preSimStartCount = await Notification.countDocuments({ type: 'SimulationStarted' });
-    const preSimCompleteCount = await Notification.countDocuments({ type: 'SimulationCompleted' });
-    
-    await simulationEngine.triggerSimulation({ user: adminUser });
+    const run = await simulationEngine.triggerSimulation({ user: adminUser });
 
-    const postSimStartCount = await Notification.countDocuments({ type: 'SimulationStarted' });
-    const postSimCompleteCount = await Notification.countDocuments({ type: 'SimulationCompleted' });
-    
-    assert.strictEqual(postSimStartCount - preSimStartCount, 1);
-    assert.strictEqual(postSimCompleteCount - preSimCompleteCount, 1);
+    const startNotif = await Notification.findOne({ type: 'SimulationStarted', 'metadata.runCode': run.runId });
+    assert.ok(startNotif, `SimulationStarted notification not found for run ${run.runId}`);
+
+    const completeNotif = await Notification.findOne({ type: 'SimulationCompleted', 'metadata.runCode': run.runId });
+    assert.ok(completeNotif, `SimulationCompleted notification not found for run ${run.runId}`);
     console.log('✔ Simulation Engine triggered start and completion notifications');
 
     // ============================================

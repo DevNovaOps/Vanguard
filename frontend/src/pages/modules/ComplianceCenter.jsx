@@ -28,6 +28,10 @@ const SEVERITIES = ['Low', 'Medium', 'High', 'Critical'];
 
 export default function ComplianceCenter() {
   const { user } = useAuth();
+  const userRoleNorm = (user?.role || '').toLowerCase().replace(/_/g, '');
+  const isAdmin = userRoleNorm === 'admin';
+  const isOperator = userRoleNorm === 'operator';
+  const isManager = userRoleNorm === 'manager';
   
   // Tab control based on roles
   const getTabsForRole = useCallback((role) => {
@@ -56,8 +60,8 @@ export default function ComplianceCenter() {
     return 'rules';
   }, []);
 
-  const tabs = getTabsForRole(user?.role);
-  const [activeTab, setActiveTab] = useState(getDefaultTabForRole(user?.role));
+  const tabs = getTabsForRole(userRoleNorm);
+  const [activeTab, setActiveTab] = useState(getDefaultTabForRole(userRoleNorm));
   const [search, setSearch] = useState('');
   
   // Data states
@@ -253,7 +257,7 @@ export default function ComplianceCenter() {
       }
     },
     // Action column visible only to Admin
-    ...(user?.role === 'admin' ? [{
+    ...(isAdmin ? [{
       key: 'actions',
       label: 'Actions',
       sortable: false,
@@ -306,7 +310,7 @@ export default function ComplianceCenter() {
           </h1>
           <p>Rule enforcement and violation tracking</p>
         </div>
-        {user?.role === 'admin' && activeTab === 'rules' && (
+        {isAdmin && activeTab === 'rules' && (
           <div className="page-actions">
             <button className="btn btn-primary btn-sm" onClick={handleOpenCreate}>
               <Plus size={14} /> Create Rule
@@ -316,7 +320,7 @@ export default function ComplianceCenter() {
       </div>
 
       {/* KPI statistics summary cards (not shown for operator) */}
-      {user?.role !== 'operator' && (
+      {!isOperator && (
         loading ? (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem', marginBottom: '1.5rem' }}>
             {[1, 2, 3, 4].map(n => (

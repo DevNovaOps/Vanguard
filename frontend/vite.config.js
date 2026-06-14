@@ -18,6 +18,8 @@ export default defineConfig({
       '/api': {
         target: 'http://127.0.0.1:5000',
         changeOrigin: true,
+        timeout: 600000,
+        proxyTimeout: 600000,
         configure: (proxy) => {
           // Swallow benign disconnect errors so they don't spam the terminal
           proxy.on('error', (err) => {
@@ -29,6 +31,8 @@ export default defineConfig({
         target: 'http://127.0.0.1:5000',
         ws: true,
         changeOrigin: true,
+        timeout: 600000,
+        proxyTimeout: 600000,
         configure: (proxy) => {
           // HTTP-level proxy errors (polling fallback)
           proxy.on('error', (err) => {

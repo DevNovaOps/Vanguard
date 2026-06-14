@@ -15,10 +15,10 @@ const REPORTS = [
 export default function Reports() {
   const { simulationStore } = useSimulation();
   const { user } = useAuth();
-  const userRole = user?.role;
+  const userRoleLower = (user?.role || '').toLowerCase().replace(/_/g, '');
 
   const allowedReports = REPORTS.filter(report => {
-    if (userRole === 'admin') return true;
+    if (userRoleLower === 'admin') return true;
 
     // Compliance Report, Risk Analysis Report, Autonomous Actions Report: NOT allowed for Operator
     if (
@@ -26,7 +26,7 @@ export default function Reports() {
       report.title === 'Risk Analysis Report' ||
       report.title === 'Autonomous Actions Report'
     ) {
-      return userRole === 'safety_officer' || userRole === 'manager';
+      return userRoleLower === 'safetyofficer' || userRoleLower === 'manager';
     }
 
     return true;

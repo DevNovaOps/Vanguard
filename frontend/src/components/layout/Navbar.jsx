@@ -51,12 +51,8 @@ export default function Navbar({ sidebarCollapsed, onMobileMenuOpen }) {
     }
   };
 
-  const canTriggerSimulation = user && (
-    user.role === 'admin' ||
-    user.role === 'Admin' ||
-    user.role === 'safety_officer' ||
-    user.role === 'SafetyOfficer'
-  );
+  const userRoleNorm = user?.role ? user.role.toLowerCase().replace(/_/g, '') : '';
+  const canTriggerSimulation = user && (userRoleNorm === 'admin' || userRoleNorm === 'safetyofficer');
 
   return (
     <nav className={`navbar ${sidebarCollapsed ? 'sidebar-collapsed' : ''}`}>

@@ -15,6 +15,7 @@ try:
 except ImportError:
     sys.exit("ERROR: pip install ijson")
 
+import chromadb
 from langchain_chroma import Chroma
 from langchain_core.documents import Document
 from langchain_ollama import OllamaEmbeddings
@@ -211,10 +212,11 @@ def main() -> None:
         sys.exit(f"ERROR: Missing data files in {JSON_DIR}: {', '.join(missing)}")
 
     embeddings = OllamaEmbeddings(model="nomic-embed-text")
+    client = chromadb.PersistentClient(path=str(CHROMA_DIR))
     vectorstore = Chroma(
         collection_name=COLLECTION_NAME,
         embedding_function=embeddings,
-        persist_directory=str(CHROMA_DIR),
+        client=client,
     )
 
     known_ids = load_existing_ids(vectorstore)

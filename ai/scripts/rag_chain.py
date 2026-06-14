@@ -4,8 +4,10 @@
 from __future__ import annotations
 
 import sys
+import threading
 from pathlib import Path
 
+import chromadb
 from langchain_chroma import Chroma
 from langchain_core.documents import Document
 from langchain_core.output_parsers import StrOutputParser
@@ -49,16 +51,29 @@ Question:
 {question}"""
 
 
+_vectorstore = None
+_vectorstore_lock = threading.Lock()
+
+
+def get_vectorstore() -> Chroma:
+    global _vectorstore
+    with _vectorstore_lock:
+        if _vectorstore is None:
+            embeddings = OllamaEmbeddings(model="nomic-embed-text")
+            client = chromadb.PersistentClient(path=str(CHROMA_DIR))
+            _vectorstore = Chroma(
+                collection_name=COLLECTION_NAME,
+                embedding_function=embeddings,
+                client=client,
+            )
+    return _vectorstore
+
+
 def load_retriever():
     if not CHROMA_DIR.exists():
         sys.exit(f"ERROR: ChromaDB not found at {CHROMA_DIR.resolve()}")
 
-    embeddings = OllamaEmbeddings(model="nomic-embed-text")
-    vectorstore = Chroma(
-        collection_name=COLLECTION_NAME,
-        embedding_function=embeddings,
-        persist_directory=str(CHROMA_DIR),
-    )
+    vectorstore = get_vectorstore()
     return vectorstore.as_retriever(
         search_type="mmr",
         search_kwargs={

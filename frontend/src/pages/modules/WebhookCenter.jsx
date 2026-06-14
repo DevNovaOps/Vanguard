@@ -32,10 +32,9 @@ const EVENT_TYPES = [
   'SIMULATION_COMPLETED',
   'AUDIT_CRITICAL'
 ];
-
 export default function WebhookCenter() {
   const { user } = useAuth();
-  const isAdmin = user?.role === 'Admin' || user?.role === 'admin';
+  const isAdmin = (user?.role || '').toLowerCase() === 'admin';
 
   // State Variables
   const [webhooks, setWebhooks] = useState([]);

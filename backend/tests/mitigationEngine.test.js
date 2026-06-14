@@ -1,6 +1,8 @@
 import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
+
+process.env.VANGUARD_TEST = 'true';
 import mongoose from 'mongoose';
 import assert from 'assert';
 import dns from 'dns';

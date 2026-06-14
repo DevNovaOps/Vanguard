@@ -173,11 +173,13 @@ def main() -> None:
     if not CHROMA_DIR.exists():
         sys.exit(f"ERROR: Existing ChromaDB not found at {CHROMA_DIR.resolve()}")
 
+    import chromadb
     embeddings = OllamaEmbeddings(model="nomic-embed-text")
+    client = chromadb.PersistentClient(path=str(CHROMA_DIR))
     vectorstore = Chroma(
         collection_name=COLLECTION_NAME,
         embedding_function=embeddings,
-        persist_directory=str(CHROMA_DIR),
+        client=client,
     )
 
     known_ids = load_existing_ids(vectorstore)

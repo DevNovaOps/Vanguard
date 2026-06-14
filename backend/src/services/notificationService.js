@@ -6,27 +6,37 @@ import auditService from './auditService.js';
 // Helper to determine role-based database query filter
 const getQueryForRole = (user) => {
   if (!user) return { _id: null };
-  const role = user.role;
+  const role = (user.role || '').toLowerCase();
 
-  if (role === 'Admin') {
+  if (role === 'admin') {
     // Admin sees everything
     return {};
   }
 
-  if (role === 'Manager') {
+  if (role === 'manager') {
     // Manager sees all High/Critical notifications
     return { severity: { $in: ['High', 'Critical'] } };
   }
 
   const baseQuery = {};
 
-  if (role === 'SafetyOfficer') {
+  if (role === 'safetyofficer' || role === 'safety_officer') {
     baseQuery.module = { $in: ['Compliance', 'Risk', 'Incident', 'AutonomousAgent', 'Mitigation'] };
-  } else if (role === 'Operator') {
+  } else if (role === 'operator') {
     baseQuery.module = { $in: ['Incident', 'Mitigation', 'Simulation', 'Sensor', 'SensorData', 'TransitNode'] };
   } else {
     return { _id: null };
   }
+
+  // Map to possible recipientRoles spelling/capitalization formats
+  const capitalizationMap = {
+    'admin': 'Admin',
+    'operator': 'Operator',
+    'safetyofficer': 'SafetyOfficer',
+    'safety_officer': 'SafetyOfficer',
+    'manager': 'Manager'
+  };
+  const standardRole = capitalizationMap[role] || user.role;
 
   // Intersect with recipient lists (if specified)
   const recipientFilter = {
@@ -40,7 +50,7 @@ const getQueryForRole = (user) => {
       {
         $or: [
           { recipientRoles: { $size: 0 } },
-          { recipientRoles: role }
+          { recipientRoles: { $in: [user.role, standardRole] } }
         ]
       }
     ]
@@ -324,7 +334,8 @@ export const notificationService = {
    */
   async deleteNotification(id, user, req) {
     // Only Admin can delete notifications
-    if (user.role !== 'Admin') {
+    const userRoleLower = (user?.role || '').toLowerCase();
+    if (userRoleLower !== 'admin') {
       const error = new Error('Forbidden access. Only administrators can delete notifications.');
       error.statusCode = 403;
       throw error;

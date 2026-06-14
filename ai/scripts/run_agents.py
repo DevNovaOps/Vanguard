@@ -61,9 +61,11 @@ def main() -> None:
             "escalation_level": result.get("escalation_level", "LOW"),
             "alerts": result.get("alerts", [])
         }
-        print(json.dumps(output, ensure_ascii=False, indent=2))
+        print(json.dumps(output, ensure_ascii=True, indent=2))
 
     except Exception as e:
+        import traceback
+        traceback.print_exc(file=sys.stderr)
         # Always print valid JSON and exit 0 so Node.js can parse the error
         print(json.dumps({
             "success": False,

@@ -94,3 +94,10 @@ ai/output.txt
 
 # JSONL intermediate files
 ai/**/*.jsonl
+
+# Large generated knowledge base files
+ai/knowledge_base/mat_feature_summaries.json
+ai/knowledge_base/mat_extraction_stats.json
+ai/knowledge_base/knowledge_base_intermediate.json
+ai/knowledge_base/*_summaries.json
+ai/knowledge_base/*_stats.json

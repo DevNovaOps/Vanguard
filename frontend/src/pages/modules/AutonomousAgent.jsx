@@ -71,10 +71,11 @@ export default function AutonomousAgent() {
   const nodeIdInitialized = useRef(false);
 
   // Roles boundary definitions
-  const isManager = user?.role === 'manager';
-  const isOperator = user?.role === 'operator';
-  const isSafetyOfficer = user?.role === 'safety_officer';
-  const isAdmin = user?.role === 'admin';
+  const userRoleNorm = (user?.role || '').toLowerCase().replace(/_/g, '');
+  const isManager = userRoleNorm === 'manager';
+  const isOperator = userRoleNorm === 'operator';
+  const isSafetyOfficer = userRoleNorm === 'safetyofficer';
+  const isAdmin = userRoleNorm === 'admin';
 
   const canViewStats = isAdmin || isManager;
   const canViewActions = isAdmin || isSafetyOfficer || isOperator;

@@ -111,8 +111,9 @@ export const mitigationService = {
     let resolvedSource = executionSource;
     if (!resolvedSource) {
       if (req && req.user) {
-        if (req.user.role === 'Admin') resolvedSource = 'ADMIN';
-        else if (req.user.role === 'SafetyOfficer') resolvedSource = 'SAFETY_OFFICER';
+        const userRoleLower = (req.user.role || '').toLowerCase();
+        if (userRoleLower === 'admin') resolvedSource = 'ADMIN';
+        else if (userRoleLower === 'safetyofficer' || userRoleLower === 'safety_officer') resolvedSource = 'SAFETY_OFFICER';
         else resolvedSource = 'OPERATOR';
       } else {
         resolvedSource = 'OPERATOR';
@@ -311,7 +312,8 @@ export const mitigationService = {
     }
 
     // RBAC: Operator can only execute if they are assigned, or if it's unassigned
-    if (req?.user?.role === 'Operator') {
+    const userRoleLower = (req?.user?.role || '').toLowerCase();
+    if (userRoleLower === 'operator') {
       if (mitigation.executedBy && mitigation.executedBy.toString() !== req.user._id.toString()) {
         const error = new Error('Forbidden access. You are not assigned to execute this mitigation.');
         error.statusCode = 403;

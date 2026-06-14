@@ -26,11 +26,13 @@ def load_vectorstore() -> Chroma:
     if not CHROMA_DIR.exists():
         sys.exit(f"ERROR: ChromaDB not found at {CHROMA_DIR.resolve()}")
 
+    import chromadb
     embeddings = OllamaEmbeddings(model="nomic-embed-text")
+    client = chromadb.PersistentClient(path=str(CHROMA_DIR))
     return Chroma(
         collection_name=COLLECTION_NAME,
         embedding_function=embeddings,
-        persist_directory=str(CHROMA_DIR),
+        client=client,
     )
 
 

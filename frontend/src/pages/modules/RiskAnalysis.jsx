@@ -19,7 +19,8 @@ export default function RiskAnalysis() {
   const [recalculating, setRecalculating] = useState(false);
 
   // Recalculation privilege check
-  const isAuthorizedToCalculate = user && (user.role === 'admin' || user.role === 'safety_officer');
+  const userRoleNorm = (user?.role || '').toLowerCase().replace(/_/g, '');
+  const isAuthorizedToCalculate = user && (userRoleNorm === 'admin' || userRoleNorm === 'safetyofficer');
 
   // Fetch all risk data from live APIs
   const fetchData = useCallback(async (isSilent = false) => {

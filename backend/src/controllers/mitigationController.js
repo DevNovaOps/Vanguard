@@ -68,8 +68,9 @@ export const createMitigation = async (req, res, next) => {
   try {
     // Map executionSource based on the creator's user role
     let executionSource = 'OPERATOR';
-    if (req.user.role === 'Admin') executionSource = 'ADMIN';
-    else if (req.user.role === 'SafetyOfficer') executionSource = 'SAFETY_OFFICER';
+    const userRoleLower = (req.user.role || '').toLowerCase();
+    if (userRoleLower === 'admin') executionSource = 'ADMIN';
+    else if (userRoleLower === 'safetyofficer' || userRoleLower === 'safety_officer') executionSource = 'SAFETY_OFFICER';
 
     const mitigationData = {
       ...req.body,

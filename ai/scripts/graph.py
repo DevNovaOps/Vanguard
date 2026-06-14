@@ -60,10 +60,15 @@ def build_vanguard_graph():
     graph.add_node("executive_summary_agent", executive_summary_agent)
 
     graph.add_edge(START, "telemetry_intelligence_agent")
-    graph.add_edge("telemetry_intelligence_agent", "retrieval_agent")
-    graph.add_edge("retrieval_agent", "historical_incident_agent")
-    graph.add_edge("historical_incident_agent", "rdso_knowledge_agent")
+    graph.add_edge(START, "retrieval_agent")
+    graph.add_edge(START, "historical_incident_agent")
+    graph.add_edge(START, "rdso_knowledge_agent")
+
+    graph.add_edge("telemetry_intelligence_agent", "root_cause_agent")
+    graph.add_edge("retrieval_agent", "root_cause_agent")
+    graph.add_edge("historical_incident_agent", "root_cause_agent")
     graph.add_edge("rdso_knowledge_agent", "root_cause_agent")
+
     graph.add_edge("root_cause_agent", "mitigation_agent")
     graph.add_edge("mitigation_agent", "executive_summary_agent")
     graph.add_edge("executive_summary_agent", END)
