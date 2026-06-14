@@ -509,7 +509,6 @@ export default function RailwayNetwork() {
       });
     }
 
-<<<<<<< HEAD
     // 3. Draw nodes and clusters
     nodesToRender.forEach(item => {
       if (item.type === 'node') {
