@@ -79,21 +79,18 @@ ai/outputs/
 *.sqlite
 *.db
 
-# AI generated data
+# AI Generated Data
 ai/chroma_db/
-ai/json_output/
-ai/json_output_test/
+ai/knowledge_base/json_output/
+ai/knowledge_base/json_output_test/
 ai/outputs/
 
-# Python
-__pycache__/
-*.pyc
+# AI Caches
+ai/**/__pycache__/
 
-# Node
-node_modules/
+# AI Logs
+ai/**/*.log
+ai/output.txt
 
-# VS Code
-.vscode/
-
-# Logs
-*.log
+# JSONL intermediate files
+ai/**/*.jsonl
