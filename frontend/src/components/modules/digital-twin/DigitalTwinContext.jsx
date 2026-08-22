@@ -9,6 +9,7 @@ export function DigitalTwinProvider({ children, twinState, restoredState, onStat
   const [activeDashboard, setActiveDashboard] = useState(restoredState?.activeDashboard || null);
   const [showAIPanel, setShowAIPanel] = useState(false);
   const [activeToolbarMenu, setActiveToolbarMenu] = useState(null); // 'weather' | 'emergency' | null
+  const [weatherOverride, setWeatherOverride] = useState(restoredState?.weatherOverride || null); // null = auto, else 'sunny', etc.
   
   // Environment Zone Tracking
   const [currentEnvironment, setCurrentEnvironment] = useState(restoredState?.currentEnvironment || 'Plains'); // Plains, Desert, RainForest, Coastal, Snow, Tunnel, FogZone
@@ -17,16 +18,17 @@ export function DigitalTwinProvider({ children, twinState, restoredState, onStat
   useEffect(() => {
     if (onStateCapture) {
       return onStateCapture(() => ({
-        twin: { cameraView, weatherMode, activeEmergency, currentEnvironment, activeDashboard }
+        twin: { cameraView, weatherMode, activeEmergency, currentEnvironment, activeDashboard, weatherOverride }
       }));
     }
-  }, [cameraView, weatherMode, activeEmergency, currentEnvironment, activeDashboard, onStateCapture]);
+  }, [cameraView, weatherMode, activeEmergency, currentEnvironment, activeDashboard, weatherOverride, onStateCapture]);
 
   // Restore state when restoredState changes (context switch)
   useEffect(() => {
     if (restoredState) {
       setCameraView(restoredState.cameraView || 'isometric');
       setWeatherMode(restoredState.weatherMode || 'sunny');
+      setWeatherOverride(restoredState.weatherOverride || null);
       setActiveEmergency(restoredState.activeEmergency || null);
       setCurrentEnvironment(restoredState.currentEnvironment || 'Plains');
       setActiveDashboard(restoredState.activeDashboard || null);
@@ -37,6 +39,7 @@ export function DigitalTwinProvider({ children, twinState, restoredState, onStat
     twinState,
     cameraView, setCameraView,
     weatherMode, setWeatherMode,
+    weatherOverride, setWeatherOverride,
     activeEmergency, setActiveEmergency,
     activeDashboard, setActiveDashboard,
     showAIPanel, setShowAIPanel,

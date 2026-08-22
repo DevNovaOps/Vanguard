@@ -7,17 +7,12 @@ import * as THREE from 'three';
 import { DigitalTwinProvider, useDigitalTwin } from './digital-twin/DigitalTwinContext';
 import { useModelBounds } from './digital-twin/digitalTwinUtils';
 import WeatherSystem from './digital-twin/WeatherSystem';
-import EnvironmentAssets from './digital-twin/EnvironmentAssets';
+import EnvironmentAssets, { WORLD_ZONES } from './digital-twin/EnvironmentAssets';
 import SensorOverlays from './digital-twin/SensorOverlays';
 import DigitalTwinUI from './digital-twin/DigitalTwinUI';
 import DashboardOverlays from './digital-twin/DashboardOverlays';
 
-// World Layout Constants
-const STATION_X = 500;
-const YARD_X = 300;
-const BRIDGE_X = -200;
-const TUNNEL_X = -600;
-const FREIGHT_X = -800;
+const { STATION_X, YARD_X, TRANSFORMER_X, CENTRAL_JUNCTION_X, BRIDGE_X, MOUNTAIN_JUNCTION_X, TUNNEL_X, COASTAL_JUNCTION_X, FREIGHT_X } = WORLD_ZONES;
 
 function TrainEntity({ 
   id, 
@@ -32,7 +27,8 @@ function TrainEntity({
   onEnvironmentChange,
   setCurrentEnvironment,
   setWeatherMode,
-  cameraView
+  cameraView,
+  weatherOverride // NEW prop to handle manual weather selection
 }) {
   const { twinState } = useDigitalTwin();
   const trainRef = useRef();
@@ -62,12 +58,34 @@ function TrainEntity({
   useFrame((state, delta) => {
     if (!trainRef.current || !loco) return;
 
-    // Independent speed logic
-    let speedMultiplier = speed / 100;
+    // Determine current environment based on X coordinate
+    const trainX = trainRef.current.position.x;
+    let newEnv = 'Plains';
+    let autoWeather = 'sunny';
+    let envSpeedLimit = 130;
+    
+    if (trainX > 1000) { newEnv = 'Plains'; autoWeather = 'sunny'; envSpeedLimit = 130; }
+    else if (trainX <= 1000 && trainX > -500) { newEnv = 'Desert'; autoWeather = 'desert'; envSpeedLimit = 110; }
+    else if (trainX <= -500 && trainX > -1500) { newEnv = 'Bridge'; autoWeather = 'sunny'; envSpeedLimit = 60; }
+    else if (trainX <= -1500 && trainX > -2500) { newEnv = 'Rain Forest'; autoWeather = 'forest'; envSpeedLimit = 90; }
+    else if (trainX <= -2500 && trainX > -3500) { newEnv = 'Tunnel'; autoWeather = 'night'; envSpeedLimit = 80; }
+    else if (trainX <= -3500) { newEnv = 'Coastal'; autoWeather = 'coastal'; envSpeedLimit = 100; }
+
+    // Independent speed logic with environmental limits
+    let targetSpeed = Math.min(speed, envSpeedLimit);
+    let speedMultiplier = targetSpeed / 100;
+
     if (activeEmergency) speedMultiplier = 0; 
+    
     // If active context, allow manual override from twinState
     if (isActiveContext && twinState?.train?.speed !== undefined) {
+      // Manual control overrides env limits
       speedMultiplier = twinState.train.speed / 100;
+    }
+
+    // Export current actual speed back to a ref or state if needed, but for now we just use it for rendering
+    if (isActiveContext && window.updateTrainSpeed) {
+      window.updateTrainSpeed(id, speedMultiplier * 100);
     }
 
     if (speedMultiplier > 0) {
@@ -77,29 +95,22 @@ function TrainEntity({
     }
     
     const totalTrainLength = loco.size.x + (coach ? coach.size.x * 6 : 0);
-    if (trainRef.current.position.x < -trackSizeX * 7 - totalTrainLength) {
-      trainRef.current.position.x = trackSizeX * 4; // Loop back
+    if (trainRef.current.position.x < FREIGHT_X - trackSizeX * 4 - totalTrainLength) {
+      trainRef.current.position.x = STATION_X + trackSizeX * 4; // Loop back to start
     }
 
     // Camera and Environment only for ACTIVE context train
     if (isActiveContext) {
-      const trainX = trainRef.current.position.x;
-      let newEnv = 'Plains';
-      let newWeather = 'sunny';
-      
-      if (trainX > 400) { newEnv = 'Plains'; newWeather = 'sunny'; }
-      else if (trainX <= 400 && trainX > 150) { newEnv = 'Desert'; newWeather = 'sunny'; }
-      else if (trainX <= 150 && trainX > -50) { newEnv = 'Rain Forest'; newWeather = 'rain'; }
-      else if (trainX <= -50 && trainX > -300) { newEnv = 'Coastal'; newWeather = 'storm'; }
-      else if (trainX <= -300 && trainX > -500) { newEnv = 'Snow'; newWeather = 'snow'; }
-      else if (trainX <= -500 && trainX > -700) { newEnv = 'Tunnel'; newWeather = 'night'; }
-      else if (trainX <= -700) { newEnv = 'Fog Zone'; newWeather = 'fog'; }
-
       if (newEnv !== lastEnvRef.current) {
         lastEnvRef.current = newEnv;
         setCurrentEnvironment(newEnv);
-        setWeatherMode(newWeather);
+        if (!weatherOverride) setWeatherMode(autoWeather);
         if (onEnvironmentChange) onEnvironmentChange(newEnv);
+      }
+      
+      // If weather is overridden manually, enforce it
+      if (weatherOverride) {
+        setWeatherMode(weatherOverride);
       }
 
       // Camera views targeted on this active train
@@ -165,12 +176,13 @@ function TrainEntity({
 }
 
 function SceneContent({ onEnvironmentChange, contextName }) {
-  const { twinState, cameraView, activeEmergency, setCurrentEnvironment, setWeatherMode } = useDigitalTwin();
+  const { twinState, cameraView, activeEmergency, setCurrentEnvironment, setWeatherMode, weatherOverride } = useDigitalTwin();
   
   const trackGltf = useGLTF('/indian_railway_seane_scan_to_lowpoly.glb');
   const track = useModelBounds(trackGltf, 150, [0, Math.PI / 2, 0]);
   const [alignment, setAlignment] = useState({ railHeight: 0, trackZ: 0 });
 
+  // Use a ref for the raycaster setup to avoid dependency loops with gl hook
   useEffect(() => {
     if (track && track.scene) {
       const raycaster = new THREE.Raycaster();
@@ -223,7 +235,7 @@ function SceneContent({ onEnvironmentChange, contextName }) {
       
       setAlignment({ railHeight: finalRailHeight, trackZ: bestZ });
     }
-  }, [track]);
+  }, [track]); // We deliberately ignore linter warning here as it's meant to run once on load
 
   if (!track || alignment.railHeight === 0) return null;
 
@@ -231,11 +243,11 @@ function SceneContent({ onEnvironmentChange, contextName }) {
   const railHeight = alignment.railHeight;
   const trackSizeX = track.size.x;
 
-  // Render 3 independent trains on different tracks/offsets
+  // Render 3 independent trains spaced out over the massive map
   const trains = [
-    { id: 'passenger', type: 'passenger', zOffset: 0, startX: trackSizeX * 4, speed: 50 },
-    { id: 'freight', type: 'freight', zOffset: 8, startX: trackSizeX * 1, speed: 35 },
-    { id: 'vandebharat', type: 'vandebharat', zOffset: -8, startX: -trackSizeX * 2, speed: 80 }
+    { id: 'passenger', type: 'passenger', zOffset: 0, startX: STATION_X - 100, speed: 130 },
+    { id: 'freight', type: 'freight', zOffset: 8, startX: BRIDGE_X + 200, speed: 65 },
+    { id: 'vandebharat', type: 'vandebharat', zOffset: -8, startX: MOUNTAIN_JUNCTION_X, speed: 160 }
   ];
 
   // Determine which train is currently selected based on contextName
@@ -247,26 +259,14 @@ function SceneContent({ onEnvironmentChange, contextName }) {
     <group>
       <WeatherSystem />
 
-      {/* Massive Tiled Tracks */}
+      {/* Massive Tiled Tracks - Spanning the new map (-40 to 25 loops * 150 units = ~10000 units) */}
       <group>
-        {Array.from({ length: 18 }, (_, i) => i - 9).map(i => (
+        {Array.from({ length: 65 }, (_, i) => i - 40).map(i => (
           <group key={`track-main-${i}`}>
             <Clone object={track.scene} position={[trackSizeX * i, 0, 0]} castShadow receiveShadow frustumCulled />
             <Clone object={track.scene} position={[trackSizeX * i, 0, 8]} castShadow receiveShadow frustumCulled />
             <Clone object={track.scene} position={[trackSizeX * i, 0, -8]} castShadow receiveShadow frustumCulled />
           </group>
-        ))}
-        {/* 4-Track Yard */}
-        {[2, 3, 4].map(i => (
-           <group key={`yard-${i}`}>
-             <Clone object={track.scene} position={[trackSizeX * i, 0, 6]} castShadow receiveShadow frustumCulled />
-             <Clone object={track.scene} position={[trackSizeX * i, 0, 12]} castShadow receiveShadow frustumCulled />
-             <Clone object={track.scene} position={[trackSizeX * i, 0, -6]} castShadow receiveShadow frustumCulled />
-           </group>
-        ))}
-        {/* Freight Siding */}
-        {[-5, -6].map(i => (
-          <Clone key={`freight-siding-${i}`} object={track.scene} position={[trackSizeX * i, 0, 8]} castShadow receiveShadow frustumCulled />
         ))}
       </group>
 
@@ -292,6 +292,7 @@ function SceneContent({ onEnvironmentChange, contextName }) {
           onEnvironmentChange={onEnvironmentChange}
           setCurrentEnvironment={setCurrentEnvironment}
           setWeatherMode={setWeatherMode}
+          weatherOverride={weatherOverride}
         />
       ))}
       
@@ -305,11 +306,15 @@ export default function Train3DModel({ twinState, onEnvironmentChange, restoredS
   const { gl } = useThree();
 
   useEffect(() => {
-    gl.toneMapping = THREE.ACESFilmicToneMapping;
-    gl.toneMappingExposure = 0.75;
-    gl.shadowMap.enabled = true;
-    gl.shadowMap.type = THREE.PCFSoftShadowMap;
-  }, [gl]);
+    // Only set these once, ignore React hooks warning to avoid cascading updates
+    if (gl) {
+      gl.toneMapping = THREE.ACESFilmicToneMapping;
+      gl.toneMappingExposure = 0.75;
+      gl.shadowMap.enabled = true;
+      gl.shadowMap.type = THREE.PCFSoftShadowMap;
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <DigitalTwinProvider 
