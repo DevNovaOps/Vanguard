@@ -1,5 +1,5 @@
-import RailwayNode from '../models/RailwayNode.js';
-import RailwayConnection from '../models/RailwayConnection.js';
+import railwayNodeRepository from '../repositories/railwayNodeRepository.js';
+import railwayConnectionRepository from '../repositories/railwayConnectionRepository.js';
 
 // Static mapping of mock details for nodes to preserve the frontend simulation and heatmap
 const mockNodeDetails = {
@@ -98,8 +98,8 @@ const normalizeConnectionStatus = (status) => {
  */
 export const getTopology = async (req, res, next) => {
   try {
-    const dbNodes = await RailwayNode.find({});
-    const dbConnections = await RailwayConnection.find({}).populate('sourceNode targetNode');
+    const dbNodes = await railwayNodeRepository.findAll();
+    const dbConnections = await railwayConnectionRepository.findAll();
 
     // Map database nodes to frontend structure
     const nodes = dbNodes.map(node => {
@@ -127,7 +127,7 @@ export const getTopology = async (req, res, next) => {
       const mockDetails = mockConnectionDetails[key] || mockConnectionDetails[reverseKey] || { load: 50, name: `${conn.sourceNode.nodeName} - ${conn.targetNode.nodeName}` };
 
       return {
-        id: conn._id.toString(),
+        id: conn._id,
         from: conn.sourceNode.nodeCode,
         to: conn.targetNode.nodeCode,
         name: mockDetails.name,

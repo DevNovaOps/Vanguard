@@ -7,6 +7,7 @@ const BASE_URL = ''; // Blank since Vite handles proxying of /api
 
 export async function request(endpoint, options = {}) {
   const token = localStorage.getItem('arc_token');
+  const contextId = localStorage.getItem('vanguard_active_context');
 
   const headers = {
     'Content-Type': 'application/json',
@@ -15,6 +16,10 @@ export async function request(endpoint, options = {}) {
 
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
+  }
+
+  if (contextId) {
+    headers['X-Context-Id'] = contextId;
   }
 
   const config = {

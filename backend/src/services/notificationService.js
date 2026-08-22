@@ -1,93 +1,36 @@
-import mongoose from 'mongoose';
-import Notification from '../models/Notification.js';
+import notificationRepository from '../repositories/notificationRepository.js';
 import { getIO } from '../config/socket.js';
 import auditService from './auditService.js';
 
-// Helper to determine role-based database query filter
-const getQueryForRole = (user) => {
-  if (!user) return { _id: null };
-  const role = (user.role || '').toLowerCase();
-
-  if (role === 'admin') {
-    // Admin sees everything
-    return {};
-  }
-
-  if (role === 'manager') {
-    // Manager sees all High/Critical notifications
-    return { severity: { $in: ['High', 'Critical'] } };
-  }
-
-  const baseQuery = {};
-
-  if (role === 'safetyofficer' || role === 'safety_officer') {
-    baseQuery.module = { $in: ['Compliance', 'Risk', 'Incident', 'AutonomousAgent', 'Mitigation'] };
-  } else if (role === 'operator') {
-    baseQuery.module = { $in: ['Incident', 'Mitigation', 'Simulation', 'Sensor', 'SensorData', 'TransitNode'] };
-  } else {
-    return { _id: null };
-  }
-
-  // Map to possible recipientRoles spelling/capitalization formats
-  const capitalizationMap = {
-    'admin': 'Admin',
-    'operator': 'Operator',
-    'safetyofficer': 'SafetyOfficer',
-    'safety_officer': 'SafetyOfficer',
-    'manager': 'Manager'
-  };
-  const standardRole = capitalizationMap[role] || user.role;
-
-  // Intersect with recipient lists (if specified)
-  const recipientFilter = {
-    $and: [
-      {
-        $or: [
-          { recipientUsers: { $size: 0 } },
-          { recipientUsers: user._id }
-        ]
-      },
-      {
-        $or: [
-          { recipientRoles: { $size: 0 } },
-          { recipientRoles: { $in: [user.role, standardRole] } }
-        ]
-      }
-    ]
-  };
-
-  return { ...baseQuery, ...recipientFilter };
-};
-
 // Helper to format/map a notification document for a specific user
 const mapNotificationForUser = (notif, userId) => {
-  const doc = notif.toJSON ? notif.toJSON() : notif;
-  const userRead = (doc.readBy || []).find(r => r.userId.toString() === userId.toString());
+  if (!notif) return null;
   return {
-    ...doc,
-    isRead: !!userRead,
-    readAt: userRead ? userRead.readAt : null,
-    id: doc.notificationId || doc._id
+    ...notif,
+    id: notif.notificationId || notif._id
   };
 };
 
 export const notificationService = {
+  create(data, req) {
+    return this.createNotification(data, req);
+  },
+
   /**
    * Create a notification
    */
   async createNotification(data, req) {
     const { title, message, type, severity, module, recipientRoles = [], recipientUsers = [], metadata = {} } = data;
 
-    const notif = await Notification.create({
+    const notif = await notificationRepository.create({
       title,
       message,
       type,
       severity,
       module,
       recipientRoles,
-      recipientUsers,
-      metadata,
-      readBy: []
+      recipients: recipientUsers,
+      metadata
     });
 
     console.log(`[NOTIFICATION-ENGINE] Notification ${notif.notificationId} created: ${title} (${severity})`);
@@ -96,7 +39,7 @@ export const notificationService = {
     try {
       const io = getIO();
       const payload = {
-        ...notif.toJSON(),
+        ...notif,
         isRead: false,
         readAt: null,
         id: notif.notificationId
@@ -136,60 +79,22 @@ export const notificationService = {
    * Get notifications for a user based on role and filters
    */
   async getNotifications(user, queryParams = {}) {
-    const { severity, module: filterModule, isRead, page = 1, limit = 50 } = queryParams;
-
-    const rbacQuery = getQueryForRole(user);
-    const filter = { ...rbacQuery };
-
-    // Apply query parameters
-    if (severity) {
-      filter.severity = severity;
-    }
-    if (filterModule) {
-      filter.module = filterModule;
-    }
-    if (isRead !== undefined) {
-      if (isRead === 'true' || isRead === true) {
-        filter['readBy.userId'] = user._id;
-      } else {
-        filter['readBy.userId'] = { $ne: user._id };
-      }
+    if (!user) {
+      return { notifications: [], pagination: { page: 1, limit: 50, total: 0, pages: 1 } };
     }
 
-    const pageNum = Math.max(1, parseInt(page, 10));
-    const limitNum = Math.max(1, parseInt(limit, 10));
-    const skip = (pageNum - 1) * limitNum;
-
-    const total = await Notification.countDocuments(filter);
-    const notifications = await Notification.find(filter)
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(limitNum);
-
+    const { notifications, pagination } = await notificationRepository.findForUser(user, queryParams);
     const formatted = notifications.map(n => mapNotificationForUser(n, user._id));
 
-    return {
-      notifications: formatted,
-      pagination: {
-        page: pageNum,
-        limit: limitNum,
-        total,
-        pages: Math.ceil(total / limitNum)
-      }
-    };
+    return { notifications: formatted, pagination };
   },
 
   /**
    * Get unread notifications for a user
    */
   async getUnreadNotifications(user) {
-    const rbacQuery = getQueryForRole(user);
-    const filter = {
-      ...rbacQuery,
-      'readBy.userId': { $ne: user._id }
-    };
-
-    const notifications = await Notification.find(filter).sort({ createdAt: -1 });
+    if (!user) return [];
+    const notifications = await notificationRepository.findUnreadForUser(user);
     return notifications.map(n => mapNotificationForUser(n, user._id));
   },
 
@@ -197,17 +102,7 @@ export const notificationService = {
    * Get single notification by ID
    */
   async getNotificationById(id, user) {
-    const rbacQuery = getQueryForRole(user);
-    const isObjectId = mongoose.isValidObjectId(id);
-    const filter = {
-      ...rbacQuery,
-      $or: [
-        { _id: isObjectId ? id : null },
-        { notificationId: id }
-      ]
-    };
-
-    const notif = await Notification.findOne(filter);
+    const notif = await notificationRepository.findById(id);
     if (!notif) {
       const error = new Error(`Notification not found or access unauthorized`);
       error.statusCode = 404;
@@ -221,86 +116,53 @@ export const notificationService = {
    * Mark a notification as read
    */
   async markAsRead(id, user, req) {
-    const rbacQuery = getQueryForRole(user);
-    const isObjectId = mongoose.isValidObjectId(id);
-    const filter = {
-      ...rbacQuery,
-      $or: [
-        { _id: isObjectId ? id : null },
-        { notificationId: id }
-      ]
-    };
-
-    const notif = await Notification.findOne(filter);
+    const notif = await notificationRepository.findById(id);
     if (!notif) {
       const error = new Error(`Notification not found or access unauthorized`);
       error.statusCode = 404;
       throw error;
     }
 
-    // Add user to readBy array if not already present
-    const alreadyRead = notif.readBy.some(r => r.userId.toString() === user._id.toString());
-    if (!alreadyRead) {
-      notif.readBy.push({
-        userId: user._id,
-        readAt: new Date()
-      });
-      await notif.save();
+    await notificationRepository.markAsRead(notif._id, user._id);
+    const updatedNotif = await notificationRepository.findById(notif._id);
 
-      // Emit Socket update
-      try {
-        const io = getIO();
-        io.emit('notification:read', { notificationId: notif.notificationId, userId: user._id });
-        io.emit('notification:update', mapNotificationForUser(notif, user._id));
-      } catch (socketErr) {
-        console.error(`[SOCKET-EMIT-ERROR] Failed to emit notification:read: ${socketErr.message}`);
-      }
-
-      // Audit Log
-      try {
-        const validModules = [
-          'Authentication', 'TransitNode', 'Sensor', 'SensorData', 'Compliance',
-          'Incident', 'Mitigation', 'Simulation', 'Risk', 'AutonomousAgent', 'Webhook'
-        ];
-        const auditModule = validModules.includes(notif.module) ? notif.module : 'Authentication';
-        
-        await auditService.logEvent({
-          req,
-          action: 'Notification Read',
-          module: auditModule,
-          description: `Notification marked as read: ${notif.title}`,
-          severity: 'Info',
-          metadata: { notificationId: notif.notificationId }
-        });
-      } catch (auditErr) {
-        console.error(`[NOTIFICATION-AUDIT-ERROR] Failed to audit notification read: ${auditErr.message}`);
-      }
+    // Emit Socket update
+    try {
+      const io = getIO();
+      io.emit('notification:read', { notificationId: updatedNotif.notificationId, userId: user._id });
+      io.emit('notification:update', mapNotificationForUser(updatedNotif, user._id));
+    } catch (socketErr) {
+      console.error(`[SOCKET-EMIT-ERROR] Failed to emit notification:read: ${socketErr.message}`);
     }
 
-    return mapNotificationForUser(notif, user._id);
+    // Audit Log
+    try {
+      const validModules = [
+        'Authentication', 'TransitNode', 'Sensor', 'SensorData', 'Compliance',
+        'Incident', 'Mitigation', 'Simulation', 'Risk', 'AutonomousAgent', 'Webhook'
+      ];
+      const auditModule = validModules.includes(notif.module) ? notif.module : 'Authentication';
+      
+      await auditService.logEvent({
+        req,
+        action: 'Notification Read',
+        module: auditModule,
+        description: `Notification marked as read: ${notif.title}`,
+        severity: 'Info',
+        metadata: { notificationId: notif.notificationId }
+      });
+    } catch (auditErr) {
+      console.error(`[NOTIFICATION-AUDIT-ERROR] Failed to audit notification read: ${auditErr.message}`);
+    }
+
+    return mapNotificationForUser(updatedNotif, user._id);
   },
 
   /**
    * Mark all visible unread notifications as read
    */
   async markAllAsRead(user, req) {
-    const rbacQuery = getQueryForRole(user);
-    const filter = {
-      ...rbacQuery,
-      'readBy.userId': { $ne: user._id }
-    };
-
-    const unread = await Notification.find(filter);
-    let count = 0;
-
-    for (const notif of unread) {
-      notif.readBy.push({
-        userId: user._id,
-        readAt: new Date()
-      });
-      await notif.save();
-      count++;
-    }
+    const count = await notificationRepository.markAllAsRead(user);
 
     if (count > 0) {
       // Emit Socket update
@@ -341,14 +203,7 @@ export const notificationService = {
       throw error;
     }
 
-    const isObjectId = mongoose.isValidObjectId(id);
-    const notif = await Notification.findOneAndDelete({
-      $or: [
-        { _id: isObjectId ? id : null },
-        { notificationId: id }
-      ]
-    });
-
+    const notif = await notificationRepository.deleteById(id);
     if (!notif) {
       const error = new Error('Notification not found');
       error.statusCode = 404;
@@ -384,26 +239,20 @@ export const notificationService = {
    * Get notification statistics for dashboard
    */
   async getNotificationStats(user) {
-    const rbacQuery = getQueryForRole(user);
+    const stats = await notificationRepository.getStatsForUser(user);
     
-    const totalNotifications = await Notification.countDocuments(rbacQuery);
+    // Recent 5 notifications
+    const { notifications: recent } = await notificationRepository.findForUser(user, { page: 1, limit: 5 });
     
-    const unreadQuery = { ...rbacQuery, 'readBy.userId': { $ne: user._id } };
-    const unreadNotifications = await Notification.countDocuments(unreadQuery);
-
-    const criticalQuery = { ...unreadQuery, severity: 'Critical' };
-    const criticalNotifications = await Notification.countDocuments(criticalQuery);
-
-    const recent = await Notification.find(rbacQuery)
-      .sort({ createdAt: -1 })
-      .limit(5);
+    // Critical notifications
+    const { pagination: criticalStats } = await notificationRepository.findForUser(user, { severity: 'Critical', isRead: false, limit: 1 });
 
     const formattedRecent = recent.map(n => mapNotificationForUser(n, user._id));
 
     return {
-      totalNotifications,
-      unreadNotifications,
-      criticalNotifications,
+      totalNotifications: stats.total,
+      unreadNotifications: stats.unread,
+      criticalNotifications: criticalStats.total,
       recentNotifications: formattedRecent
     };
   }

@@ -1,6 +1,38 @@
-import Incident from '../models/Incident.js';
+import incidentRepository from '../repositories/incidentRepository.js';
 import auditService from '../services/auditService.js';
 import webhookService from '../services/webhookService.js';
+import userRepository from '../repositories/userRepository.js';
+import railwayNodeRepository from '../repositories/railwayNodeRepository.js';
+
+/**
+ * @desc    Get dashboard general statistics (users, nodes, sensors)
+ * @route   GET /api/dashboard/stats
+ * @access  Private
+ */
+export const getDashboardStats = async (req, res, next) => {
+  try {
+    const totalUsers = await userRepository.countAll();
+    const activeUsers = await userRepository.countActive();
+    
+    const totalNodes = await railwayNodeRepository.countAll();
+    
+    // As sensors are embedded or mock, we will calculate based on nodes
+    const totalSensors = totalNodes * 12;
+
+    res.status(200).json({
+      success: true,
+      message: 'Dashboard general stats retrieved successfully',
+      data: {
+        totalUsers,
+        activeUsers,
+        totalNodes,
+        totalSensors
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
 
 /**
  * @desc    Get dashboard incident statistics
@@ -9,23 +41,16 @@ import webhookService from '../services/webhookService.js';
  */
 export const getDashboardIncidents = async (req, res, next) => {
   try {
-    const totalIncidents = await Incident.countDocuments({});
+    const totalIncidents = await incidentRepository.countAll();
     
     // Open incidents are those with status Open, Investigating, or Mitigating
-    const openIncidents = await Incident.countDocuments({ 
-      status: { $in: ['Open', 'Investigating', 'Mitigating'] } 
-    });
+    const openIncidents = await incidentRepository.countByFilter({ status: ['Open', 'Investigating', 'Mitigating'] });
     
     // Critical incidents are those with severity Critical that are not Closed
-    const criticalIncidents = await Incident.countDocuments({ 
-      severity: 'Critical',
-      status: { $ne: 'Closed' }
-    });
+    const criticalIncidents = await incidentRepository.countByFilter({ severity: 'Critical', statusNot: 'Closed' });
     
     // Resolved incidents
-    const resolvedIncidents = await Incident.countDocuments({ 
-      status: 'Resolved' 
-    });
+    const resolvedIncidents = await incidentRepository.countByFilter({ status: 'Resolved' });
 
     res.status(200).json({
       success: true,
@@ -99,4 +124,3 @@ export const getDashboardWebhooks = async (req, res, next) => {
     next(error);
   }
 };
-

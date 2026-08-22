@@ -1,8 +1,5 @@
-
-
-
-import RiskScore from '../models/RiskScore.js';
-import RailwayNode from '../models/RailwayNode.js';
+import riskScoreRepository from '../repositories/riskScoreRepository.js';
+import railwayNodeRepository from '../repositories/railwayNodeRepository.js';
 import { logAudit } from '../utils/auditLogger.js';
 import incidentService from './incidentService.js';
 import auditService from './auditService.js';
@@ -16,21 +13,17 @@ export const riskService = {
    * Medium risk can optionally trigger incidents if specified.
    */
   async evaluateNodeRisk({ nodeId, riskScore, reason, triggerMediumIncident = false, req }) {
-    const node = await RailwayNode.findById(nodeId);
+    const node = await railwayNodeRepository.findById(nodeId);
     if (!node) {
       throw new Error(`Railway Node with ID ${nodeId} not found`);
     }
 
     // Retrieve previous risk scores to determine changes
-    const previousRiskRecord = await RiskScore.findOne({ nodeId });
+    const previousRiskRecord = await riskScoreRepository.findByNodeId(nodeId);
     const previousScore = previousRiskRecord ? previousRiskRecord.totalRisk : 0;
     const previousLevel = previousRiskRecord ? previousRiskRecord.riskLevel : 'Low';
 
     // Determine if we should trigger an incident
-    // Low: 0-30 -> No incident
-    // Medium: 31-60 -> Optional (triggered if triggerMediumIncident is true)
-    // High: 61-80 -> Create incident
-    // Critical: 81-100 -> Create incident
     let shouldCreateIncident = false;
     let severity = 'Low';
 
@@ -82,7 +75,7 @@ export const riskService = {
       }
     }
 
-    // 3. Log Risk Threshold Breached if applicable (e.g. crossing to High or Critical)
+    // 3. Log Risk Threshold Breached if applicable
     const wasSafe = previousLevel === 'Low' || previousLevel === 'Medium';
     const isDangerous = severity === 'High' || severity === 'Critical';
     if (wasSafe && isDangerous) {
@@ -126,7 +119,7 @@ export const riskService = {
     if (riskScore > 30) {
       const notifSeverity = severity === 'Critical' ? 'Critical' : (severity === 'High' ? 'High' : 'Warning');
       try {
-        await notificationService.createNotification({
+        await notificationService.create({
           title: `Risk Alert: Elevated Risk at ${node.nodeName}`,
           message: `Risk level for node ${node.nodeName} is now classified as ${severity} with a score of ${riskScore}/100. Reason: ${reason || 'Recalculation threshold breach.'}`,
           type: 'RiskAlert',
@@ -157,30 +150,27 @@ export const riskService = {
     let temp, vibration, gas, power;
 
     if (status === 'critical') {
-      temp = 80 + Math.random() * 15; // 80 - 95 °C (Threshold 120)
-      vibration = 7.0 + Math.random() * 2.5; // 7.0 - 9.5 mm/s (Threshold 15)
-      gas = 38 + Math.random() * 10; // 38 - 48 ppm (Threshold 50)
-      power = 23 + Math.random() * 3; // 23 - 26 kV (Threshold 27)
+      temp = 80 + Math.random() * 15;
+      vibration = 7.0 + Math.random() * 2.5;
+      gas = 38 + Math.random() * 10;
+      power = 23 + Math.random() * 3;
     } else if (status === 'warning') {
-      temp = 55 + Math.random() * 15; // 55 - 70 °C
-      vibration = 4.5 + Math.random() * 2.0; // 4.5 - 6.5 mm/s
-      gas = 22 + Math.random() * 10; // 22 - 32 ppm
-      power = 20 + Math.random() * 3; // 20 - 23 kV
+      temp = 55 + Math.random() * 15;
+      vibration = 4.5 + Math.random() * 2.0;
+      gas = 22 + Math.random() * 10;
+      power = 20 + Math.random() * 3;
     } else {
-      // Normal/Healthy
-      temp = 30 + Math.random() * 15; // 30 - 45 °C
-      vibration = 1.2 + Math.random() * 1.5; // 1.2 - 2.7 mm/s
-      gas = 6 + Math.random() * 8; // 6 - 14 ppm
-      power = 18 + Math.random() * 3; // 18 - 21 kV
+      temp = 30 + Math.random() * 15;
+      vibration = 1.2 + Math.random() * 1.5;
+      gas = 6 + Math.random() * 8;
+      power = 18 + Math.random() * 3;
     }
 
-    // Convert raw telemetry inputs into 0-100 scale component percentages
     const thermalRisk = Math.min(100, Math.max(0, Math.round((temp / 120) * 100)));
     const structuralRisk = Math.min(100, Math.max(0, Math.round((vibration / 15) * 100)));
     const mechanicalRisk = Math.min(100, Math.max(0, Math.round((gas / 50) * 100)));
     const electricalRisk = Math.min(100, Math.max(0, Math.round((power / 27) * 100)));
 
-    // Signaling risk based on status
     const signalingRisk = Math.min(
       100,
       Math.max(
@@ -193,12 +183,10 @@ export const riskService = {
       )
     );
 
-    // totalRisk weighted average formula
     const totalRisk = Math.round(
       thermalRisk * 0.3 + structuralRisk * 0.3 + mechanicalRisk * 0.2 + electricalRisk * 0.2
     );
 
-    // Map risk levels
     let riskLevel = 'Low';
     if (totalRisk > 80) riskLevel = 'Critical';
     else if (totalRisk > 60) riskLevel = 'High';
@@ -219,21 +207,17 @@ export const riskService = {
    * Recalculate risk scores for all nodes
    */
   async calculateAllRisks(req) {
-    const nodes = await RailwayNode.find({});
+    const nodes = await railwayNodeRepository.findAll();
     let count = 0;
 
     for (const node of nodes) {
-      // Structure ready for future live Telemetry query if required
       const riskData = this.generateFallbackRisk(node);
-
-      await RiskScore.findOneAndUpdate(
-        { nodeId: node._id },
-        {
-          ...riskData,
-          calculatedAt: new Date()
-        },
-        { upsert: true, new: true }
-      );
+      const existing = await riskScoreRepository.findByNodeId(node._id);
+      if (existing) {
+        await riskScoreRepository.update(existing._id, riskData);
+      } else {
+        await riskScoreRepository.create({ nodeId: node._id, ...riskData });
+      }
       count++;
     }
 
@@ -249,7 +233,7 @@ export const riskService = {
 
     // Trigger global risk calculation notification
     try {
-      await notificationService.createNotification({
+      await notificationService.create({
         title: 'Global Risk Recalculation Completed',
         message: `Global risk score recalculation completed for ${count} nodes.`,
         type: 'RiskAlert',
@@ -269,23 +253,21 @@ export const riskService = {
    * Fetch all calculated risks with populated node details
    */
   async getRisks() {
-    const risks = await RiskScore.find({}).populate('nodeId', 'nodeCode nodeName status region');
-    return risks.filter(r => r.nodeId != null);
+    return await riskScoreRepository.findAll();
   },
 
   /**
    * Get risk for a specific nodeId
    */
   async getRiskByNodeId(nodeId) {
-    const risk = await RiskScore.findOne({ nodeId }).populate('nodeId', 'nodeCode nodeName status region');
+    let risk = await riskScoreRepository.findByNodeId(nodeId);
     if (!risk) {
-      // If none exists, fetch node, calculate on the fly, and return it
-      const node = await RailwayNode.findById(nodeId);
+      const node = await railwayNodeRepository.findById(nodeId);
       if (!node) {
         throw new Error('Railway Node not found');
       }
       const riskData = this.generateFallbackRisk(node);
-      return await RiskScore.create({
+      risk = await riskScoreRepository.create({
         nodeId: node._id,
         ...riskData
       });
@@ -297,54 +279,7 @@ export const riskService = {
    * Fetch aggregated risk analysis metrics for the executive dashboard
    */
   async getDashboardStats() {
-    const risks = await RiskScore.find({}).populate('nodeId', 'nodeCode nodeName');
-    const validRisks = risks.filter(r => r.nodeId != null);
-
-    const totalNodes = validRisks.length;
-    if (totalNodes === 0) {
-      return {
-        totalNodes: 0,
-        averageRisk: 0,
-        highestRiskNode: null,
-        criticalNodes: 0,
-        riskDistribution: { Low: 0, Medium: 0, High: 0, Critical: 0 }
-      };
-    }
-
-    // Calculations
-    const sumRisk = validRisks.reduce((sum, r) => sum + r.totalRisk, 0);
-    const averageRisk = parseFloat((sumRisk / totalNodes).toFixed(1));
-
-    // Highest risk node lookup
-    let highestRiskNode = null;
-    let maxRisk = -1;
-    validRisks.forEach(r => {
-      if (r.totalRisk > maxRisk) {
-        maxRisk = r.totalRisk;
-        highestRiskNode = {
-          nodeId: r.nodeId?._id || r.nodeId,
-          nodeName: r.nodeId?.nodeName || 'Unknown',
-          totalRisk: r.totalRisk
-        };
-      }
-    });
-
-    const criticalNodes = validRisks.filter(r => r.riskLevel === 'Critical').length;
-
-    const riskDistribution = { Low: 0, Medium: 0, High: 0, Critical: 0 };
-    validRisks.forEach(r => {
-      if (r.riskLevel in riskDistribution) {
-        riskDistribution[r.riskLevel]++;
-      }
-    });
-
-    return {
-      totalNodes,
-      averageRisk,
-      highestRiskNode,
-      criticalNodes,
-      riskDistribution
-    };
+    return await riskScoreRepository.getDashboardStats();
   }
 };
 

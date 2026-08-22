@@ -1,7 +1,8 @@
-import AgentAction from '../models/AgentAction.js';
-import RailwayNode from '../models/RailwayNode.js';
-import Incident from '../models/Incident.js';
+import agentActionRepository from '../repositories/agentActionRepository.js';
+import railwayNodeRepository from '../repositories/railwayNodeRepository.js';
+import incidentRepository from '../repositories/incidentRepository.js';
 import mitigationService from './mitigationService.js';
+import incidentService from './incidentService.js';
 import { logAudit } from '../utils/auditLogger.js';
 import auditService from './auditService.js';
 import webhookService from './webhookService.js';
@@ -25,7 +26,7 @@ export const aiAgentService = {
     console.log("AGENT INPUT:", agentPayload);
 
     // Validate if node exists
-    const nodeExists = await RailwayNode.findById(nodeId);
+    const nodeExists = await railwayNodeRepository.findById(nodeId);
     if (!nodeExists) {
       throw new Error('Railway Node not found');
     }
@@ -62,19 +63,19 @@ export const aiAgentService = {
     const pwr = Number(power);
 
     let totalPoints = 0;
-    if (temp < 70) totalPoints += 10;
-    else if (temp <= 90) totalPoints += 25;
+    if (temp < 55) totalPoints += 10;
+    else if (temp <= 75) totalPoints += 25;
     else totalPoints += 40;
 
-    if (vib < 40) totalPoints += 10;
-    else if (vib <= 80) totalPoints += 25;
+    if (vib < 4.5) totalPoints += 10;
+    else if (vib <= 8.0) totalPoints += 25;
     else totalPoints += 35;
 
     if (gs < 30) totalPoints += 5;
-    else if (gs <= 70) totalPoints += 15;
+    else if (gs <= 50) totalPoints += 15;
     else totalPoints += 30;
 
-    if (pwr >= 15 && pwr <= 30) totalPoints += 0;
+    if (pwr >= 21 && pwr <= 27) totalPoints += 0;
     else totalPoints += 20;
 
     const calcRiskScore = Math.min(totalPoints, 100);
@@ -107,21 +108,11 @@ export const aiAgentService = {
       return null;
     };
 
-    // Determine final severity using priority order:
-    // 1. escalation_level
-    // 2. executive_summary keywords
-    // 3. risk_level
-    // 4. telemetry-derived severity
+    // Determine final severity using priority order
     let severity = normalizeVal(result.escalation_level);
-    if (!severity) {
-      severity = getSummarySeverity(result.executive_summary);
-    }
-    if (!severity) {
-      severity = normalizeVal(result.risk_level);
-    }
-    if (!severity) {
-      severity = calcSeverity;
-    }
+    if (!severity) severity = getSummarySeverity(result.executive_summary);
+    if (!severity) severity = normalizeVal(result.risk_level);
+    if (!severity) severity = calcSeverity;
 
     // Ensure we use calcRiskScore if riskScore is missing or hardcoded
     const finalRiskScore = riskScore || calcRiskScore;
@@ -156,17 +147,13 @@ export const aiAgentService = {
     // Build reasoning details combining root cause and mitigation summary
     const reasoning = result.reasoning || `[7-Agent Analysis Summary] ${result.executive_summary.replace(/###/g, '').replace(/\*\*/g, '').trim()}`;
 
-    // VANGUARD FIX: Print debugging logs before saving AgentAction
-    console.log("=== PYTHON RESULT ===");
-    console.log(JSON.stringify(result, null, 2));
-
     console.log("=== FINAL SEVERITY ===");
     console.log(severity);
 
-    // VANGUARD FIX: Wrap AgentAction.create() inside try/catch block to catch MongoDB validation errors and return fallback
+    // VANGUARD FIX: Catch DB errors
     let action;
     try {
-      action = await AgentAction.create({
+      action = await agentActionRepository.create({
         nodeId,
         telemetryData: { temperature, vibration, gas, power, riskScore: finalRiskScore },
         detectedThreat,
@@ -174,12 +161,10 @@ export const aiAgentService = {
         decision,
         confidence,
         reasoning,
-        status: 'success',
-        executedAt: new Date()
+        status: 'success'
       });
     } catch (err) {
       console.error("[AGENT SAVE ERROR]", err);
-
       return {
         failed: true,
         severity,
@@ -190,8 +175,7 @@ export const aiAgentService = {
       };
     }
 
-    // Populate node details for response consistency
-    const populatedAction = await AgentAction.findById(action._id).populate('nodeId', 'nodeCode nodeName status region');
+    const populatedAction = action;
 
     // Automatic Mitigation Trigger
     const mitigationDecisionMap = {
@@ -205,9 +189,9 @@ export const aiAgentService = {
     if (mitigationDecisionMap[decision]) {
       try {
         // Find an active Open/Investigating incident for this node or create one
-        let incident = await Incident.findOne({ nodeId, status: { $in: ['Open', 'Investigating', 'Mitigating'] } });
+        let incident = await incidentRepository.findOpenByNodeId(nodeId);
         if (!incident) {
-          incident = await Incident.create({
+          incident = await incidentService.createIncident({
             nodeId,
             riskScore: riskScore || 50,
             severity: severity || 'High',
@@ -261,7 +245,7 @@ export const aiAgentService = {
       // Trigger Notification
       const notifSeverity = severity === 'Critical' ? 'Critical' : (severity === 'High' ? 'High' : 'Info');
       try {
-        await notificationService.createNotification({
+        await notificationService.create({
           title: `AI Agent Decision: ${decision}`,
           message: `AI Agent executed decision: "${decision}" for node ${nodeExists.nodeName}. Confidence: ${confidence}%. Reasoning: ${reasoning}`,
           type: 'AgentDecision',
@@ -311,16 +295,14 @@ export const aiAgentService = {
    * Retrieves all historical agent actions
    */
   async getActions() {
-    return await AgentAction.find({})
-      .populate('nodeId', 'nodeCode nodeName status region')
-      .sort({ createdAt: -1 });
+    return await agentActionRepository.findAll();
   },
 
   /**
    * Retrieves an action by ID
    */
   async getActionById(id) {
-    const action = await AgentAction.findById(id).populate('nodeId', 'nodeCode nodeName status region');
+    const action = await agentActionRepository.findById(id);
     if (!action) {
       throw new Error('Agent Action not found');
     }
@@ -331,32 +313,7 @@ export const aiAgentService = {
    * Compiles dashboard statistics for executive summaries
    */
   async getDashboardStats() {
-    const totalActions = await AgentAction.countDocuments({});
-    const activeActions = await AgentAction.countDocuments({ status: 'pending' });
-    const criticalActions = await AgentAction.countDocuments({ severity: 'Critical' });
-    const failedActions = await AgentAction.countDocuments({ status: 'failed' });
-
-    // Calculate Average Confidence
-    const confidenceStats = await AgentAction.aggregate([
-      { $group: { _id: null, avgConf: { $avg: '$confidence' } } }
-    ]);
-    const averageConfidence = confidenceStats.length ? parseFloat(confidenceStats[0].avgConf.toFixed(1)) : 0;
-
-    // Calculate Success Rate
-    const successRate = totalActions ? parseFloat(((totalActions - failedActions) / totalActions * 100).toFixed(1)) : 100;
-
-    // Retrieve latest decision
-    const latestAction = await AgentAction.findOne({}).sort({ createdAt: -1 });
-    const latestDecision = latestAction ? latestAction.decision : 'None';
-
-    return {
-      totalActions,
-      activeActions,
-      criticalActions,
-      averageConfidence,
-      successRate,
-      latestDecision
-    };
+    return await agentActionRepository.getDashboardStats();
   }
 };
 

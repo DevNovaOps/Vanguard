@@ -11,9 +11,26 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+    <script>
+      window.addEventListener('error', function(event) {
+        fetch('http://localhost:3001/log', {
+          method: 'POST',
+          headers: {'Content-Type': 'text/plain'},
+          body: event.message + '\n' + (event.error && event.error.stack ? event.error.stack : '')
+        });
+      });
+      window.addEventListener('unhandledrejection', function(event) {
+        fetch('http://localhost:3001/log', {
+          method: 'POST',
+          headers: {'Content-Type': 'text/plain'},
+          body: 'Unhandled Promise: ' + event.reason
+        });
+      });
+    </script>
   </head>
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
   </body>
+  
 </html>

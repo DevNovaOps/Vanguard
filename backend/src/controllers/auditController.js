@@ -1,5 +1,5 @@
 import auditService from '../services/auditService.js';
-import AuditLog from '../models/AuditLog.js';
+import auditLogRepository from '../repositories/auditLogRepository.js';
 
 export const getAuditLogsController = async (req, res, next) => {
   try {
@@ -16,12 +16,7 @@ export const getAuditLogsController = async (req, res, next) => {
 
 export const getAuditLogByIdController = async (req, res, next) => {
   try {
-    const log = await AuditLog.findOne({
-      $or: [
-        { _id: req.params.id.match(/^[0-9a-fA-F]{24}$/) ? req.params.id : null },
-        { auditId: req.params.id }
-      ]
-    });
+    const log = await auditLogRepository.findById(req.params.id);
 
     if (!log) {
       return res.status(404).json({

@@ -1,6 +1,6 @@
-import { validationResult } from 'express-validator';
-import RailwayConnection from '../models/RailwayConnection.js';
-import RailwayNode from '../models/RailwayNode.js';
+
+import railwayConnectionRepository from '../repositories/railwayConnectionRepository.js';
+import railwayNodeRepository from '../repositories/railwayNodeRepository.js';
 
 /**
  * @desc    Get all railway connections
@@ -9,7 +9,7 @@ import RailwayNode from '../models/RailwayNode.js';
  */
 export const getAllConnections = async (req, res, next) => {
   try {
-    const connections = await RailwayConnection.find({}).populate('sourceNode targetNode');
+    const connections = await railwayConnectionRepository.findAll();
     res.status(200).json({
       success: true,
       count: connections.length,
@@ -27,7 +27,7 @@ export const getAllConnections = async (req, res, next) => {
  */
 export const getConnectionById = async (req, res, next) => {
   try {
-    const connection = await RailwayConnection.findById(req.params.id).populate('sourceNode targetNode');
+    const connection = await railwayConnectionRepository.findById(req.params.id);
     if (!connection) {
       return res.status(404).json({
         success: false,
@@ -49,13 +49,6 @@ export const getConnectionById = async (req, res, next) => {
  * @access  Private/Admin
  */
 export const createConnection = async (req, res, next) => {
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-    return res.status(400).json({
-      success: false,
-      message: errors.array().map(err => err.msg).join(', ')
-    });
-  }
 
   const { sourceNode, targetNode, distance, status } = req.body;
 
@@ -68,7 +61,7 @@ export const createConnection = async (req, res, next) => {
     }
 
     // Verify source node exists
-    const sourceExists = await RailwayNode.findById(sourceNode);
+    const sourceExists = await railwayNodeRepository.findById(sourceNode);
     if (!sourceExists) {
       return res.status(404).json({
         success: false,
@@ -77,7 +70,7 @@ export const createConnection = async (req, res, next) => {
     }
 
     // Verify target node exists
-    const targetExists = await RailwayNode.findById(targetNode);
+    const targetExists = await railwayNodeRepository.findById(targetNode);
     if (!targetExists) {
       return res.status(404).json({
         success: false,
@@ -86,7 +79,7 @@ export const createConnection = async (req, res, next) => {
     }
 
     // Check if duplicate connection exists
-    const connectionExists = await RailwayConnection.findOne({ sourceNode, targetNode });
+    const connectionExists = await railwayConnectionRepository.findBySourceAndTarget(sourceNode, targetNode);
     if (connectionExists) {
       return res.status(400).json({
         success: false,
@@ -94,19 +87,17 @@ export const createConnection = async (req, res, next) => {
       });
     }
 
-    const connection = await RailwayConnection.create({
+    const connection = await railwayConnectionRepository.create({
       sourceNode,
       targetNode,
       distance,
       status
     });
 
-    const populated = await RailwayConnection.findById(connection._id).populate('sourceNode targetNode');
-
     res.status(201).json({
       success: true,
       message: 'Railway Connection created successfully',
-      connection: populated
+      connection
     });
   } catch (error) {
     next(error);
@@ -119,13 +110,6 @@ export const createConnection = async (req, res, next) => {
  * @access  Private/Admin
  */
 export const updateConnection = async (req, res, next) => {
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-    return res.status(400).json({
-      success: false,
-      message: errors.array().map(err => err.msg).join(', ')
-    });
-  }
 
   const { sourceNode, targetNode } = req.body;
 
@@ -139,7 +123,7 @@ export const updateConnection = async (req, res, next) => {
     }
 
     if (sourceNode) {
-      const sourceExists = await RailwayNode.findById(sourceNode);
+      const sourceExists = await railwayNodeRepository.findById(sourceNode);
       if (!sourceExists) {
         return res.status(404).json({
           success: false,
@@ -149,7 +133,7 @@ export const updateConnection = async (req, res, next) => {
     }
 
     if (targetNode) {
-      const targetExists = await RailwayNode.findById(targetNode);
+      const targetExists = await railwayNodeRepository.findById(targetNode);
       if (!targetExists) {
         return res.status(404).json({
           success: false,
@@ -158,10 +142,7 @@ export const updateConnection = async (req, res, next) => {
       }
     }
 
-    const connection = await RailwayConnection.findByIdAndUpdate(req.params.id, req.body, {
-      new: true,
-      runValidators: true
-    }).populate('sourceNode targetNode');
+    const connection = await railwayConnectionRepository.update(req.params.id, req.body);
 
     if (!connection) {
       return res.status(404).json({
@@ -187,7 +168,7 @@ export const updateConnection = async (req, res, next) => {
  */
 export const deleteConnection = async (req, res, next) => {
   try {
-    const connection = await RailwayConnection.findByIdAndDelete(req.params.id);
+    const connection = await railwayConnectionRepository.deleteById(req.params.id);
     if (!connection) {
       return res.status(404).json({
         success: false,

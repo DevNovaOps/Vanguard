@@ -1,18 +1,116 @@
 import simulationEngine from '../services/simulationEngine.js';
-import SimulationResult from '../models/SimulationResult.js';
-import SimulationRun from '../models/SimulationRun.js';
-import RailwayNode from '../models/RailwayNode.js';
+import simulationRepository from '../repositories/simulationRepository.js';
+import railwayNodeRepository from '../repositories/railwayNodeRepository.js';
 import { runMultiAgentPipeline } from '../utils/pythonRunner.js';
 
 // Node-level timeout for the entire simulation controller: 130 seconds
 const CONTROLLER_TIMEOUT_MS = 300000;
 
+function getNodeTelemetryLimits(node) {
+  const name = String(node?.nodeName || node?.name || '').toLowerCase();
+  const type = String(node?.nodeType || node?.type || '').toLowerCase();
+
+  // 1. Line Locking & Block Section Locking
+  if (name.includes('line locking') || name.includes('linelocking') || name.includes('line lock') || name.includes('block locking') || name.includes('auto block')) {
+    return {
+      tWarn: 40, tCrit: 55, tDefault: 28,
+      vWarn: 2.0, vCrit: 4.0, vDefault: 1.0,
+      gWarn: 15, gCrit: 30, gDefault: 5,
+      vMin: 0.10, vMax: 3.5, vDefault: 0.23
+    };
+  }
+
+  // 2. Interlocking Cabin / RRI / Signal Tower / Cabin
+  if (name.includes('interlocking') || name.includes('rri') || name.includes('cabin') || name.includes('signal') || type.includes('signal')) {
+    return {
+      tWarn: 35, tCrit: 45, tDefault: 24,
+      vWarn: 1.5, vCrit: 3.5, vDefault: 0.8,
+      gWarn: 15, gCrit: 30, gDefault: 8,
+      vMin: 0.10, vMax: 3.5, vDefault: 0.23
+    };
+  }
+
+  // 3. Electric & Diesel Loco Shed (ELS/DLS)
+  if (name.includes('loco shed') || name.includes('els') || name.includes('dls') || name.includes('electric loco') || name.includes('diesel loco')) {
+    return {
+      tWarn: 55, tCrit: 75, tDefault: 38,
+      vWarn: 4.0, vCrit: 8.0, vDefault: 2.8,
+      gWarn: 30, gCrit: 60, gDefault: 18,
+      vMin: 3.0, vMax: 15.0, vDefault: 11.0
+    };
+  }
+
+  // 4. Port Rail Terminals & Freight Hubs
+  if (name.includes('port rail') || name.includes('port terminal') || name.includes('terminal')) {
+    return {
+      tWarn: 50, tCrit: 65, tDefault: 36,
+      vWarn: 4.5, vCrit: 9.0, vDefault: 3.2,
+      gWarn: 25, gCrit: 50, gDefault: 16,
+      vMin: 3.0, vMax: 15.0, vDefault: 11.0
+    };
+  }
+
+  // 5. Marshalling Yards & Container Freight Yards
+  if (name.includes('marshalling yard') || name.includes('freight yard') || name.includes('container freight') || name.includes('yard')) {
+    return {
+      tWarn: 55, tCrit: 70, tDefault: 37,
+      vWarn: 5.0, vCrit: 10.0, vDefault: 3.8,
+      gWarn: 30, gCrit: 60, gDefault: 20,
+      vMin: 3.0, vMax: 11.5, vDefault: 6.6
+    };
+  }
+
+  // 6. Outer Post / Gate / Block Post / Level Crossing
+  if (name.includes('post') || name.includes('outer') || name.includes('gate') || name.includes('crossing') || name.includes('block')) {
+    return {
+      tWarn: 45, tCrit: 60, tDefault: 32,
+      vWarn: 2.5, vCrit: 5.0, vDefault: 1.2,
+      gWarn: 20, gCrit: 40, gDefault: 12,
+      vMin: 0.10, vMax: 3.5, vDefault: 0.23
+    };
+  }
+
+  // 7. Freight / Goodshed / Industrial Siding
+  if (name.includes('siding') || name.includes('goodshed') || name.includes('industrial') || type.includes('siding')) {
+    return {
+      tWarn: 50, tCrit: 65, tDefault: 38,
+      vWarn: 6.0, vCrit: 12.0, vDefault: 3.5,
+      gWarn: 35, gCrit: 70, gDefault: 18,
+      vMin: 3.0, vMax: 11.5, vDefault: 6.6
+    };
+  }
+
+  // 8. Traction Substation / Power Hub
+  if (name.includes('substation') || name.includes('power hub') || name.includes('tss') || name.includes('traction power') || type.includes('power_hub')) {
+    return {
+      tWarn: 65, tCrit: 85, tDefault: 45,
+      vWarn: 3.0, vCrit: 6.0, vDefault: 1.5,
+      gWarn: 20, gCrit: 40, gDefault: 10,
+      vMin: 21.0, vMax: 27.0, vDefault: 24.5
+    };
+  }
+
+  // 9. Maintenance Depot / Workshop
+  if (name.includes('depot') || name.includes('workshop') || type.includes('depot')) {
+    return {
+      tWarn: 50, tCrit: 70, tDefault: 40,
+      vWarn: 4.5, vCrit: 9.0, vDefault: 3.0,
+      gWarn: 25, gCrit: 50, gDefault: 15,
+      vMin: 3.0, vMax: 15.0, vDefault: 11.0
+    };
+  }
+
+  // 10. Default: Main Line Junction / Station
+  return {
+    tWarn: 60, tCrit: 80, tDefault: 42,
+    vWarn: 4.0, vCrit: 7.5, vDefault: 2.2,
+    gWarn: 25, gCrit: 50, gDefault: 10,
+    vMin: 21.0, vMax: 27.0, vDefault: 24.5
+  };
+}
+
 /**
  * Run failure simulation synchronously, executing the 7-agent pipeline.
- * 
- * VANGUARD FIX: Removed duplicate SimulationRun.create() — the run is now
- * created once, and properly marked Failed with the actual completedSteps
- * count on any error path.
  */
 export const runSimulation = async (req, res, next) => {
   let run;
@@ -29,71 +127,80 @@ export const runSimulation = async (req, res, next) => {
     // Find node in DB — try code, then name, then fallback
     let dbNode;
     if (nodeCode) {
-      dbNode = await RailwayNode.findOne({ nodeCode: nodeCode.toUpperCase() });
+      dbNode = await railwayNodeRepository.findByCode(nodeCode.toUpperCase());
     }
     if (!dbNode && nodeNameInput) {
-      dbNode = await RailwayNode.findOne({ nodeName: nodeNameInput });
+      dbNode = await railwayNodeRepository.findByName(nodeNameInput);
     }
     if (!dbNode) {
-      dbNode = await RailwayNode.findOne({ nodeCode: 'BRC' });
+      dbNode = await railwayNodeRepository.findByCode('BRC');
     }
     if (!dbNode) {
-      dbNode = await RailwayNode.findOne({});
+      const allNodes = await railwayNodeRepository.findAll();
+      if (allNodes.length > 0) dbNode = allNodes[0];
     }
 
     // Create the simulation run in DB to track progress
-    run = await SimulationRun.create({
+    run = await simulationRepository.createRun({
       triggeredBy: req.user?._id || null,
       nodeId: dbNode ? dbNode._id : null,
       status: 'Running',
       totalSteps: 7,
-      startedAt: new Date()
+      completedSteps: 0,
+      currentStep: 0
     });
 
     const nodeName = dbNode ? dbNode.nodeName : (nodeNameInput || 'Unknown Station');
     const nodeCd = dbNode ? dbNode.nodeCode : (nodeCode || 'BRC');
 
-    // Use safe defaults if telemetry values are null/undefined
-    const safeTemp = (temperature !== undefined && temperature !== null) ? Number(temperature) : 135;
-    const safeVib = (vibration !== undefined && vibration !== null) ? Number(vibration) : 85;
-    const safeGas = (hazardousGas !== undefined && hazardousGas !== null) ? Number(hazardousGas) : 40;
-    const safeVolt = (voltage !== undefined && voltage !== null) ? Number(voltage) : 24;
+    const tLimits = getNodeTelemetryLimits(dbNode || { nodeName, nodeType: nodeTypeInput });
 
-    // Dynamic points-based risk score calculations
+    // Use category safe defaults if telemetry values are null/undefined
+    const safeTemp = (temperature !== undefined && temperature !== null) ? Number(temperature) : tLimits.tDefault;
+    const safeVib = (vibration !== undefined && vibration !== null) ? Number(vibration) : tLimits.vDefault;
+    const safeGas = (hazardousGas !== undefined && hazardousGas !== null) ? Number(hazardousGas) : tLimits.gDefault;
+    const safeVolt = (voltage !== undefined && voltage !== null) ? Number(voltage) : tLimits.vDefault;
+
+    // Dynamic points-based risk score calculations using category-specific thresholds
     let totalPoints = 0;
 
-    // Temperature
-    if (safeTemp < 70) {
-      totalPoints += 10;
-    } else if (safeTemp >= 70 && safeTemp <= 90) {
-      totalPoints += 25;
-    } else if (safeTemp > 90) {
-      totalPoints += 40;
-    }
-
-    // Vibration
-    if (safeVib < 40) {
-      totalPoints += 10;
-    } else if (safeVib >= 40 && safeVib <= 80) {
-      totalPoints += 25;
-    } else if (safeVib > 80) {
+    // Temperature (°C)
+    if (safeTemp < tLimits.tWarn) {
+      totalPoints += 0;
+    } else if (safeTemp <= tLimits.tCrit) {
+      totalPoints += 15;
+    } else {
       totalPoints += 35;
     }
 
-    // Hazardous Gas
-    if (safeGas < 30) {
-      totalPoints += 5;
-    } else if (safeGas >= 30 && safeGas <= 70) {
+    // Track Vibration (mm/s)
+    if (safeVib < tLimits.vWarn) {
+      totalPoints += 0;
+    } else if (safeVib <= tLimits.vCrit) {
       totalPoints += 15;
-    } else if (safeGas > 70) {
+    } else {
       totalPoints += 30;
     }
 
-    // Power (voltage)
-    if (safeVolt >= 15 && safeVolt <= 30) {
+    // Hazardous Gas (ppm)
+    if (safeGas < tLimits.gWarn) {
       totalPoints += 0;
+    } else if (safeGas <= tLimits.gCrit) {
+      totalPoints += 10;
     } else {
       totalPoints += 20;
+    }
+
+    // Power Grid Voltage (kV)
+    if (safeVolt >= tLimits.vMin && safeVolt <= tLimits.vMax) {
+      totalPoints += 0;
+    } else {
+      const margin = (tLimits.vMax - tLimits.vMin) * 0.25;
+      if (safeVolt > 0 && safeVolt >= (tLimits.vMin - margin) && safeVolt <= (tLimits.vMax + margin)) {
+        totalPoints += 15;
+      } else {
+        totalPoints += 25;
+      }
     }
 
     const calculatedRiskScore = Math.min(totalPoints, 100);
@@ -110,9 +217,7 @@ export const runSimulation = async (req, res, next) => {
     }
 
     // Update run progress: Step 1 — scenario generated
-    run.currentStep = 1;
-    run.completedSteps = 1;
-    await run.save();
+    run = await simulationRepository.updateRun(run._id, { currentStep: 1, completedSteps: 1 });
 
     // Generate dynamic query using the selected node:
     const query = `Analyze simulated failures at ${nodeName} (${nodeCd}) using telemetry: Temperature ${safeTemp}°C, Vibration ${safeVib} mm/s, Hazardous Gas ${safeGas} ppm, Voltage ${safeVolt} kV.`;
@@ -128,7 +233,7 @@ export const runSimulation = async (req, res, next) => {
       risk_score: calculatedRiskScore
     };
 
-    // Run python multi-agent pipeline with 130-second timeout protection
+    // Run python multi-agent pipeline with timeout protection
     let pipelineResult;
     try {
       pipelineResult = await Promise.race([
@@ -157,9 +262,7 @@ export const runSimulation = async (req, res, next) => {
     console.timeEnd('[SIMULATION-CONTROLLER] Python pipeline execution');
 
     // Update run progress: Steps 2-5
-    run.currentStep = 5;
-    run.completedSteps = 5;
-    await run.save();
+    run = await simulationRepository.updateRun(run._id, { currentStep: 5, completedSteps: 5 });
 
     // Normalization of risk level from agent
     let rawRiskLevel = pipelineResult.risk_level || calcSeverity;
@@ -173,7 +276,7 @@ export const runSimulation = async (req, res, next) => {
     console.time('[SIMULATION-CONTROLLER] Database save');
 
     // Create and save SimulationResult
-    const resultDoc = new SimulationResult({
+    const resultDoc = await simulationRepository.createResult({
       asset_id: 'S-011',
       asset_type: dbNode ? dbNode.nodeType : (nodeTypeInput || 'Station'),
       location: `${nodeName} (${nodeCd})`,
@@ -189,24 +292,23 @@ export const runSimulation = async (req, res, next) => {
       risk_level: risk_level.toUpperCase()
     });
 
-    await resultDoc.save();
-
     console.timeEnd('[SIMULATION-CONTROLLER] Database save');
 
     // Update the SimulationRun to Completed in DB
-    run.status = 'Completed';
-    run.completedSteps = 7;
-    run.currentStep = 7;
-    run.completedAt = new Date();
-    run.result = {
-      violationsCreated: 0,
-      incidentId: null,
-      mitigationId: null,
-      riskScore: calculatedRiskScore,
-      heapPosition: 0,
-      agentDecision: risk_level.toUpperCase()
-    };
-    await run.save();
+    run = await simulationRepository.updateRun(run._id, {
+      status: 'Completed',
+      completedSteps: 7,
+      currentStep: 7,
+      completedAt: new Date(),
+      result: {
+        violationsCreated: 0,
+        incidentId: null,
+        mitigationId: null,
+        riskScore: calculatedRiskScore,
+        heapPosition: 0,
+        agentDecision: risk_level.toUpperCase()
+      }
+    });
 
     console.timeEnd('[SIMULATION-CONTROLLER] Total simulation time');
 
@@ -221,11 +323,11 @@ export const runSimulation = async (req, res, next) => {
 
     if (run) {
       try {
-        run.status = 'Failed';
-        run.completedAt = new Date();
-        run.errorMessage = error.message;
-        // Preserve whatever step we reached
-        await run.save();
+        await simulationRepository.updateRun(run._id, {
+          status: 'Failed',
+          completedAt: new Date(),
+          errorMessage: error.message
+        });
       } catch (saveErr) {
         console.error('[SIMULATION-CONTROLLER] Failed to update SimulationRun status:', saveErr);
       }

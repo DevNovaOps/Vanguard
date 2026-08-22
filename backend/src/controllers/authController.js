@@ -1,5 +1,5 @@
-import { validationResult } from 'express-validator';
-import User from '../models/User.js';
+
+import userRepository from '../repositories/userRepository.js';
 import generateToken from '../utils/generateToken.js';
 import auditService from '../services/auditService.js';
 import crypto from 'crypto';
@@ -11,19 +11,12 @@ import { sendResetPasswordEmail, sendOTPEmail } from '../utils/emailService.js';
  * @access  Public
  */
 export const registerUser = async (req, res, next) => {
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-    return res.status(400).json({
-      success: false,
-      message: errors.array().map(err => err.msg).join(', ')
-    });
-  }
 
   const { name, email, password, role, department, permissions } = req.body;
 
   try {
     // Check if user already exists
-    const userExists = await User.findOne({ email });
+    const userExists = await userRepository.findByEmail(email);
     if (userExists) {
       // Log failed registration attempt (e.g. duplicate email)
       await auditService.logEvent({
@@ -40,8 +33,8 @@ export const registerUser = async (req, res, next) => {
       });
     }
 
-    // Create new user profile (schema hooks hash password auto)
-    const user = await User.create({
+    // Create new user profile (repository hashes password auto)
+    const user = await userRepository.create({
       name,
       email,
       password,
@@ -87,19 +80,12 @@ export const registerUser = async (req, res, next) => {
  * @access  Public
  */
 export const loginUser = async (req, res, next) => {
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-    return res.status(400).json({
-      success: false,
-      message: errors.array().map(err => err.msg).join(', ')
-    });
-  }
 
   const { email, password } = req.body;
 
   try {
     // Find user profile
-    const user = await User.findOne({ email });
+    const user = await userRepository.findByEmail(email);
 
     // Validate credentials
     if (!user || !(await user.comparePassword(password))) {
@@ -171,18 +157,11 @@ export const getUserProfile = async (req, res, next) => {
  * @access  Private
  */
 export const updateUserProfile = async (req, res, next) => {
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-    return res.status(400).json({
-      success: false,
-      message: errors.array().map(err => err.msg).join(', ')
-    });
-  }
 
   const { name, email, department } = req.body;
 
   try {
-    const user = await User.findById(req.user._id);
+    let user = await userRepository.findById(req.user._id);
     if (!user) {
       return res.status(404).json({
         success: false,
@@ -190,21 +169,22 @@ export const updateUserProfile = async (req, res, next) => {
       });
     }
 
+    const updates = {};
     if (email && email !== user.email) {
-      const emailExists = await User.findOne({ email });
+      const emailExists = await userRepository.findByEmail(email);
       if (emailExists) {
         return res.status(400).json({
           success: false,
           message: 'A user with this email address already exists'
         });
       }
-      user.email = email;
+      updates.email = email;
     }
 
-    if (name) user.name = name;
-    if (department !== undefined) user.department = department;
+    if (name) updates.name = name;
+    if (department !== undefined) updates.department = department;
 
-    await user.save();
+    user = await userRepository.update(user._id, updates);
 
     // Log profile update in audit trail
     await auditService.logEvent({
@@ -271,7 +251,7 @@ export const logoutUser = async (req, res, next) => {
  */
 export const getAllUsers = async (req, res, next) => {
   try {
-    const users = await User.find({ email: { $ne: req.user.email } }).select('-password');
+    const users = await userRepository.findAllExcept(req.user.email);
     res.status(200).json({
       success: true,
       users
@@ -288,7 +268,7 @@ export const getAllUsers = async (req, res, next) => {
  */
 export const approveAllUsers = async (req, res, next) => {
   try {
-    const result = await User.updateMany({ isActive: false }, { isActive: true });
+    const result = await userRepository.approveAll();
     
     // Log approvals/role status
     await auditService.logEvent({
@@ -317,7 +297,7 @@ export const approveAllUsers = async (req, res, next) => {
  */
 export const approveUser = async (req, res, next) => {
   try {
-    const user = await User.findByIdAndUpdate(req.params.id, { isActive: true }, { new: true }).select('-password');
+    const user = await userRepository.update(req.params.id, { isActive: true });
     if (!user) {
       return res.status(404).json({ success: false, message: 'User not found' });
     }
@@ -338,7 +318,15 @@ export const approveUser = async (req, res, next) => {
     res.status(200).json({
       success: true,
       message: 'User approved successfully',
-      user
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        permissions: user.permissions,
+        department: user.department,
+        isActive: user.isActive
+      }
     });
   } catch (error) {
     next(error);
@@ -352,7 +340,7 @@ export const approveUser = async (req, res, next) => {
  */
 export const rejectUser = async (req, res, next) => {
   try {
-    const user = await User.findByIdAndDelete(req.params.id);
+    const user = await userRepository.deleteById(req.params.id);
     if (!user) {
       return res.status(404).json({ success: false, message: 'User not found' });
     }
@@ -384,7 +372,7 @@ export const rejectUser = async (req, res, next) => {
 export const loginUserWithOtp = async (req, res, next) => {
   const { email } = req.body;
   try {
-    const user = await User.findOne({ email });
+    const user = await userRepository.findByEmail(email);
     if (!user) {
       return res.status(404).json({
         success: false,
@@ -428,7 +416,7 @@ export const loginUserWithOtp = async (req, res, next) => {
 export const forgotPassword = async (req, res, next) => {
   const { email } = req.body;
   try {
-    const user = await User.findOne({ email });
+    const user = await userRepository.findByEmail(email);
     if (!user) {
       return res.status(404).json({
         success: false,
@@ -460,7 +448,7 @@ export const forgotPassword = async (req, res, next) => {
 export const sendResetLink = async (req, res, next) => {
   const { email } = req.body;
   try {
-    const user = await User.findOne({ email });
+    const user = await userRepository.findByEmail(email);
     if (!user || !user.isActive) {
       return res.status(404).json({
         success: false,
@@ -475,15 +463,18 @@ export const sendResetLink = async (req, res, next) => {
     } while (resetToken.includes('7'));
 
     // Hash token and set to resetPasswordToken field
-    user.resetPasswordToken = crypto
+    const hashedToken = crypto
       .createHash('sha256')
       .update(resetToken)
       .digest('hex');
 
     // Set expire (15 minutes)
-    user.resetPasswordExpire = Date.now() + 15 * 60 * 1000;
+    const resetPasswordExpire = new Date(Date.now() + 15 * 60 * 1000);
 
-    await user.save();
+    await userRepository.update(user._id, {
+      resetPasswordToken: hashedToken,
+      resetPasswordExpire
+    });
 
     // Create reset URL - Point to frontend port 3000
     let host = req.get('host');
@@ -534,10 +525,7 @@ export const resetPassword = async (req, res, next) => {
       .update(req.params.token)
       .digest('hex');
 
-    const user = await User.findOne({
-      resetPasswordToken,
-      resetPasswordExpire: { $gt: Date.now() }
-    });
+    const user = await userRepository.findByResetToken(resetPasswordToken);
 
     if (!user) {
       return res.status(400).json({
@@ -546,12 +534,11 @@ export const resetPassword = async (req, res, next) => {
       });
     }
 
-    // Set new password (will be hashed by userSchema pre-save hook)
-    user.password = req.body.password;
-    user.resetPasswordToken = null;
-    user.resetPasswordExpire = null;
-
-    await user.save();
+    await userRepository.update(user._id, {
+      password: req.body.password,
+      resetPasswordToken: null,
+      resetPasswordExpire: null
+    });
 
     // Log password updated
     await auditService.logEvent({
@@ -582,7 +569,7 @@ export const resetPassword = async (req, res, next) => {
 export const sendLoginOtp = async (req, res, next) => {
   const { email } = req.body;
   try {
-    const user = await User.findOne({ email });
+    const user = await userRepository.findByEmail(email);
     if (!user || !user.isActive) {
       return res.status(404).json({
         success: false,
@@ -591,8 +578,8 @@ export const sendLoginOtp = async (req, res, next) => {
     }
 
     // Check lock status
-    if (user.otpLockedUntil && user.otpLockedUntil > Date.now()) {
-      const remainingTime = Math.ceil((user.otpLockedUntil - Date.now()) / 60000);
+    if (user.otpLockedUntil && new Date(user.otpLockedUntil).getTime() > Date.now()) {
+      const remainingTime = Math.ceil((new Date(user.otpLockedUntil).getTime() - Date.now()) / 60000);
       return res.status(423).json({
         success: false,
         message: `Too many failed attempts. Account temporarily locked. Try again in ${remainingTime} minutes.`
@@ -605,13 +592,14 @@ export const sendLoginOtp = async (req, res, next) => {
       otp = crypto.randomInt(100000, 999999).toString();
     } while (otp.includes('7'));
 
-    // Save OTP to DB
-    user.loginOTP = otp;
-    user.loginOTPExpire = Date.now() + 5 * 60 * 1000; // 5 minutes
-    user.otpAttempts = 0;
-    user.otpLockedUntil = null;
+    const loginOTPExpire = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
 
-    await user.save();
+    await userRepository.update(user._id, {
+      loginOTP: otp,
+      loginOTPExpire,
+      otpAttempts: 0,
+      otpLockedUntil: null
+    });
 
     // Send OTP email in the background to prevent UI lag
     sendOTPEmail(user.email, otp).catch(err => {
@@ -647,7 +635,7 @@ export const sendLoginOtp = async (req, res, next) => {
 export const verifyLoginOtp = async (req, res, next) => {
   const { email, otp } = req.body;
   try {
-    const user = await User.findOne({ email });
+    let user = await userRepository.findByEmail(email);
     if (!user || !user.isActive) {
       return res.status(404).json({
         success: false,
@@ -656,8 +644,8 @@ export const verifyLoginOtp = async (req, res, next) => {
     }
 
     // Check lockout
-    if (user.otpLockedUntil && user.otpLockedUntil > Date.now()) {
-      const remainingTime = Math.ceil((user.otpLockedUntil - Date.now()) / 60000);
+    if (user.otpLockedUntil && new Date(user.otpLockedUntil).getTime() > Date.now()) {
+      const remainingTime = Math.ceil((new Date(user.otpLockedUntil).getTime() - Date.now()) / 60000);
       return res.status(423).json({
         success: false,
         message: `Too many failed attempts. Account temporarily locked. Try again in ${remainingTime} minutes.`
@@ -665,7 +653,7 @@ export const verifyLoginOtp = async (req, res, next) => {
     }
 
     // Check code expiry
-    if (!user.loginOTPExpire || user.loginOTPExpire < Date.now()) {
+    if (!user.loginOTPExpire || new Date(user.loginOTPExpire).getTime() < Date.now()) {
       return res.status(400).json({
         success: false,
         message: 'Verification code has expired. Please request a new code.'
@@ -674,13 +662,16 @@ export const verifyLoginOtp = async (req, res, next) => {
 
     // Check code match
     if (user.loginOTP !== otp) {
-      user.otpAttempts += 1;
+      const newAttempts = (user.otpAttempts || 0) + 1;
       
-      if (user.otpAttempts >= 5) {
-        user.otpLockedUntil = Date.now() + 15 * 60 * 1000; // 15 minutes lockout
-        user.loginOTP = null;
-        user.loginOTPExpire = null;
-        await user.save();
+      if (newAttempts >= 5) {
+        const otpLockedUntil = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes lockout
+        await userRepository.update(user._id, {
+          otpAttempts: newAttempts,
+          otpLockedUntil,
+          loginOTP: null,
+          loginOTPExpire: null
+        });
 
         await auditService.logLogin(req, user, false, 'OTP lock limit reached (5 failures)');
 
@@ -690,20 +681,21 @@ export const verifyLoginOtp = async (req, res, next) => {
         });
       }
 
-      await user.save();
+      await userRepository.update(user._id, { otpAttempts: newAttempts });
       return res.status(400).json({
         success: false,
-        message: `Invalid verification code. ${5 - user.otpAttempts} attempts remaining.`
+        message: `Invalid verification code. ${5 - newAttempts} attempts remaining.`
       });
     }
 
     // OTP is correct! Clear fields
-    user.loginOTP = null;
-    user.loginOTPExpire = null;
-    user.otpAttempts = 0;
-    user.otpLockedUntil = null;
-    user.lastLogin = Date.now();
-    await user.save();
+    user = await userRepository.update(user._id, {
+      loginOTP: null,
+      loginOTPExpire: null,
+      otpAttempts: 0,
+      otpLockedUntil: null,
+      lastLogin: new Date()
+    });
 
     // Log login success
     await auditService.logLogin(req, user, true, 'Authenticated via OTP verification code');

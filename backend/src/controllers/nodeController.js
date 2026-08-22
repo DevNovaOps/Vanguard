@@ -1,6 +1,6 @@
-import { validationResult } from 'express-validator';
-import RailwayNode from '../models/RailwayNode.js';
-import RailwayConnection from '../models/RailwayConnection.js';
+
+import railwayNodeRepository from '../repositories/railwayNodeRepository.js';
+import railwayConnectionRepository from '../repositories/railwayConnectionRepository.js';
 
 /**
  * @desc    Get all railway nodes
@@ -9,7 +9,7 @@ import RailwayConnection from '../models/RailwayConnection.js';
  */
 export const getAllNodes = async (req, res, next) => {
   try {
-    const nodes = await RailwayNode.find({});
+    const nodes = await railwayNodeRepository.findAll();
     res.status(200).json({
       success: true,
       count: nodes.length,
@@ -27,7 +27,7 @@ export const getAllNodes = async (req, res, next) => {
  */
 export const getNodeById = async (req, res, next) => {
   try {
-    const node = await RailwayNode.findById(req.params.id);
+    const node = await railwayNodeRepository.findById(req.params.id);
     if (!node) {
       return res.status(404).json({
         success: false,
@@ -49,18 +49,11 @@ export const getNodeById = async (req, res, next) => {
  * @access  Private/Admin
  */
 export const createNode = async (req, res, next) => {
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-    return res.status(400).json({
-      success: false,
-      message: errors.array().map(err => err.msg).join(', ')
-    });
-  }
 
   const { nodeCode, nodeName, nodeType, latitude, longitude, status, region } = req.body;
 
   try {
-    const exists = await RailwayNode.findOne({ nodeCode: nodeCode.toUpperCase() });
+    const exists = await railwayNodeRepository.findByCode(nodeCode.toUpperCase());
     if (exists) {
       return res.status(400).json({
         success: false,
@@ -68,7 +61,7 @@ export const createNode = async (req, res, next) => {
       });
     }
 
-    const node = await RailwayNode.create({
+    const node = await railwayNodeRepository.create({
       nodeCode,
       nodeName,
       nodeType,
@@ -94,19 +87,9 @@ export const createNode = async (req, res, next) => {
  * @access  Private/Admin
  */
 export const updateNode = async (req, res, next) => {
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-    return res.status(400).json({
-      success: false,
-      message: errors.array().map(err => err.msg).join(', ')
-    });
-  }
 
   try {
-    const node = await RailwayNode.findByIdAndUpdate(req.params.id, req.body, {
-      new: true,
-      runValidators: true
-    });
+    const node = await railwayNodeRepository.update(req.params.id, req.body);
 
     if (!node) {
       return res.status(404).json({
@@ -132,7 +115,7 @@ export const updateNode = async (req, res, next) => {
  */
 export const deleteNode = async (req, res, next) => {
   try {
-    const node = await RailwayNode.findByIdAndDelete(req.params.id);
+    const node = await railwayNodeRepository.deleteById(req.params.id);
     if (!node) {
       return res.status(404).json({
         success: false,
@@ -141,15 +124,13 @@ export const deleteNode = async (req, res, next) => {
     }
 
     // Cascade delete: delete all connections associated with the deleted node
-    const connDeleteResult = await RailwayConnection.deleteMany({
-      $or: [{ sourceNode: req.params.id }, { targetNode: req.params.id }]
-    });
+    const connDeleteResult = await railwayConnectionRepository.deleteByNodeId(node._id);
 
     res.status(200).json({
       success: true,
       message: 'Railway Node and its corresponding connections deleted successfully',
       deletedNode: node,
-      cascadeConnectionsCount: connDeleteResult.deletedCount
+      cascadeConnectionsCount: connDeleteResult?.deletedCount || 0
     });
   } catch (error) {
     next(error);

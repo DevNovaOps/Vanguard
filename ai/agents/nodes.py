@@ -102,11 +102,11 @@ def telemetry_intelligence_agent(state: VanguardState) -> dict:
 
     # Rules analysis first to build context
     violations = []
-    if temperature > 90: violations.append(f"Temperature high: {temperature}°C")
-    if vibration > 80 or (vibration > 6 and vibration < 20): violations.append(f"Vibration high: {vibration} mm/s")
-    if gas > 70: violations.append(f"Gas level high: {gas} ppm")
-    if power < 15 or power > 30: violations.append(f"Power level anomalous: {power} kV (acceptable range: 15-30kV)")
-    if risk_score > 85: violations.append(f"Base risk score critical: {risk_score}/100")
+    if temperature > 75: violations.append(f"Temperature high: {temperature}°C (Threshold: 65°C)")
+    if vibration > 8.0: violations.append(f"Vibration high: {vibration} mm/s (Threshold: 8.0 mm/s)")
+    if gas > 50: violations.append(f"Gas level high: {gas} ppm (Threshold: 50 ppm)")
+    if power < 21 or power > 27: violations.append(f"Power level anomalous: {power} kV (Acceptable range: 21-27 kV)")
+    if risk_score > 80: violations.append(f"Base risk score critical: {risk_score}/100")
     
     violations_str = ", ".join(violations) if violations else "None"
 
@@ -116,10 +116,10 @@ def telemetry_intelligence_agent(state: VanguardState) -> dict:
 Analyze the live railway telemetry readings below, identify anomalies or critical trends, and compute a telemetry risk summary.
 
 Live Telemetry Data:
-- Temperature: {temperature}°C (safety threshold: 90°C)
-- Track Vibration: {vibration} mm/s (safety threshold: 80 mm/s or 6 mm/s scale)
-- Hazardous Gas: {gas} ppm (safety threshold: 70 ppm)
-- Power Grid Voltage: {power} kV (acceptable range: 15-30 kV)
+- Temperature: {temperature}°C (normal operating range: 25-55°C, warning: 65°C, critical: >75°C)
+- Track Vibration: {vibration} mm/s (normal: <4.5 mm/s, warning: 4.5-8.0 mm/s, critical: >8.0 mm/s)
+- Hazardous Gas: {gas} ppm (normal: <30 ppm, warning: 30-50 ppm, critical: >50 ppm)
+- Power Grid Voltage: {power} kV (acceptable 25kV traction range: 21-27 kV)
 - Pre-computed Base Risk: {risk_score}/100
 
 Identified Safety Violations:

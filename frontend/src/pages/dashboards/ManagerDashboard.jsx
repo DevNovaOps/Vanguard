@@ -88,9 +88,9 @@ export default function ManagerDashboard() {
     fetchManagerData();
   }, []);
 
-  const totalOpenViolations = stats ? (stats.violations.open + stats.violations.investigating) : 0;
-  const complianceScore = stats
-    ? (stats.violations.open > 0 ? (100 - stats.violations.open * 12.5).toFixed(1) + '%' : '100.0%')
+  const totalOpenViolations = stats ? ((stats.violations?.open || 0) + (stats.violations?.investigating || 0)) : 0;
+  const complianceScore = stats?.complianceScore !== undefined
+    ? `${stats.complianceScore}%`
     : '100.0%';
 
   const liveManagerKPIs = [

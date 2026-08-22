@@ -1,9 +1,9 @@
-import SimulationRun from '../models/SimulationRun.js';
-import SimulationEvent from '../models/SimulationEvent.js';
-import RailwayNode from '../models/RailwayNode.js';
+import simulationRepository from '../repositories/simulationRepository.js';
+import railwayNodeRepository from '../repositories/railwayNodeRepository.js';
+import incidentRepository from '../repositories/incidentRepository.js';
+import mitigationRepository from '../repositories/mitigationRepository.js';
 
 import auditService from './auditService.js';
-import Incident from '../models/Incident.js';
 import complianceService from './complianceService.js';
 import riskService from './riskService.js';
 import incidentService from './incidentService.js';
@@ -21,6 +21,50 @@ let activeRunId = null;
 // Timeout for individual simulation steps (especially the AI agent step): 130 seconds
 const STEP_TIMEOUT_MS = 300000;
 
+function getNodeTelemetryLimits(node) {
+  const name = String(node?.nodeName || node?.name || '').toLowerCase();
+  const type = String(node?.nodeType || node?.type || '').toLowerCase();
+
+  if (name.includes('interlocking') || name.includes('rri') || name.includes('cabin') || name.includes('signal') || type.includes('signal')) {
+    return {
+      tWarn: 35, tCrit: 45, tDefault: 24,
+      vWarn: 1.5, vCrit: 3.5, vDefault: 0.8,
+      gWarn: 15, gCrit: 30, gDefault: 8,
+      vMin: 0.10, vMax: 3.5, vDefault: 0.23
+    };
+  }
+  if (name.includes('post') || name.includes('outer') || name.includes('gate') || name.includes('crossing') || name.includes('block')) {
+    return {
+      tWarn: 45, tCrit: 60, tDefault: 32,
+      vWarn: 2.5, vCrit: 5.0, vDefault: 1.2,
+      gWarn: 20, gCrit: 40, gDefault: 12,
+      vMin: 0.10, vMax: 3.5, vDefault: 0.23
+    };
+  }
+  if (name.includes('siding') || name.includes('goodshed') || name.includes('industrial') || type.includes('siding')) {
+    return {
+      tWarn: 50, tCrit: 65, tDefault: 38,
+      vWarn: 6.0, vCrit: 12.0, vDefault: 3.5,
+      gWarn: 35, gCrit: 70, gDefault: 18,
+      vMin: 3.0, vMax: 11.5, vDefault: 6.6
+    };
+  }
+  if (name.includes('depot') || name.includes('shed') || name.includes('hub') || type.includes('depot') || type.includes('power_hub')) {
+    return {
+      tWarn: 55, tCrit: 75, tDefault: 40,
+      vWarn: 5.0, vCrit: 10.0, vDefault: 4.0,
+      gWarn: 30, gCrit: 60, gDefault: 22,
+      vMin: 3.0, vMax: 15.0, vDefault: 11.0
+    };
+  }
+  return {
+    tWarn: 60, tCrit: 80, tDefault: 42,
+    vWarn: 4.0, vCrit: 7.5, vDefault: 2.2,
+    gWarn: 25, gCrit: 50, gDefault: 10,
+    vMin: 21.0, vMax: 27.0, vDefault: 24.5
+  };
+}
+
 /**
  * Wrap a promise with a timeout. Rejects with a descriptive error if the promise
  * does not resolve within the specified duration.
@@ -37,12 +81,17 @@ function withTimeout(promise, ms, label) {
 // On module load, clear any stale "Running" simulations left from previous server session
 (async () => {
   try {
-    const staleCount = await SimulationRun.updateMany(
-      { status: 'Running' },
-      { $set: { status: 'Failed', errorMessage: 'Server restarted while simulation was running.', completedAt: new Date() } }
-    );
-    if (staleCount.modifiedCount > 0) {
-      console.log(`[SIMULATION-ENGINE] Cleaned up ${staleCount.modifiedCount} stale 'Running' simulation(s) from previous session.`);
+    const staleRuns = await simulationRepository.getRunHistory(100);
+    const running = staleRuns.filter(r => r.status === 'Running');
+    for (const r of running) {
+      await simulationRepository.updateRun(r._id, {
+        status: 'Failed',
+        errorMessage: 'Server restarted while simulation was running.',
+        completedAt: new Date()
+      });
+    }
+    if (running.length > 0) {
+      console.log(`[SIMULATION-ENGINE] Cleaned up ${running.length} stale 'Running' simulation(s) from previous session.`);
     }
   } catch (e) {
     // DB might not be connected yet — that's fine, the check in runFullSimulation will handle it
@@ -76,7 +125,7 @@ async function executeStep(run, stepNumber, stepName, module, executeFn) {
   const stepStart = Date.now();
 
   // Create event in DB
-  const event = await SimulationEvent.create({
+  const event = await simulationRepository.createEvent({
     runId: run._id,
     stepNumber,
     stepName,
@@ -105,17 +154,19 @@ async function executeStep(run, stepNumber, stepName, module, executeFn) {
     const description = result.description || `${stepName} completed successfully`;
 
     // Update event
-    event.status = 'completed';
-    event.description = description;
-    event.data = result.data || {};
-    event.completedAt = new Date();
-    event.duration = duration;
-    await event.save();
+    await simulationRepository.updateEvent(event._id, {
+      status: 'completed',
+      description,
+      data: result.data || {},
+      completedAt: new Date(),
+      duration
+    });
 
     // Update run progress
-    run.currentStep = stepNumber;
-    run.completedSteps = stepNumber;
-    await run.save();
+    run = await simulationRepository.updateRun(run._id, {
+      currentStep: stepNumber,
+      completedSteps: stepNumber
+    });
 
     // Emit step completion
     emitSocket('simulation:step', {
@@ -134,11 +185,12 @@ async function executeStep(run, stepNumber, stepName, module, executeFn) {
   } catch (error) {
     const duration = Date.now() - stepStart;
 
-    event.status = 'failed';
-    event.description = `Failed: ${error.message}`;
-    event.completedAt = new Date();
-    event.duration = duration;
-    await event.save();
+    await simulationRepository.updateEvent(event._id, {
+      status: 'failed',
+      description: `Failed: ${error.message}`,
+      completedAt: new Date(),
+      duration
+    });
 
     emitSocket('simulation:step', {
       runId: run.runId,
@@ -166,16 +218,17 @@ export const simulationEngine = {
     // Prevent concurrent simulations
     // Clear stale in-memory lock: verify the DB record is actually still running
     if (activeRunId) {
-      const activeRun = await SimulationRun.findById(activeRunId);
+      const activeRun = await simulationRepository.findRunById(activeRunId);
       if (activeRun && activeRun.status === 'Running') {
         // Check if it's been running for more than 10 minutes — treat as stuck
         const runningFor = Date.now() - new Date(activeRun.startedAt).getTime();
         if (runningFor > 10 * 60 * 1000) {
           console.warn(`[SIMULATION-ENGINE] Stale simulation ${activeRun.runId} running for ${Math.round(runningFor/1000)}s. Marking as Failed.`);
-          activeRun.status = 'Failed';
-          activeRun.errorMessage = 'Simulation timed out (exceeded 10 minute limit).';
-          activeRun.completedAt = new Date();
-          await activeRun.save();
+          await simulationRepository.updateRun(activeRun._id, {
+            status: 'Failed',
+            errorMessage: 'Simulation timed out (exceeded 10 minute limit).',
+            completedAt: new Date()
+          });
           activeRunId = null;
         } else {
           throw new Error('A simulation is already running. Please wait for it to complete.');
@@ -186,14 +239,16 @@ export const simulationEngine = {
     }
 
     // Also check DB for any truly stuck 'Running' simulations not tracked in memory
-    const dbStaleRuns = await SimulationRun.find({ status: 'Running' });
+    const history = await simulationRepository.getRunHistory(100);
+    const dbStaleRuns = history.filter(r => r.status === 'Running');
     for (const stale of dbStaleRuns) {
       const age = Date.now() - new Date(stale.startedAt).getTime();
       if (age > 10 * 60 * 1000) {
-        stale.status = 'Failed';
-        stale.errorMessage = 'Simulation timed out (exceeded 10 minute limit).';
-        stale.completedAt = new Date();
-        await stale.save();
+        await simulationRepository.updateRun(stale._id, {
+          status: 'Failed',
+          errorMessage: 'Simulation timed out (exceeded 10 minute limit).',
+          completedAt: new Date()
+        });
         console.warn(`[SIMULATION-ENGINE] Cleaned up stale DB simulation: ${stale.runId}`);
       }
     }
@@ -206,18 +261,20 @@ export const simulationEngine = {
     const searchId = nestedNode?.id || nodeId;
 
     if (searchCode) {
-      nodeObj = await RailwayNode.findOne({ nodeCode: searchCode.toUpperCase() });
+      nodeObj = await railwayNodeRepository.findByCode(searchCode.toUpperCase());
     } else if (searchId) {
-      nodeObj = await RailwayNode.findById(searchId);
+      nodeObj = await railwayNodeRepository.findById(searchId);
     }
     if (!nodeObj && nestedNode?.name) {
-      nodeObj = await RailwayNode.findOne({ nodeName: nestedNode.name });
+      const all = await railwayNodeRepository.findAll();
+      nodeObj = all.find(n => n.nodeName === nestedNode.name);
     }
     if (!nodeObj) {
-      nodeObj = await RailwayNode.findOne({ nodeCode: 'BRC' });
+      nodeObj = await railwayNodeRepository.findByCode('BRC');
     }
     if (!nodeObj) {
-      nodeObj = await RailwayNode.findOne({});
+      const all = await railwayNodeRepository.findAll();
+      nodeObj = all[0];
     }
     if (!nodeObj) {
       throw new Error('No railway nodes found in the database. Run database seed first.');
@@ -225,49 +282,56 @@ export const simulationEngine = {
 
     const node = nodeObj;
 
-    // Telemetry values: defaults if not passed
-    const temperatureVal = (temperature !== undefined && temperature !== null) ? Number(temperature) : 135;
-    const vibrationVal = (vibration !== undefined && vibration !== null) ? Number(vibration) : 85;
-    const gasVal = (hazardousGas !== undefined && hazardousGas !== null) ? Number(hazardousGas) : 
-                   ((gas !== undefined && gas !== null) ? Number(gas) : 40);
-    const powerVal = (voltage !== undefined && voltage !== null) ? Number(voltage) : 
-                     ((power !== undefined && power !== null) ? Number(power) : 24);
+    const tLimits = getNodeTelemetryLimits(node);
 
-    // Point-based risk score calculations
+    // Telemetry values: defaults if not passed
+    const temperatureVal = (temperature !== undefined && temperature !== null) ? Number(temperature) : tLimits.tDefault;
+    const vibrationVal = (vibration !== undefined && vibration !== null) ? Number(vibration) : tLimits.vDefault;
+    const gasVal = (hazardousGas !== undefined && hazardousGas !== null) ? Number(hazardousGas) : 
+                   ((gas !== undefined && gas !== null) ? Number(gas) : tLimits.gDefault);
+    const powerVal = (voltage !== undefined && voltage !== null) ? Number(voltage) : 
+                     ((power !== undefined && power !== null) ? Number(power) : tLimits.vDefault);
+
+    // Dynamic points-based risk score calculations using category-specific thresholds
     let totalPoints = 0;
 
-    // Temperature
-    if (temperatureVal < 70) {
-      totalPoints += 10;
-    } else if (temperatureVal >= 70 && temperatureVal <= 90) {
-      totalPoints += 25;
-    } else if (temperatureVal > 90) {
-      totalPoints += 40;
-    }
-
-    // Vibration
-    if (vibrationVal < 40) {
-      totalPoints += 10;
-    } else if (vibrationVal >= 40 && vibrationVal <= 80) {
-      totalPoints += 25;
-    } else if (vibrationVal > 80) {
+    // Temperature (°C)
+    if (temperatureVal < tLimits.tWarn) {
+      totalPoints += 0;
+    } else if (temperatureVal <= tLimits.tCrit) {
+      totalPoints += 15;
+    } else {
       totalPoints += 35;
     }
 
-    // Hazardous Gas
-    if (gasVal < 30) {
-      totalPoints += 5;
-    } else if (gasVal >= 30 && gasVal <= 70) {
+    // Track Vibration (mm/s)
+    if (vibrationVal < tLimits.vWarn) {
+      totalPoints += 0;
+    } else if (vibrationVal <= tLimits.vCrit) {
       totalPoints += 15;
-    } else if (gasVal > 70) {
+    } else {
       totalPoints += 30;
     }
 
-    // Power
-    if (powerVal >= 15 && powerVal <= 30) {
+    // Hazardous Gas (ppm)
+    if (gasVal < tLimits.gWarn) {
       totalPoints += 0;
+    } else if (gasVal <= tLimits.gCrit) {
+      totalPoints += 10;
     } else {
       totalPoints += 20;
+    }
+
+    // Power Grid Voltage (kV)
+    if (powerVal >= tLimits.vMin && powerVal <= tLimits.vMax) {
+      totalPoints += 0;
+    } else {
+      const margin = (tLimits.vMax - tLimits.vMin) * 0.25;
+      if (powerVal > 0 && powerVal >= (tLimits.vMin - margin) && powerVal <= (tLimits.vMax + margin)) {
+        totalPoints += 15;
+      } else {
+        totalPoints += 25;
+      }
     }
 
     const riskScore = Math.min(totalPoints, 100);
@@ -287,19 +351,20 @@ export const simulationEngine = {
     console.log("ENGINE INPUT:", simulationConfig);
 
     // Create the simulation run
-    const run = await SimulationRun.create({
+    let run = await simulationRepository.createRun({
       triggeredBy: req?.user?._id || null,
       nodeId: node._id,
       status: 'Running',
-      totalSteps: 7,
-      startedAt: new Date()
+      totalSteps: 7
     });
+    // Ensure result object is initialized
+    run.result = run.result || {};
 
     activeRunId = run._id;
 
     // Trigger Notification
     try {
-      await notificationService.createNotification({
+      await notificationService.create({
         title: `Simulation Started: Run ${run.runId}`,
         message: `Cinematic failure cascade simulation has started on node ${node.nodeName} (${node.nodeCode}). Status: Running.`,
         type: 'SimulationStarted',
@@ -392,20 +457,19 @@ export const simulationEngine = {
 
       // ============================================================
       // STEP 2: Execute all 7 agents sequentially
-      // VANGUARD FIX: Wrapped with 130-second timeout to prevent indefinite hang
       // ============================================================
       console.time('[SIMULATION] Step 2 - Execute 7-Agent Pipeline');
       await delay(2000);
       await executeStep(run, 2, 'Execute 7-Agent Pipeline', 'agent', async () => {
-        // Evaluate telemetry triggers the multi-agent pipeline — with timeout protection
         const agentResult = await withTimeout(
           aiAgentService.evaluateTelemetry(telemetryPack, req),
           STEP_TIMEOUT_MS,
           'AI Agent Pipeline (Step 2)'
         );
         ctx.agentAction = agentResult;
+        run.result = run.result || {};
         run.result.agentDecision = agentResult.decision;
-        await run.save();
+        run = await simulationRepository.updateRun(run._id, { result: run.result });
 
         return {
           description: `Executed all 7 agents sequentially (Telemetry -> Retrieval -> Sensor -> Historical -> Root Cause -> Mitigation -> Executive Decision). AI Decision: "${agentResult.decision}" (Confidence: ${agentResult.confidence}%)`,
@@ -455,8 +519,9 @@ export const simulationEngine = {
           req
         });
         ctx.riskResult = riskResult;
+        run.result = run.result || {};
         run.result.riskScore = riskScore;
-        await run.save();
+        run = await simulationRepository.updateRun(run._id, { result: run.result });
 
         // Log Risk Increased
         try {
@@ -483,11 +548,11 @@ export const simulationEngine = {
       console.timeEnd('[SIMULATION] Step 4 - Calculate Risk');
 
       // ============================================================
-      // STEP 5: Store results in MongoDB
+      // STEP 5: Store results in MySQL
       // ============================================================
       console.time('[SIMULATION] Step 5 - Store Results');
       await delay(1200);
-      await executeStep(run, 5, 'Store Results in MongoDB', 'database', async () => {
+      await executeStep(run, 5, 'Store Results in Database', 'database', async () => {
         // Recalculate heap priority queue in DB
         const queue = await incidentPriorityService.triggerRecalculation(req);
         const position = queue.findIndex(item => {
@@ -495,11 +560,12 @@ export const simulationEngine = {
           return itemNodeId === node._id.toString();
         });
         ctx.heapPosition = position >= 0 ? position + 1 : null;
+        run.result = run.result || {};
         run.result.heapPosition = ctx.heapPosition || 0;
-        await run.save();
+        run = await simulationRepository.updateRun(run._id, { result: run.result });
 
         return {
-          description: `Persisted multi-agent reports and simulation metadata to MongoDB. Max Heap recalculated: promoting incident to queue position #${run.result.heapPosition}.`,
+          description: `Persisted multi-agent reports and simulation metadata to Database. Max Heap recalculated: promoting incident to queue position #${run.result.heapPosition}.`,
           data: {
             runId: run.runId,
             persistedCollections: ['SimulationRun', 'AgentAction', 'RiskScore', 'AuditLog'],
@@ -515,10 +581,7 @@ export const simulationEngine = {
       console.time('[SIMULATION] Step 6 - Generate Incidents');
       await delay(1500);
       await executeStep(run, 6, 'Generate Incident & Action', 'incidents', async () => {
-        let incident = await Incident.findOne({
-          nodeId: node._id,
-          status: { $in: ['Open', 'Investigating', 'Mitigating'] }
-        }).populate('nodeId');
+        let incident = await incidentRepository.findOpenByNodeId(node._id);
 
         if (!incident) {
           incident = await incidentService.createIncident({
@@ -532,20 +595,18 @@ export const simulationEngine = {
         }
 
         ctx.incident = incident;
+        run.result = run.result || {};
         run.result.incidentId = incident.incidentId;
         
         // Find the mitigation that was created
-        const { default: Mitigation } = await import('../models/Mitigation.js');
-        let mitigation = await Mitigation.findOne({ nodeId: node._id })
-          .sort({ createdAt: -1 })
-          .populate('nodeId')
-          .populate('incidentId');
+        const mitigations = await mitigationRepository.findAll({ nodeId: node._id });
+        let mitigation = mitigations.length > 0 ? mitigations[0] : null;
 
         if (mitigation) {
           ctx.mitigation = mitigation;
           run.result.mitigationId = mitigation.mitigationId;
         }
-        await run.save();
+        run = await simulationRepository.updateRun(run._id, { result: run.result });
 
         return {
           description: `Safety Incident ${incident.incidentId} generated and confirmed in database. Associated Mitigation Action: "${mitigation ? mitigation.action : 'Maintenance Dispatch'}" (ID: ${mitigation ? mitigation.mitigationId : 'Pending'}).`,
@@ -606,14 +667,15 @@ export const simulationEngine = {
       // ============================================================
       // SIMULATION COMPLETE
       // ============================================================
-      run.status = 'Completed';
-      run.completedSteps = 7;
-      run.completedAt = new Date();
-      await run.save();
+      run = await simulationRepository.updateRun(run._id, {
+        status: 'Completed',
+        completedSteps: 7,
+        completedAt: new Date()
+      });
 
       // Trigger Notification
       try {
-        await notificationService.createNotification({
+        await notificationService.create({
           title: `Simulation Completed: Run ${run.runId}`,
           message: `Cinematic failure cascade simulation has successfully completed on node ${node.nodeName} (${node.nodeCode}). Status: Completed.`,
           type: 'SimulationCompleted',
@@ -625,9 +687,6 @@ export const simulationEngine = {
       } catch (notifErr) {
         console.error(`[SIMULATION-COMPLETE-NOTIFICATION-ERROR] Failed to trigger notification: ${notifErr.message}`);
       }
-
-
-      // activeRunId cleanup and simulation:complete emission are handled by the finally block
 
       // Final audit log using auditService
       try {
@@ -658,11 +717,11 @@ export const simulationEngine = {
       console.error(`[SIMULATION] ======= Simulation ${run.runId} FAILED: ${error.message} =======`);
 
       try {
-        run.status = 'Failed';
-        run.errorMessage = error.message;
-        run.completedAt = new Date();
-        // completedSteps is already tracked by executeStep(), so it reflects the last successful step
-        await run.save();
+        run = await simulationRepository.updateRun(run._id, {
+          status: 'Failed',
+          errorMessage: error.message,
+          completedAt: new Date()
+        });
         console.log(`[SIMULATION] Persisted failure state: completedSteps=${run.completedSteps}`);
       } catch (saveErr) {
         console.error(`[SIMULATION] Failed to persist failure state: ${saveErr.message}`);
@@ -686,7 +745,7 @@ export const simulationEngine = {
         runId: run.runId,
         runObjectId: run._id,
         status: run.status,
-        totalDuration: Date.now() - run.startedAt.getTime(),
+        totalDuration: Date.now() - new Date(run.startedAt).getTime(),
         result: run.result
       });
 
@@ -705,20 +764,14 @@ export const simulationEngine = {
    * Get simulation run history
    */
   async getSimulationHistory() {
-    return await SimulationRun.find({})
-      .populate('triggeredBy', 'name email role')
-      .populate('nodeId', 'nodeCode nodeName status region')
-      .sort({ createdAt: -1 })
-      .limit(50);
+    return await simulationRepository.getRunHistory(50);
   },
 
   /**
    * Get a specific simulation run with all its events
    */
   async getSimulationRun(runId) {
-    const run = await SimulationRun.findOne({ runId })
-      .populate('triggeredBy', 'name email role')
-      .populate('nodeId', 'nodeCode nodeName status region');
+    const run = await simulationRepository.findRunByRunId(runId);
 
     if (!run) {
       const error = new Error(`Simulation run ${runId} not found`);
@@ -726,9 +779,7 @@ export const simulationEngine = {
       throw error;
     }
 
-    const events = await SimulationEvent.find({ runId: run._id })
-      .sort({ stepNumber: 1 });
-
+    const events = await simulationRepository.getEventsByRunId(run._id);
     return { run, events };
   },
 
@@ -736,40 +787,28 @@ export const simulationEngine = {
    * Get aggregate simulation statistics
    */
   async getSimulationStats() {
-    const totalRuns = await SimulationRun.countDocuments({});
-    const completedRuns = await SimulationRun.countDocuments({ status: 'Completed' });
-    const failedRuns = await SimulationRun.countDocuments({ status: 'Failed' });
-    const runningRuns = await SimulationRun.countDocuments({ status: 'Running' });
+    const stats = await simulationRepository.getRunStats();
+    const history = await simulationRepository.getRunHistory(100);
 
-    const successRate = totalRuns > 0
-      ? parseFloat(((completedRuns / totalRuns) * 100).toFixed(1))
+    const successRate = stats.total > 0
+      ? parseFloat(((stats.completed / stats.total) * 100).toFixed(1))
       : 100;
 
     // Average duration of completed runs
-    const durationStats = await SimulationRun.aggregate([
-      { $match: { status: 'Completed', completedAt: { $ne: null } } },
-      {
-        $project: {
-          duration: { $subtract: ['$completedAt', '$startedAt'] }
-        }
-      },
-      { $group: { _id: null, avgDuration: { $avg: '$duration' } } }
-    ]);
-    const avgDuration = durationStats.length > 0
-      ? Math.round(durationStats[0].avgDuration)
-      : 0;
+    const completedRuns = history.filter(r => r.status === 'Completed' && r.completedAt);
+    let avgDuration = 0;
+    if (completedRuns.length > 0) {
+      const totalDur = completedRuns.reduce((sum, r) => sum + (new Date(r.completedAt).getTime() - new Date(r.startedAt).getTime()), 0);
+      avgDuration = Math.round(totalDur / completedRuns.length);
+    }
 
-    // Last run
-    const lastRun = await SimulationRun.findOne({})
-      .populate('triggeredBy', 'name email role')
-      .populate('nodeId', 'nodeCode nodeName')
-      .sort({ createdAt: -1 });
+    const lastRun = history.length > 0 ? history[0] : null;
 
     return {
-      totalRuns,
-      completedRuns,
-      failedRuns,
-      runningRuns,
+      totalRuns: stats.total,
+      completedRuns: stats.completed,
+      failedRuns: stats.failed,
+      runningRuns: stats.running,
       successRate,
       avgDuration,
       lastRun

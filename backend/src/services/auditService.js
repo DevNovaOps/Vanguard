@@ -1,4 +1,4 @@
-import AuditLog from '../models/AuditLog.js';
+import auditLogRepository from '../repositories/auditLogRepository.js';
 import { getIO } from '../config/socket.js';
 
 export const auditService = {
@@ -6,55 +6,10 @@ export const auditService = {
    * Core logging function
    */
   async logEvent(params = {}) {
-    const {
-      req,
-      userId,
-      username,
-      role,
-      action,
-      module,
-      entityType,
-      entityId,
-      description,
-      severity = 'Info',
-      metadata = {}
-    } = params;
-
     try {
-      let resolvedUserId = userId || null;
-      let resolvedUsername = username || 'System';
-      let resolvedRole = role || 'System';
-      let ipAddress = params.ipAddress || null;
-      let userAgent = params.userAgent || null;
+      const log = await auditLogRepository.create(params);
 
-      // Resolve details from request object if present
-      if (req) {
-        if (req.user) {
-          resolvedUserId = req.user._id;
-          resolvedUsername = req.user.name || req.user.email || resolvedUsername;
-          resolvedRole = req.user.role || resolvedRole;
-        }
-        ipAddress = ipAddress || req.ip || (req.headers && req.headers['x-forwarded-for']) || (req.socket && req.socket.remoteAddress) || null;
-        userAgent = userAgent || (req.headers && req.headers['user-agent']) || null;
-      }
-
-      // Create audit log entry
-      const log = await AuditLog.create({
-        userId: resolvedUserId,
-        username: resolvedUsername,
-        role: resolvedRole,
-        action,
-        module,
-        entityType,
-        entityId,
-        description,
-        severity,
-        metadata,
-        ipAddress,
-        userAgent
-      });
-
-      console.log(`[AUDIT-LOG] Recorded event: ${action} in module ${module} (${severity})`);
+      console.log(`[AUDIT-LOG] Recorded event: ${log.action} in module ${log.module} (${log.severity})`);
 
       // Emit Socket.IO Events
       try {
@@ -271,166 +226,21 @@ export const auditService = {
    * Advanced query
    */
   async getAuditLogs(params = {}) {
-    const {
-      page = 1,
-      limit = 20,
-      startDate,
-      endDate,
-      module,
-      action,
-      severity,
-      userId,
-      username,
-      search,
-      sortBy = 'timestamp',
-      sortOrder = 'desc'
-    } = params;
-
-    const filter = {};
-
-    if (startDate || endDate) {
-      filter.timestamp = {};
-      if (startDate) filter.timestamp.$gte = new Date(startDate);
-      if (endDate) filter.timestamp.$lte = new Date(endDate);
-    }
-
-    if (module && module !== 'all') {
-      filter.module = module;
-    }
-    if (action) {
-      filter.action = action;
-    }
-    if (severity && severity !== 'all') {
-      filter.severity = severity;
-    }
-    if (userId) {
-      filter.userId = userId;
-    }
-    if (username) {
-      filter.username = username;
-    }
-
-    if (search) {
-      const searchRegex = { $regex: search, $options: 'i' };
-      filter.$or = [
-        { action: searchRegex },
-        { module: searchRegex },
-        { description: searchRegex },
-        { username: searchRegex },
-        { severity: searchRegex }
-      ];
-    }
-
-    const pageNum = Math.max(1, parseInt(page, 10));
-    const limitNum = Math.max(1, parseInt(limit, 10));
-    const skip = (pageNum - 1) * limitNum;
-    const sort = { [sortBy]: sortOrder === 'desc' ? -1 : 1 };
-
-    const total = await AuditLog.countDocuments(filter);
-    const logs = await AuditLog.find(filter)
-      .sort(sort)
-      .skip(skip)
-      .limit(limitNum);
-
-    return {
-      logs,
-      pagination: {
-        page: pageNum,
-        limit: limitNum,
-        total,
-        pages: Math.ceil(total / limitNum)
-      }
-    };
+    return auditLogRepository.findAll(params);
   },
 
   /**
    * Dashboard statistics aggregations
    */
   async getAuditStatistics() {
-    const totalLogs = await AuditLog.countDocuments({});
-    const criticalEvents = await AuditLog.countDocuments({ severity: 'Critical' });
-    const warningEvents = await AuditLog.countDocuments({ severity: 'Warning' });
-    const infoEvents = await AuditLog.countDocuments({ severity: 'Info' });
-
-    // simulationsTriggered: count of audit logs in module 'Simulation' with action 'Simulation Started'
-    const simulationsTriggered = await AuditLog.countDocuments({
-      module: 'Simulation',
-      action: 'Simulation Started'
-    });
-
-    // incidentsCreated: count of audit logs with action 'Incident Created'
-    const incidentsCreated = await AuditLog.countDocuments({
-      module: 'Incident',
-      action: 'Incident Created'
-    });
-
-    // agentActions: count of audit logs in module 'AutonomousAgent'
-    const agentActions = await AuditLog.countDocuments({
-      module: 'AutonomousAgent'
-    });
-
-    return {
-      totalLogs,
-      criticalEvents,
-      warningEvents,
-      infoEvents,
-      simulationsTriggered,
-      incidentsCreated,
-      agentActions
-    };
+    return auditLogRepository.getStatistics();
   },
 
   /**
    * Export all matching logs (without pagination)
    */
   async exportAuditLogs(params = {}) {
-    const {
-      startDate,
-      endDate,
-      module,
-      action,
-      severity,
-      userId,
-      username,
-      search
-    } = params;
-
-    const filter = {};
-
-    if (startDate || endDate) {
-      filter.timestamp = {};
-      if (startDate) filter.timestamp.$gte = new Date(startDate);
-      if (endDate) filter.timestamp.$lte = new Date(endDate);
-    }
-
-    if (module && module !== 'all') {
-      filter.module = module;
-    }
-    if (action) {
-      filter.action = action;
-    }
-    if (severity && severity !== 'all') {
-      filter.severity = severity;
-    }
-    if (userId) {
-      filter.userId = userId;
-    }
-    if (username) {
-      filter.username = username;
-    }
-
-    if (search) {
-      const searchRegex = { $regex: search, $options: 'i' };
-      filter.$or = [
-        { action: searchRegex },
-        { module: searchRegex },
-        { description: searchRegex },
-        { username: searchRegex },
-        { severity: searchRegex }
-      ];
-    }
-
-    return await AuditLog.find(filter).sort({ timestamp: -1 });
+    return auditLogRepository.exportAll(params);
   }
 };
 

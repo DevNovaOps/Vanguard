@@ -1,5 +1,4 @@
 import express from 'express';
-import { body } from 'express-validator';
 import {
   registerUser,
   loginUser,
@@ -20,66 +19,14 @@ import {
 } from '../controllers/authController.js';
 import { authenticateUser } from '../middleware/authMiddleware.js';
 import { authorizeRoles } from '../middleware/roleMiddleware.js';
+import validateRequest from '../middleware/validateMiddleware.js';
+import { registerSchema, loginSchema, updateProfileSchema } from '../validators/authValidator.js';
 
 const router = express.Router();
 
-// Register Validation Schema
-const registerValidationRules = [
-  body('name')
-    .trim()
-    .notEmpty()
-    .withMessage('Name is required'),
-  body('email')
-    .trim()
-    .isEmail()
-    .withMessage('Please enter a valid email address')
-    .normalizeEmail(),
-  body('password')
-    .isLength({ min: 6 })
-    .withMessage('Password must be at least 6 characters long'),
-  body('role')
-    .trim()
-    .isIn(['Admin', 'Operator', 'SafetyOfficer', 'Manager'])
-    .withMessage('Role must be one of: Admin, Operator, SafetyOfficer, Manager'),
-  body('permissions')
-    .optional()
-    .isArray()
-    .withMessage('Permissions must be an array of strings')
-];
-
-// Login Validation Schema
-const loginValidationRules = [
-  body('email')
-    .trim()
-    .isEmail()
-    .withMessage('Please enter a valid email address')
-    .normalizeEmail(),
-  body('password')
-    .notEmpty()
-    .withMessage('Password is required')
-];
-
-// Profile Update Validation Schema
-const updateProfileValidationRules = [
-  body('name')
-    .optional()
-    .trim()
-    .notEmpty()
-    .withMessage('Name cannot be empty'),
-  body('email')
-    .optional()
-    .trim()
-    .isEmail()
-    .withMessage('Please enter a valid email address')
-    .normalizeEmail(),
-  body('department')
-    .optional()
-    .trim()
-];
-
 // Routes Configuration
-router.post('/register', registerValidationRules, registerUser);
-router.post('/login', loginValidationRules, loginUser);
+router.post('/register', validateRequest(registerSchema), registerUser);
+router.post('/login', validateRequest(loginSchema), loginUser);
 router.post('/otp-login', loginUserWithOtp);
 
 // Forgot Password and OTP Authentication Routes
@@ -91,7 +38,7 @@ router.post('/verify-login-otp', verifyLoginOtp);
 router.post('/resend-otp', resendOtp);
 
 router.get('/profile', authenticateUser, getUserProfile);
-router.put('/profile', authenticateUser, updateProfileValidationRules, updateUserProfile);
+router.put('/profile', authenticateUser, validateRequest(updateProfileSchema), updateUserProfile);
 router.post('/logout', authenticateUser, logoutUser);
 
 // Admin user approval/rejection endpoints

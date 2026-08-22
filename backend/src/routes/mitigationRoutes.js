@@ -1,5 +1,4 @@
 import express from 'express';
-import { body } from 'express-validator';
 import {
   getAllMitigations,
   getMitigationById,
@@ -10,47 +9,10 @@ import {
 } from '../controllers/mitigationController.js';
 import { authenticateUser } from '../middleware/authMiddleware.js';
 import { authorizeRoles } from '../middleware/roleMiddleware.js';
+import validateRequest from '../middleware/validateMiddleware.js';
+import { mitigationSchema, statusSchema, executeSchema } from '../validators/mitigationValidator.js';
 
 const router = express.Router();
-
-const mitigationValidationRules = [
-  body('incidentId')
-    .isMongoId()
-    .withMessage('Incident ID must be a valid MongoDB ObjectId'),
-  body('nodeId')
-    .isMongoId()
-    .withMessage('Node ID must be a valid MongoDB ObjectId'),
-  body('action')
-    .trim()
-    .isIn([
-      'Emergency Brake',
-      'Emergency Speed Restriction',
-      'Power Rerouting',
-      'Route Isolation',
-      'Infrastructure Shutdown',
-      'Maintenance Dispatch',
-      'Ventilation Activation',
-      'Safety Escalation'
-    ])
-    .withMessage('Invalid action type specified'),
-  body('severity')
-    .trim()
-    .isIn(['Low', 'Medium', 'High', 'Critical'])
-    .withMessage('Severity must be Low, Medium, High, or Critical'),
-  body('executionNotes')
-    .optional()
-    .trim()
-];
-
-const statusValidationRules = [
-  body('status')
-    .trim()
-    .isIn(['Pending', 'InProgress', 'Executed', 'Completed', 'Failed', 'Cancelled'])
-    .withMessage('Status must be Pending, InProgress, Executed, Completed, Failed, or Cancelled'),
-  body('executionNotes')
-    .optional()
-    .trim()
-];
 
 // All routes are private and require user login
 router.use(authenticateUser);
@@ -79,7 +41,7 @@ router.get(
 router.post(
   '/',
   authorizeRoles('Admin', 'SafetyOfficer', 'Operator'),
-  mitigationValidationRules,
+  validateRequest(mitigationSchema),
   createMitigation
 );
 
@@ -87,7 +49,7 @@ router.post(
 router.post(
   '/:id/execute',
   authorizeRoles('Admin', 'SafetyOfficer', 'Operator'),
-  body('executionNotes').optional().trim(),
+  validateRequest(executeSchema),
   executeMitigation
 );
 
@@ -95,7 +57,7 @@ router.post(
 router.patch(
   '/:id/status',
   authorizeRoles('Admin', 'SafetyOfficer'),
-  statusValidationRules,
+  validateRequest(statusSchema),
   updateMitigationStatus
 );
 

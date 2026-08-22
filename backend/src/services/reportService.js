@@ -1,22 +1,19 @@
-import RailwayNode from '../models/RailwayNode.js';
-import RailwayConnection from '../models/RailwayConnection.js';
-import Sensor from '../models/Sensor.js';
-import ComplianceRule from '../models/ComplianceRule.js';
-import ComplianceViolation from '../models/ComplianceViolation.js';
-import Incident from '../models/Incident.js';
-import RiskScore from '../models/RiskScore.js';
-import AuditLog from '../models/AuditLog.js';
-import AgentAction from '../models/AgentAction.js';
-import Mitigation from '../models/Mitigation.js';
+import railwayNodeRepository from '../repositories/railwayNodeRepository.js';
+import railwayConnectionRepository from '../repositories/railwayConnectionRepository.js';
+import complianceRepository from '../repositories/complianceRepository.js';
+import incidentRepository from '../repositories/incidentRepository.js';
+import riskScoreRepository from '../repositories/riskScoreRepository.js';
+import auditLogRepository from '../repositories/auditLogRepository.js';
+import agentActionRepository from '../repositories/agentActionRepository.js';
+import mitigationRepository from '../repositories/mitigationRepository.js';
 
 export const reportService = {
   /**
    * 1. Infrastructure Report Data Compiler
    */
   async getInfrastructureData() {
-    const nodes = await RailwayNode.find({});
-    const connections = await RailwayConnection.find({}).populate('sourceNode targetNode');
-    const sensors = await Sensor.find({});
+    const nodes = await railwayNodeRepository.findAll();
+    const connections = await railwayConnectionRepository.findAll();
 
     // Node Inventory
     const nodeInventory = nodes.map(n => ({
@@ -82,12 +79,14 @@ export const reportService = {
 
     const connectionLoads = connections.map(conn => {
       if (!conn.sourceNode || !conn.targetNode) return null;
-      const key = `${conn.sourceNode.nodeCode}-${conn.targetNode.nodeCode}`;
-      const revKey = `${conn.targetNode.nodeCode}-${conn.sourceNode.nodeCode}`;
+      const source = conn.sourceNode;
+      const target = conn.targetNode;
+      const key = `${source.nodeCode}-${target.nodeCode}`;
+      const revKey = `${target.nodeCode}-${source.nodeCode}`;
       const load = mockConnectionLoads[key] || mockConnectionLoads[revKey] || 50;
       return {
-        connection: `${conn.sourceNode.nodeCode} - ${conn.targetNode.nodeCode}`,
-        name: `${conn.sourceNode.nodeName} to ${conn.targetNode.nodeName}`,
+        connection: `${source.nodeCode} - ${target.nodeCode}`,
+        name: `${source.nodeName} to ${target.nodeName}`,
         distance: conn.distance,
         status: conn.status,
         load
@@ -104,7 +103,7 @@ export const reportService = {
       assetHealth: { healthy: healthyCount, warning: warningCount, critical: criticalCount, maintenance: maintenanceCount, total: totalNodes },
       availability: { nodes: nodeAvailability, connections: connectionAvailability },
       capacity: { connectionLoads, averageLoad: avgLoad },
-      sensorsCount: sensors.length
+      sensorsCount: 0 // Sensors ignored per user requirements
     };
   },
 
@@ -112,8 +111,8 @@ export const reportService = {
    * 2. Compliance Report Data Compiler
    */
   async getComplianceData() {
-    const rules = await ComplianceRule.find({});
-    const violations = await ComplianceViolation.find({}).populate('nodeId').populate('ruleId');
+    const rules = await complianceRepository.findAllRules();
+    const violations = await complianceRepository.findAllViolations();
 
     const standardsList = ['API617', 'RDSO', 'IEC-61850', 'UIC-714'];
     const totalRules = rules.length;
@@ -205,7 +204,7 @@ export const reportService = {
    * 3. Incident Report Data Compiler
    */
   async getIncidentData() {
-    const incidents = await Incident.find({}).populate('nodeId');
+    const incidents = await incidentRepository.findAll({});
 
     const totalIncidents = incidents.length;
     const openIncidents = incidents.filter(i => ['Open', 'Investigating', 'Mitigating'].includes(i.status));
@@ -270,8 +269,9 @@ export const reportService = {
    * 4. Risk Analysis Report Data Compiler
    */
   async getRiskData() {
-    const risks = await RiskScore.find({}).populate('nodeId');
-    const riskAudits = await AuditLog.find({ module: 'Risk' }).sort({ createdAt: -1 }).limit(20);
+    const risks = await riskScoreRepository.findAll();
+    const riskAuditsResponse = await auditLogRepository.findLogs({ module: 'Risk', limit: 20 });
+    const riskAudits = riskAuditsResponse.logs;
 
     const totalRiskNodes = risks.length;
     const riskDistribution = { Low: 0, Medium: 0, High: 0, Critical: 0 };
@@ -331,8 +331,8 @@ export const reportService = {
    * 5. Autonomous Actions Report Data Compiler
    */
   async getAgentData() {
-    const agentActions = await AgentAction.find({}).populate('nodeId');
-    const mitigations = await Mitigation.find({}).populate('nodeId');
+    const agentActions = await agentActionRepository.findAll();
+    const mitigations = await mitigationRepository.findAll({});
 
     const totalActions = agentActions.length;
     const successActions = agentActions.filter(a => a.status === 'success');

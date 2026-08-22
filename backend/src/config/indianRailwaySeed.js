@@ -211,8 +211,22 @@ export const generateIndianRailwayNetwork = () => {
     return true;
   };
 
+const TOWN_PREFIXES = {
+  'Western': ['Vadodara', 'Anand', 'Nadiad', 'Bharuch', 'Surat', 'Vapi', 'Valsad', 'Palghar', 'Sanand', 'Viramgam', 'Rewari', 'Phulera', 'Palanpur', 'Mahesana', 'Rajkot', 'Jamnagar'],
+  'Northern': ['Ambala', 'Panipat', 'Karnal', 'Kurukshetra', 'Ludhiana', 'Jalandhar', 'Phagwara', 'Rajpura', 'Sonipat', 'Ghaziabad', 'Palwal', 'Rohtak', 'Meerut'],
+  'Eastern': ['Mughalsarai', 'Asansol', 'Dhanbad', 'Buxar', 'Ara', 'Bardhaman', 'Durgapur', 'Mokama', 'Kiul', 'Jhajha', 'Chittaranjan', 'Bandel'],
+  'Central': ['Itarsi', 'Bhusawal', 'Manmad', 'Khandwa', 'Jhansi', 'Bina', 'Nagpur', 'Wardha', 'Mathura', 'Morena', 'Gwalior'],
+  'Southern': ['Katpadi', 'Arakkonam', 'Jolarpettai', 'Bangarapet', 'Krishnarajapuram', 'Salem', 'Erode', 'Tiruppur', 'Tambaram'],
+  'South Central': ['Kazipet', 'Warangal', 'Gudur', 'Nellore', 'Ongole', 'Tenali', 'Dharmavaram', 'Guntakal', 'Kurnool', 'Secunderabad'],
+  'East Coast': ['Khurda Road', 'Cuttack', 'Bhadrak', 'Balasore', 'Vizianagaram', 'Srikakulam', 'Berhampur', 'Puri'],
+  'South Eastern': ['Tatanagar', 'Kharagpur', 'Chakradharpur', 'Adra', 'Jharsuguda', 'Rourkela', 'Midnapore'],
+  'North East': ['Rangiya', 'Lumding', 'Mariani', 'Furkating', 'New Bongaigaon', 'Barpeta Road', 'Tezpur'],
+  'North Western': ['Kishangarh', 'Beawar', 'Falna', 'Abu Road', 'Palanpur', 'Bikaner', 'Jodhpur', 'Nagaur']
+};
+
   CORRIDORS.forEach((corridor) => {
     const corridorNodes = [];
+    const cityPool = TOWN_PREFIXES[corridor.region] || TOWN_PREFIXES['Western'];
 
     for (let i = 0; i < corridor.waypoints.length - 1; i += 1) {
       const [lat1, lng1, name1, isJunction1] = corridor.waypoints[i];
@@ -233,10 +247,30 @@ export const generateIndianRailwayNetwork = () => {
         const lat = lerp(lat1, lat2, t) + (Math.random() - 0.5) * 0.06;
         const lng = lerp(lng1, lng2, t) + (Math.random() - 0.5) * 0.06;
         const isMidJunction = s % 6 === 0 && Math.random() < 0.3;
+        const nodeType = isMidJunction ? 'Junction' : pickSecondaryType();
+        const town = cityPool[(s + nodeCounter) % cityPool.length];
+
+        let nodeName = '';
+        if (nodeType === 'Depot') {
+          const depotTypes = ['Container Freight Yard', 'Electric Loco Shed (ELS)', 'Marshalling Yard', 'Carriage & Wagon Depot', 'Port Rail Terminal'];
+          nodeName = `${town} ${depotTypes[nodeCounter % depotTypes.length]}`;
+        } else if (nodeType === 'PowerHub') {
+          const powerTypes = ['Traction Substation (TSS)', '25kV OHE Switching Post', 'Grid Distribution Substation'];
+          nodeName = `${town} ${powerTypes[nodeCounter % powerTypes.length]}`;
+        } else if (nodeType === 'SignalTower') {
+          const signalTypes = ['Route Relay Interlocking (RRI)', 'Signal Interlocking Tower', 'Automatic Block Signal Cabin'];
+          nodeName = `${town} ${signalTypes[nodeCounter % signalTypes.length]}`;
+        } else if (nodeType === 'Junction') {
+          nodeName = `${town} Goods Junction`;
+        } else {
+          const stationTypes = ['Goodshed Siding', 'Freight Siding', 'Crossing', 'Outer Post', 'Industrial Siding', 'Thermal Power Siding'];
+          nodeName = `${town} ${stationTypes[nodeCounter % stationTypes.length]}`;
+        }
+
         corridorNodes.push(addNode(
           lat, lng,
-          `${corridor.region} Halt ${nodeCounter}`,
-          isMidJunction ? 'Junction' : pickSecondaryType(),
+          nodeName,
+          nodeType,
           corridor.region,
           corridor.code.slice(0, 3)
         ));
@@ -269,14 +303,30 @@ export const generateIndianRailwayNetwork = () => {
     const branchLen = 5 + Math.floor(Math.random() * 6);
     let prev = junction;
     const angle = Math.random() * Math.PI * 2;
+    const cityPool = TOWN_PREFIXES[junction.region] || TOWN_PREFIXES['Western'];
+    const town = cityPool[nodeCounter % cityPool.length];
 
     for (let b = 0; b < branchLen; b += 1) {
       const lat = prev.latitude + Math.sin(angle + b * 0.25) * 0.3;
       const lng = prev.longitude + Math.cos(angle + b * 0.25) * 0.3;
+      const nodeType = b === branchLen - 1 && Math.random() < 0.3 ? 'Depot' : pickSecondaryType();
+
+      let nodeName = '';
+      if (nodeType === 'Depot') {
+        nodeName = `${town} Container Yard Siding`;
+      } else if (nodeType === 'PowerHub') {
+        nodeName = `${town} Traction Substation (TSS)`;
+      } else if (nodeType === 'SignalTower') {
+        nodeName = `${town} Interlocking Cabin`;
+      } else {
+        const types = ['Goodshed Siding', 'Freight Yard', 'Industrial Siding', 'Branch Post'];
+        nodeName = `${town} ${types[b % types.length]}`;
+      }
+
       const branchNode = addNode(
         lat, lng,
-        `${junction.nodeName} Branch ${b + 1}`,
-        b === branchLen - 1 && Math.random() < 0.2 ? 'Depot' : 'Station',
+        nodeName,
+        nodeType,
         junction.region,
         'BRN'
       );
@@ -289,10 +339,27 @@ export const generateIndianRailwayNetwork = () => {
     const anchor = nodes[Math.floor(Math.random() * nodes.length)];
     const lat = anchor.latitude + (Math.random() - 0.5) * 0.4;
     const lng = anchor.longitude + (Math.random() - 0.5) * 0.4;
+    const cityPool = TOWN_PREFIXES[anchor.region] || TOWN_PREFIXES['Western'];
+    const town = cityPool[nodeCounter % cityPool.length];
+    const nodeType = pickSecondaryType();
+
+    let nodeName = '';
+    if (nodeType === 'Depot') {
+      const dTypes = ['Port Freight Siding', 'Dry Port Terminal', 'Loco Maintenance Yard', 'Carriage Depot'];
+      nodeName = `${town} ${dTypes[nodeCounter % dTypes.length]}`;
+    } else if (nodeType === 'PowerHub') {
+      nodeName = `${town} OHE Switching Post`;
+    } else if (nodeType === 'SignalTower') {
+      nodeName = `${town} Route Relay Cabin`;
+    } else {
+      const sTypes = ['Goodshed Cabin', 'Freight Siding', 'Thermal Siding', 'Industrial Post'];
+      nodeName = `${town} ${sTypes[nodeCounter % sTypes.length]}`;
+    }
+
     const satellite = addNode(
       lat, lng,
-      `${anchor.region} Satellite ${nodeCounter}`,
-      pickSecondaryType(),
+      nodeName,
+      nodeType,
       anchor.region,
       'SAT'
     );

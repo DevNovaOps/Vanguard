@@ -1,6 +1,5 @@
-import ComplianceRule from '../models/ComplianceRule.js';
-import ComplianceViolation from '../models/ComplianceViolation.js';
-import RailwayNode from '../models/RailwayNode.js';
+import complianceRepository from '../repositories/complianceRepository.js';
+import railwayNodeRepository from '../repositories/railwayNodeRepository.js';
 import { logAudit } from '../utils/auditLogger.js';
 import incidentService from './incidentService.js';
 import auditService from './auditService.js';
@@ -14,57 +13,15 @@ export const complianceService = {
   /**
    * Get filtered, searched, paginated compliance rules
    */
-  async getRules({ page = 1, limit = 10, search, sensorType, severity, isActive, standard, sortBy = 'createdAt', sortOrder = 'desc' }) {
-    const filter = {};
-
-    // Apply filters
-    if (isActive !== undefined) {
-      filter.isActive = isActive === 'true' || isActive === true;
-    } else {
-      // Default to active rules only, unless explicitly asked
-      filter.isActive = true;
-    }
-
-    if (sensorType) filter.sensorType = sensorType;
-    if (severity) filter.severity = severity;
-    if (standard) filter.standard = standard;
-
-    // Search query (ruleCode, standard, description)
-    if (search) {
-      filter.$or = [
-        { ruleCode: { $regex: search, $options: 'i' } },
-        { standard: { $regex: search, $options: 'i' } },
-        { description: { $regex: search, $options: 'i' } }
-      ];
-    }
-
-    const pageNum = parseInt(page, 10);
-    const limitNum = parseInt(limit, 10);
-    const skip = (pageNum - 1) * limitNum;
-    const sort = { [sortBy]: sortOrder === 'desc' ? -1 : 1 };
-
-    const total = await ComplianceRule.countDocuments(filter);
-    const rules = await ComplianceRule.find(filter)
-      .sort(sort)
-      .skip(skip)
-      .limit(limitNum);
-
-    return {
-      rules,
-      pagination: {
-        page: pageNum,
-        limit: limitNum,
-        total,
-        pages: Math.ceil(total / limitNum)
-      }
-    };
+  async getRules(filters = {}) {
+    return await complianceRepository.findAllRules(filters);
   },
 
   /**
    * Get details of a single compliance rule by ID
    */
   async getRuleById(id) {
-    return await ComplianceRule.findById(id);
+    return await complianceRepository.findRuleById(id);
   },
 
   /**
@@ -72,14 +29,14 @@ export const complianceService = {
    */
   async createRule(ruleData, req) {
     const { ruleCode } = ruleData;
-    const exists = await ComplianceRule.findOne({ ruleCode: ruleCode.toUpperCase() });
+    const exists = await complianceRepository.findRuleByCode(ruleCode.toUpperCase());
     if (exists) {
       const error = new Error(`Compliance Rule with code '${ruleCode.toUpperCase()}' already exists`);
       error.statusCode = 400;
       throw error;
     }
 
-    const rule = await ComplianceRule.create(ruleData);
+    const rule = await complianceRepository.createRule(ruleData);
 
     // Write audit log
     await auditService.logEvent({
@@ -98,10 +55,7 @@ export const complianceService = {
    * Update an existing compliance rule
    */
   async updateRule(id, updateData, req) {
-    const rule = await ComplianceRule.findByIdAndUpdate(id, updateData, {
-      new: true,
-      runValidators: true
-    });
+    const rule = await complianceRepository.updateRule(id, updateData);
 
     if (!rule) {
       const error = new Error('Compliance Rule not found');
@@ -126,11 +80,7 @@ export const complianceService = {
    * Soft-delete a compliance rule (sets isActive to false)
    */
   async softDeleteRule(id, req) {
-    const rule = await ComplianceRule.findByIdAndUpdate(
-      id,
-      { isActive: false },
-      { new: true }
-    );
+    const rule = await complianceRepository.softDeleteRule(id);
 
     if (!rule) {
       const error = new Error('Compliance Rule not found');
@@ -154,107 +104,22 @@ export const complianceService = {
   /**
    * Get filtered, paginated compliance violations
    */
-  async getViolations({ page = 1, limit = 10, status, severity, sensorType, nodeId, ruleId, sortBy = 'createdAt', sortOrder = 'desc' }) {
-    const filter = {};
-
-    // Apply filters
-    if (status) filter.status = status;
-    if (severity) filter.severity = severity;
-    if (sensorType) filter.sensorType = sensorType;
-    if (nodeId) filter.nodeId = nodeId;
-    if (ruleId) filter.ruleId = ruleId;
-
-    const pageNum = parseInt(page, 10);
-    const limitNum = parseInt(limit, 10);
-    const skip = (pageNum - 1) * limitNum;
-    const sort = { [sortBy]: sortOrder === 'desc' ? -1 : 1 };
-
-    const total = await ComplianceViolation.countDocuments(filter);
-    const violations = await ComplianceViolation.find(filter)
-      .populate('ruleId', 'ruleCode standard description')
-      .populate('nodeId', 'nodeCode nodeName status region')
-      .sort(sort)
-      .skip(skip)
-      .limit(limitNum);
-
-    return {
-      violations,
-      pagination: {
-        page: pageNum,
-        limit: limitNum,
-        total,
-        pages: Math.ceil(total / limitNum)
-      }
-    };
+  async getViolations(filters = {}) {
+    return await complianceRepository.findAllViolations(filters);
   },
 
   /**
    * Get details of a single violation by ID
    */
   async getViolationById(id) {
-    return await ComplianceViolation.findById(id)
-      .populate('ruleId', 'ruleCode standard description minValue maxValue')
-      .populate('nodeId', 'nodeCode nodeName latitude longitude status region');
+    return await complianceRepository.findViolationById(id);
   },
 
   /**
    * Aggregate statistics for the compliance dashboard
    */
   async getDashboardStats() {
-    // 1. Rules aggregations
-    const rulesTotal = await ComplianceRule.countDocuments({});
-    const rulesActive = await ComplianceRule.countDocuments({ isActive: true });
-    const rulesInactive = rulesTotal - rulesActive;
-
-    // 2. Violations count by status
-    const violationsTotal = await ComplianceViolation.countDocuments({});
-    const violationsOpen = await ComplianceViolation.countDocuments({ status: 'Open' });
-    const violationsInvestigating = await ComplianceViolation.countDocuments({ status: 'Investigating' });
-    const violationsResolved = await ComplianceViolation.countDocuments({ status: 'Resolved' });
-
-    // 3. Violations count by severity
-    const severityStats = await ComplianceViolation.aggregate([
-      { $group: { _id: '$severity', count: { $sum: 1 } } }
-    ]);
-    const bySeverity = { Low: 0, Medium: 0, High: 0, Critical: 0 };
-    severityStats.forEach(stat => {
-      if (stat._id in bySeverity) {
-        bySeverity[stat._id] = stat.count;
-      }
-    });
-
-    // 4. Violations count by sensorType
-    const sensorStats = await ComplianceViolation.aggregate([
-      { $group: { _id: '$sensorType', count: { $sum: 1 } } }
-    ]);
-    const bySensorType = {};
-    sensorStats.forEach(stat => {
-      bySensorType[stat._id] = stat.count;
-    });
-
-    // 5. Recent compliance violations (last 5)
-    const recentViolations = await ComplianceViolation.find({})
-      .populate('ruleId', 'ruleCode standard')
-      .populate('nodeId', 'nodeCode nodeName')
-      .sort({ createdAt: -1 })
-      .limit(5);
-
-    return {
-      rules: {
-        total: rulesTotal,
-        active: rulesActive,
-        inactive: rulesInactive
-      },
-      violations: {
-        total: violationsTotal,
-        open: violationsOpen,
-        investigating: violationsInvestigating,
-        resolved: violationsResolved
-      },
-      bySeverity,
-      bySensorType,
-      recentViolations
-    };
+    return await complianceRepository.getDashboardStats();
   },
 
   /**
@@ -264,13 +129,13 @@ export const complianceService = {
    */
   async evaluateReading({ nodeId, sensorType, value }) {
     // Check if node exists
-    const node = await RailwayNode.findById(nodeId);
+    const node = await railwayNodeRepository.findById(nodeId);
     if (!node) {
       throw new Error(`Node with ID ${nodeId} not found`);
     }
 
     // Find all active rules checking this sensorType
-    const rules = await ComplianceRule.find({ sensorType, isActive: true });
+    const { rules } = await complianceRepository.findAllRules({ sensorType, isActive: true, limit: 1000 });
     const violationsCreated = [];
 
     for (const rule of rules) {
@@ -287,14 +152,21 @@ export const complianceService = {
 
       if (violated) {
         // Prevent duplicate Open/Investigating violations for the same node and rule
-        const existingViolation = await ComplianceViolation.findOne({
+        const { violations: existingViolations } = await complianceRepository.findAllViolations({
           nodeId,
           ruleId: rule._id,
-          status: { $in: ['Open', 'Investigating'] }
+          status: 'Open',
+          limit: 1
+        });
+        const { violations: existingInvestigating } = await complianceRepository.findAllViolations({
+          nodeId,
+          ruleId: rule._id,
+          status: 'Investigating',
+          limit: 1
         });
 
-        if (!existingViolation) {
-          const violation = await ComplianceViolation.create({
+        if (existingViolations.length === 0 && existingInvestigating.length === 0) {
+          const violation = await complianceRepository.createViolation({
             ruleId: rule._id,
             nodeId,
             sensorType,
@@ -308,7 +180,7 @@ export const complianceService = {
           // Trigger Notification
           const notifSeverity = rule.severity === 'Critical' ? 'Critical' : (rule.severity === 'High' ? 'High' : (rule.severity === 'Medium' ? 'Warning' : 'Info'));
           try {
-            await notificationService.createNotification({
+            await notificationService.create({
               title: `Compliance Violation: ${rule.ruleCode} at ${node.nodeName}`,
               message: `Compliance Violation detected on sensor ${sensorType} for rule ${rule.ruleCode} (${rule.standard}). Actual value ${value} is outside target limit.`,
               type: 'ComplianceViolation',

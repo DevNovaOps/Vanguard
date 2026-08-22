@@ -1,5 +1,5 @@
 import mitigationService from '../services/mitigationService.js';
-import { validationResult } from 'express-validator';
+
 
 /**
  * @desc    Get all mitigations with optional filters
@@ -57,13 +57,6 @@ export const getMitigationById = async (req, res, next) => {
  * @access  Private (Admin, SafetyOfficer, Operator)
  */
 export const createMitigation = async (req, res, next) => {
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-    return res.status(400).json({
-      success: false,
-      message: errors.array().map(err => err.msg).join(', ')
-    });
-  }
 
   try {
     // Map executionSource based on the creator's user role
@@ -99,13 +92,6 @@ export const createMitigation = async (req, res, next) => {
  * @access  Private (Admin, SafetyOfficer)
  */
 export const updateMitigationStatus = async (req, res, next) => {
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-    return res.status(400).json({
-      success: false,
-      message: errors.array().map(err => err.msg).join(', ')
-    });
-  }
 
   try {
     const mitigation = await mitigationService.updateMitigationStatus(

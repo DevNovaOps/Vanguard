@@ -7,6 +7,7 @@ import ChartCard from '../../components/common/ChartCard';
 import Modal from '../../components/common/Modal';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import SearchInput from '../../components/common/SearchInput';
+import KPICard from '../../components/common/KPICard';
 import { timeAgo } from '../../utils/helpers';
 import { Wrench, Zap, Route, Power, Bell, Siren, Bot, AlertTriangle, CheckCircle, Clock, Plus, Eye } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
@@ -433,24 +434,10 @@ export default function MitigationCenter() {
 
       {/* Summary Cards */}
       <div className="kpi-grid">
-        {[
-          { label: 'Total Actions', value: stats.totalMitigations, color: 'blue', icon: 'Wrench' },
-          { label: 'Executed / Completed', value: stats.completedActions, color: 'green', icon: 'CheckCircle' },
-          { label: 'Pending', value: stats.pendingActions, color: 'amber', icon: 'Clock' },
-          { label: 'Active', value: stats.activeActions, color: 'teal', icon: 'Bot' },
-        ].map((s, i) => (
-          <motion.div
-            key={s.label}
-            className={`kpi-card kpi-${s.color}`}
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: i * 0.1, duration: 0.4 }}
-            whileHover={{ y: -3 }}
-          >
-            <div className="kpi-label">{s.label}</div>
-            <div className="kpi-value">{s.value}</div>
-          </motion.div>
-        ))}
+        <KPICard label="Total Actions" value={stats?.totalMitigations ?? stats?.total ?? mitigations.length} color="blue" icon="Wrench" delay={0} />
+        <KPICard label="Executed / Completed" value={stats?.completedActions ?? ((stats?.completed || 0) + (stats?.executed || 0))} color="green" icon="CheckCircle" delay={100} />
+        <KPICard label="Pending" value={stats?.pendingActions ?? stats?.pending ?? 0} color="amber" icon="Clock" delay={200} />
+        <KPICard label="Active" value={stats?.activeActions ?? stats?.inProgress ?? 0} color="teal" icon="Bot" delay={300} />
       </div>
 
       {/* Filter Bar */}

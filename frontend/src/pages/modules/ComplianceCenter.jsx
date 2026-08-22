@@ -295,9 +295,9 @@ export default function ComplianceCenter() {
   }));
 
   // Calculations for summary KPI values
-  const totalOpenViolations = stats ? (stats.violations.open + stats.violations.investigating) : 0;
-  const complianceScore = stats
-    ? (stats.violations.open > 0 ? (100 - stats.violations.open * 12.5).toFixed(1) + '%' : '100.0%')
+  const totalOpenViolations = stats ? ((stats.violations?.open || 0) + (stats.violations?.investigating || 0)) : 0;
+  const complianceScore = stats?.complianceScore !== undefined
+    ? `${stats.complianceScore}%`
     : '100.0%';
 
   return (
@@ -330,9 +330,9 @@ export default function ComplianceCenter() {
         ) : error ? null : (
           <div className="kpi-grid">
             <KPICard label="Compliance Score" value={complianceScore} color={totalOpenViolations > 0 ? 'amber' : 'green'} icon="Shield" />
-            <KPICard label="Active Rules" value={stats?.rules.active || 0} color="blue" icon="CheckSquare" />
+            <KPICard label="Active Rules" value={stats?.rules?.active || stats?.totalRules || 0} color="blue" icon="CheckSquare" />
             <KPICard label="Open Violations" value={totalOpenViolations} color="red" icon="AlertTriangle" />
-            <KPICard label="Resolved Issues" value={stats?.violations.resolved || 0} color="teal" icon="CheckSquare" />
+            <KPICard label="Resolved Issues" value={stats?.violations?.resolved || 0} color="teal" icon="CheckSquare" />
           </div>
         )
       )}
@@ -380,7 +380,7 @@ export default function ComplianceCenter() {
               <div className="col-6">
                 <ChartCard title="Violations by Severity" subtitle="Current active violations distribution">
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', padding: '1rem 0' }}>
-                    {Object.entries(stats.bySeverity).map(([severity, count]) => (
+                    {Object.entries(stats?.bySeverity || stats?.severityDistribution || {}).map(([severity, count]) => (
                       <div key={severity} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.75rem', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-secondary)', borderRadius: 'var(--radius-lg)' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                           <span className={`kpi-stat-dot`} style={{ display: 'inline-block', width: '8px', height: '8px', borderRadius: '50%', background: severity === 'Critical' ? 'var(--color-danger)' : severity === 'High' ? 'var(--color-warning)' : 'var(--color-primary)' }} />
@@ -396,7 +396,7 @@ export default function ComplianceCenter() {
               <div className="col-6">
                 <ChartCard title="Violations by Sensor Type" subtitle="Current violations distribution by telemetry group">
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', padding: '1rem 0' }}>
-                    {Object.entries(stats.bySensorType).length === 0 ? (
+                    {!stats?.bySensorType || Object.entries(stats.bySensorType).length === 0 ? (
                       <div style={{ textAlign: 'center', color: 'var(--text-tertiary)', padding: '2rem' }}>No sensor violations found</div>
                     ) : (
                       Object.entries(stats.bySensorType).map(([sensor, count]) => (

@@ -194,10 +194,10 @@ export function SimulationProvider({ children }) {
     const selectedNode = rawNodes.find(n => n.nodeCode === (nodeCode || 'BRC')) || rawNodes[0] || { nodeName: 'Bhusawal Power Hub', nodeCode: 'BSL', nodeType: 'Station' };
 
     // Safe defaults for telemetry values
-    const safeTemp = (temperature !== undefined && temperature !== null) ? Number(temperature) : 135;
-    const safeVib = (vibration !== undefined && vibration !== null) ? Number(vibration) : 85;
-    const safeGas = (gas !== undefined && gas !== null) ? Number(gas) : 40;
-    const safePower = (power !== undefined && power !== null) ? Number(power) : 24;
+    const safeTemp = (temperature !== undefined && temperature !== null) ? Number(temperature) : 82;
+    const safeVib = (vibration !== undefined && vibration !== null) ? Number(vibration) : 9.5;
+    const safeGas = (gas !== undefined && gas !== null) ? Number(gas) : 35;
+    const safePower = (power !== undefined && power !== null) ? Number(power) : 18.5;
     const safeRisk = (calculatedRiskScore !== undefined && calculatedRiskScore !== null) ? Number(calculatedRiskScore) : 90;
 
     const payload = {
@@ -248,10 +248,10 @@ export function SimulationProvider({ children }) {
     const selectedNode = rawNodes.find(n => n.nodeCode === (nodeCode || 'BRC')) || rawNodes[0] || { nodeName: 'Bhusawal Power Hub', nodeCode: 'BSL', nodeType: 'Station' };
 
     // Safe defaults for telemetry values
-    const safeTemp = (temperature !== undefined && temperature !== null) ? Number(temperature) : 135;
-    const safeVib = (vibration !== undefined && vibration !== null) ? Number(vibration) : 85;
-    const safeGas = (gas !== undefined && gas !== null) ? Number(gas) : 40;
-    const safePower = (power !== undefined && power !== null) ? Number(power) : 24;
+    const safeTemp = (temperature !== undefined && temperature !== null) ? Number(temperature) : 82;
+    const safeVib = (vibration !== undefined && vibration !== null) ? Number(vibration) : 9.5;
+    const safeGas = (gas !== undefined && gas !== null) ? Number(gas) : 35;
+    const safePower = (power !== undefined && power !== null) ? Number(power) : 18.5;
     const safeRisk = (calculatedRiskScore !== undefined && calculatedRiskScore !== null) ? Number(calculatedRiskScore) : 90;
 
     const payload = {
@@ -354,6 +354,8 @@ export function SimulationProvider({ children }) {
       const payloadResult = response.data || response;
 
       const store = {
+        targetNode: selectedNode,
+        calculatedRiskScore: safeRisk || 95,
         executive_summary: payloadResult.executive_summary || '',
         root_causes: payloadResult.root_causes || '',
         mitigation_actions: payloadResult.mitigation_actions || '',
@@ -364,7 +366,7 @@ export function SimulationProvider({ children }) {
         risk_level: payloadResult.risk_level || 'CRITICAL',
         affected_assets: [
           {
-            asset_id: 'S-011',
+            asset_id: selectedNode.nodeCode || 'S-011',
             asset_type: selectedNode.nodeType || 'Station',
             location: `${selectedNode.nodeName} (${selectedNode.nodeCode})`,
             temperature: safeTemp,

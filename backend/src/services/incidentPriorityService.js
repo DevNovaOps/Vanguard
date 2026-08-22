@@ -1,7 +1,7 @@
 import MaxHeap from './maxHeap.js';
-import Incident from '../models/Incident.js';
+import incidentRepository from '../repositories/incidentRepository.js';
+import auditService from './auditService.js';
 import { getIO } from '../config/socket.js';
-import { logAudit } from '../utils/auditLogger.js';
 
 // Global singleton instance of MaxHeap for priority queue
 const priorityQueue = new MaxHeap();
@@ -21,15 +21,16 @@ async function ensureInitialized() {
  */
 async function rebuildHeap(req = null) {
   // Active incidents are not Resolved and not Closed
-  const activeIncidents = await Incident.find({
-    status: { $in: ['Open', 'Investigating', 'Mitigating'] }
-  }).populate('nodeId');
+  // The repository layer should support status array/in-clause, 
+  // but if not, we can fetch all and filter or rely on the repo's internal logic.
+  // Assuming incidentRepository.findAll supports multiple statuses or we just filter after fetch
+  let activeIncidents = await incidentRepository.findAll({});
+  activeIncidents = activeIncidents.filter(inc => ['Open', 'Investigating', 'Mitigating'].includes(inc.status));
 
   // Map database format to heap items
   const items = activeIncidents.map(inc => {
-    const obj = inc.toObject();
     return {
-      ...obj,
+      ...inc,
       id: inc.incidentId,
       asset: inc.nodeId?.nodeCode || '',
       assetName: inc.nodeId?.nodeName || 'Unknown Asset'
@@ -41,11 +42,12 @@ async function rebuildHeap(req = null) {
 
   // Audit Log
   try {
-    await logAudit({
+    await auditService.logEvent({
       req,
       module: 'Incident',
       action: 'Heap Rebuilt',
       description: `Rebuilt Max Heap priority queue with ${items.length} active incidents`,
+      severity: 'Info',
       metadata: { totalActive: items.length }
     });
   } catch (err) {

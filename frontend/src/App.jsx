@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-route
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ThemeProvider, useTheme } from './contexts/ThemeContext';
 import { SimulationProvider } from './contexts/SimulationContext';
+import { OperationalContextProvider } from './contexts/OperationalContext';
 
 import PublicLayout from './components/layout/PublicLayout';
 import AppShell from './components/layout/AppShell';
@@ -41,6 +42,7 @@ import WebhookCenter from './pages/modules/WebhookCenter';
 import Reports from './pages/modules/Reports';
 import RailwayNetwork from './pages/modules/RailwayNetwork';
 import FailureSimulation from './pages/modules/FailureSimulation';
+import CommandCenter from './pages/modules/CommandCenter';
 import SettingsPage from './pages/settings/Settings';
 
 function DashboardRedirect() {
@@ -106,6 +108,7 @@ function AppRoutes() {
         <Route path="/audit-logs" element={<AuditLogs />} />
         <Route path="/webhooks" element={<WebhookCenter />} />
         <Route path="/reports" element={<Reports />} />
+        <Route path="/command-center" element={<CommandCenter />} />
         <Route path="/settings" element={<SettingsPage />} />
       </Route>
 
@@ -119,9 +122,11 @@ export default function App() {
     <BrowserRouter>
       <ThemeProvider>
         <AuthProvider>
-          <SimulationProvider>
-            <AppRoutes />
-          </SimulationProvider>
+          <OperationalContextProvider>
+            <SimulationProvider>
+              <AppRoutes />
+            </SimulationProvider>
+          </OperationalContextProvider>
         </AuthProvider>
       </ThemeProvider>
     </BrowserRouter>

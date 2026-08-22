@@ -1,7 +1,6 @@
-import Incident from '../models/Incident.js';
-import RailwayNode from '../models/RailwayNode.js';
+import incidentRepository from '../repositories/incidentRepository.js';
+import railwayNodeRepository from '../repositories/railwayNodeRepository.js';
 import { getIO } from '../config/socket.js';
-import mongoose from 'mongoose';
 import incidentPriorityService from './incidentPriorityService.js';
 import auditService from './auditService.js';
 import webhookService from './webhookService.js';
@@ -48,7 +47,7 @@ export const incidentService = {
     const { nodeId, riskScore, description, source, title, assignedTeam, status = 'Open' } = incidentData;
 
     // Verify node exists
-    const node = await RailwayNode.findById(nodeId);
+    const node = await railwayNodeRepository.findById(nodeId);
     if (!node) {
       const error = new Error(`Railway Node with ID ${nodeId} not found`);
       error.statusCode = 404;
@@ -56,10 +55,7 @@ export const incidentService = {
     }
 
     // Check if an active (Open) incident already exists for this nodeId
-    let incident = await Incident.findOne({
-      nodeId,
-      status: 'Open'
-    });
+    let incident = await incidentRepository.findOpenByNodeId(nodeId);
 
     const severity = calculateSeverity(riskScore);
     const incidentTitle = title || `Incident at ${node.nodeName}`;
@@ -69,15 +65,16 @@ export const incidentService = {
       const oldRisk = incident.riskScore;
 
       // Update existing incident
-      incident.riskScore = riskScore;
-      incident.severity = severity;
-      incident.description = description || incident.description;
-      if (title) incident.title = title;
-      if (assignedTeam) incident.assignedTeam = assignedTeam;
-      if (source) incident.source = source;
+      const updateData = {
+        riskScore,
+        severity,
+        description: description || incident.description
+      };
+      if (title) updateData.title = title;
+      if (assignedTeam) updateData.assignedTeam = assignedTeam;
+      if (source) updateData.source = source;
 
-      await incident.save();
-      incident = await Incident.findById(incident._id).populate('nodeId');
+      incident = await incidentRepository.update(incident._id, updateData);
 
       // Log Audit Log
       await auditService.logIncidentUpdated(req, incident);
@@ -95,7 +92,7 @@ export const incidentService = {
         const notifSeverity = incident.severity === 'Medium' ? 'Warning' : incident.severity;
         const mappedSeverity = notifSeverity === 'Low' ? 'Info' : notifSeverity;
         try {
-          await notificationService.createNotification({
+          await notificationService.create({
             title: `Incident Escalated: ${incident.title}`,
             message: `Incident ${incident.incidentId} at node ${incident.nodeId?.nodeName || 'unknown'} has been escalated. Risk score increased from ${oldRisk} to ${riskScore}/100.`,
             type: 'IncidentEscalated',
@@ -136,7 +133,7 @@ export const incidentService = {
       return incident;
     } else {
       // Create a new incident
-      const newIncident = await Incident.create({
+      incident = await incidentRepository.create({
         nodeId,
         riskScore,
         severity,
@@ -147,13 +144,11 @@ export const incidentService = {
         source
       });
 
-      incident = await Incident.findById(newIncident._id).populate('nodeId');
-
       // Trigger Notification
       const notifSeverity = incident.severity === 'Medium' ? 'Warning' : incident.severity;
       const mappedSeverity = notifSeverity === 'Low' ? 'Info' : notifSeverity;
       try {
-        await notificationService.createNotification({
+        await notificationService.create({
           title: `Incident Created: ${incident.title}`,
           message: `A new incident has been generated at node ${incident.nodeId?.nodeName || 'unknown'} with a risk score of ${incident.riskScore}/100 (${incident.severity}). Source: ${incident.source}.`,
           type: 'IncidentCreated',
@@ -200,28 +195,20 @@ export const incidentService = {
    * Get filtered, search, paginated incident list
    */
   async getAllIncidents(filters = {}) {
-    const query = {};
-    if (filters.status) query.status = filters.status;
-    if (filters.severity) query.severity = filters.severity;
-    if (filters.nodeId) query.nodeId = filters.nodeId;
-    if (filters.source) query.source = filters.source;
-
-    return await Incident.find(query)
-      .populate('nodeId')
-      .sort({ createdAt: -1 });
+    return await incidentRepository.findAll(filters);
   },
 
   /**
    * Get details of a single incident by ID or custom incidentId
    */
   async getIncidentById(id) {
-    const isObjectId = mongoose.isValidObjectId(id);
-    const incident = await Incident.findOne({
-      $or: [
-        { _id: isObjectId ? id : null },
-        { incidentId: id }
-      ]
-    }).populate('nodeId');
+    const numId = parseInt(id, 10);
+    let incident;
+    if (!isNaN(numId) && String(numId) === String(id)) {
+      incident = await incidentRepository.findById(numId);
+    } else {
+      incident = await incidentRepository.findByIncidentId(id);
+    }
 
     if (!incident) {
       const error = new Error(`Incident with ID or Code '${id}' not found`);
@@ -235,37 +222,17 @@ export const incidentService = {
    * Update incident fields (including auto-severity on risk update)
    */
   async updateIncident(id, updateData, req) {
-    const isObjectId = mongoose.isValidObjectId(id);
-    let incident = await Incident.findOne({
-      $or: [
-        { _id: isObjectId ? id : null },
-        { incidentId: id }
-      ]
-    });
-
-    if (!incident) {
-      const error = new Error(`Incident with ID or Code '${id}' not found`);
-      error.statusCode = 404;
-      throw error;
-    }
-
+    let incident = await this.getIncidentById(id);
     const oldRisk = incident.riskScore;
     const isEscalation = updateData.riskScore !== undefined && updateData.riskScore > oldRisk;
 
     // Update risk score and auto-recalculate severity
+    const updates = { ...updateData };
     if (updateData.riskScore !== undefined) {
-      incident.riskScore = updateData.riskScore;
-      incident.severity = calculateSeverity(updateData.riskScore);
+      updates.severity = calculateSeverity(updateData.riskScore);
     }
 
-    if (updateData.status) incident.status = updateData.status;
-    if (updateData.description) incident.description = updateData.description;
-    if (updateData.title) incident.title = updateData.title;
-    if (updateData.assignedTeam !== undefined) incident.assignedTeam = updateData.assignedTeam;
-    if (updateData.source) incident.source = updateData.source;
-
-    await incident.save();
-    incident = await Incident.findById(incident._id).populate('nodeId');
+    incident = await incidentRepository.update(incident._id, updates);
 
     await auditService.logIncidentUpdated(req, incident);
 
@@ -282,7 +249,7 @@ export const incidentService = {
       const notifSeverity = incident.severity === 'Medium' ? 'Warning' : incident.severity;
       const mappedSeverity = notifSeverity === 'Low' ? 'Info' : notifSeverity;
       try {
-        await notificationService.createNotification({
+        await notificationService.create({
           title: `Incident Escalated: ${incident.title}`,
           message: `Incident ${incident.incidentId} at node ${incident.nodeId?.nodeName || 'unknown'} has been escalated. Risk score increased from ${oldRisk} to ${updateData.riskScore}/100.`,
           type: 'IncidentEscalated',
@@ -326,23 +293,8 @@ export const incidentService = {
    * Resolve an incident
    */
   async resolveIncident(id, req) {
-    const isObjectId = mongoose.isValidObjectId(id);
-    let incident = await Incident.findOne({
-      $or: [
-        { _id: isObjectId ? id : null },
-        { incidentId: id }
-      ]
-    });
-
-    if (!incident) {
-      const error = new Error(`Incident with ID or Code '${id}' not found`);
-      error.statusCode = 404;
-      throw error;
-    }
-
-    incident.status = 'Resolved';
-    await incident.save();
-    incident = await Incident.findById(incident._id).populate('nodeId');
+    let incident = await this.getIncidentById(id);
+    incident = await incidentRepository.update(incident._id, { status: 'Resolved' });
 
     await auditService.logIncidentResolved(req, incident);
 
@@ -365,27 +317,12 @@ export const incidentService = {
    * Close an incident
    */
   async closeIncident(id, req) {
-    const isObjectId = mongoose.isValidObjectId(id);
-    let incident = await Incident.findOne({
-      $or: [
-        { _id: isObjectId ? id : null },
-        { incidentId: id }
-      ]
-    });
-
-    if (!incident) {
-      const error = new Error(`Incident with ID or Code '${id}' not found`);
-      error.statusCode = 404;
-      throw error;
-    }
-
-    incident.status = 'Closed';
-    await incident.save();
-    incident = await Incident.findById(incident._id).populate('nodeId');
+    let incident = await this.getIncidentById(id);
+    incident = await incidentRepository.update(incident._id, { status: 'Closed' });
 
     // Trigger Notification
     try {
-      await notificationService.createNotification({
+      await notificationService.create({
         title: `Incident Closed: ${incident.title}`,
         message: `Incident ${incident.incidentId} at node ${incident.nodeId?.nodeName || 'unknown'} has been closed.`,
         type: 'IncidentClosed',
@@ -426,23 +363,8 @@ export const incidentService = {
    * Assign a team to an incident
    */
   async assignTeam(id, teamName, req) {
-    const isObjectId = mongoose.isValidObjectId(id);
-    let incident = await Incident.findOne({
-      $or: [
-        { _id: isObjectId ? id : null },
-        { incidentId: id }
-      ]
-    });
-
-    if (!incident) {
-      const error = new Error(`Incident with ID or Code '${id}' not found`);
-      error.statusCode = 404;
-      throw error;
-    }
-
-    incident.assignedTeam = teamName;
-    await incident.save();
-    incident = await Incident.findById(incident._id).populate('nodeId');
+    let incident = await this.getIncidentById(id);
+    incident = await incidentRepository.update(incident._id, { assignedTeam: teamName });
 
     await auditService.logEvent({
       req,
@@ -472,14 +394,14 @@ export const incidentService = {
    * Get all open incidents
    */
   async getOpenIncidents() {
-    return await Incident.find({ status: 'Open' }).populate('nodeId').sort({ createdAt: -1 });
+    return await incidentRepository.findOpen();
   },
 
   /**
    * Get all critical severity incidents
    */
   async getCriticalIncidents() {
-    return await Incident.find({ severity: 'Critical' }).populate('nodeId').sort({ createdAt: -1 });
+    return await incidentRepository.findCritical();
   }
 };
 

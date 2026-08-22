@@ -8,6 +8,9 @@ import StatusBadge from '../../components/common/StatusBadge';
 import { adminKPIs, systemHealthData, riskTrendData, webhooks } from '../../data/mockData';
 import { auditService } from '../../utils/auditService.js';
 import { webhookService } from '../../utils/webhookService.js';
+import { dashboardService } from '../../utils/dashboardService.js';
+import { mitigationService } from '../../utils/mitigationService.js';
+import { api } from '../../utils/api.js';
 import { io } from 'socket.io-client';
 import { formatDateTime, timeAgo } from '../../utils/helpers';
 import { useSimulation } from '../../contexts/SimulationContext';
@@ -74,6 +77,11 @@ export default function AdminDashboard() {
   const [auditStats, setAuditStats] = useState(null);
   const [webhookList, setWebhookList] = useState([]);
   const [webhookKPIs, setWebhookKPIs] = useState(null);
+  const [generalStats, setGeneralStats] = useState({
+    totalSensors: 0,
+    totalNodes: 0,
+    activeUsers: 0
+  });
 
   const fetchDashboardAuditData = async () => {
     try {
@@ -110,9 +118,81 @@ export default function AdminDashboard() {
     }
   };
 
+  const fetchGeneralStats = async () => {
+    try {
+      const res = await dashboardService.getDashboardStats();
+      if (res.success && res.data) {
+        setGeneralStats({
+          totalSensors: res.data.totalSensors || 0,
+          totalNodes: res.data.totalNodes || 0,
+          activeUsers: res.data.activeUsers || 0
+        });
+      }
+    } catch (err) {
+      console.error('[ADMIN-DASHBOARD-STATS-ERROR]', err.message);
+    }
+  };
+
+  const fetchIntelligenceStream = async () => {
+    try {
+      const [notifRes, mitRes, auditRes] = await Promise.allSettled([
+        api.get('/api/notifications?limit=5'),
+        mitigationService.getMitigations(),
+        auditService.getAuditLogs({ limit: 5 })
+      ]);
+
+      let items = [];
+
+      if (notifRes.status === 'fulfilled' && notifRes.value?.notifications) {
+        notifRes.value.notifications.forEach(n => {
+          items.push({
+            text: n.message || n.title,
+            dot: n.severity === 'Critical' ? 'danger' : (n.severity === 'High' || n.severity === 'Warning' ? 'warning' : 'info'),
+            time: timeAgo(n.createdAt),
+            timestamp: new Date(n.createdAt).getTime()
+          });
+        });
+      }
+
+      if (mitRes.status === 'fulfilled' && mitRes.value?.success && mitRes.value?.data) {
+        mitRes.value.data.slice(0, 5).forEach(m => {
+          items.push({
+            text: `AI Mitigation: ${m.action || m.type} — ${m.targetName || 'Asset'} (${m.status})`,
+            dot: m.status === 'Executed' || m.status === 'Completed' ? 'info' : 'warning',
+            time: timeAgo(m.executedAt || m.updatedAt || m.createdAt),
+            timestamp: new Date(m.executedAt || m.updatedAt || m.createdAt).getTime()
+          });
+        });
+      }
+
+      if (auditRes.status === 'fulfilled' && auditRes.value?.success && auditRes.value?.data?.logs) {
+        auditRes.value.data.logs
+          .filter(a => !a.action?.includes('Heap Rebuilt') && !a.description?.includes('Max Heap'))
+          .slice(0, 5)
+          .forEach(a => {
+            items.push({
+              text: `${a.action}: ${a.description}`,
+              dot: a.severity === 'Critical' ? 'danger' : (a.severity === 'Warning' ? 'warning' : 'success'),
+              time: timeAgo(a.timestamp || a.createdAt),
+              timestamp: new Date(a.timestamp || a.createdAt).getTime()
+            });
+          });
+      }
+
+      if (items.length > 0) {
+        items.sort((a, b) => b.timestamp - a.timestamp);
+        setIntelItems(items.slice(0, 7));
+      }
+    } catch (err) {
+      console.error('[INTEL-STREAM-ERROR]', err.message);
+    }
+  };
+
   useEffect(() => {
     fetchDashboardAuditData();
     fetchDashboardWebhookData();
+    fetchGeneralStats();
+    fetchIntelligenceStream();
   }, []);
 
   useEffect(() => {
@@ -123,6 +203,19 @@ export default function AdminDashboard() {
 
     socket.on('audit:create', () => {
       fetchDashboardAuditData();
+      fetchIntelligenceStream();
+    });
+
+    socket.on('notification:create', () => {
+      fetchIntelligenceStream();
+    });
+
+    socket.on('mitigation:create', () => {
+      fetchIntelligenceStream();
+    });
+
+    socket.on('mitigation:execute', () => {
+      fetchIntelligenceStream();
     });
 
     socket.on('webhook:create', () => {
@@ -135,6 +228,18 @@ export default function AdminDashboard() {
 
     socket.on('webhook:delivery', () => {
       fetchDashboardWebhookData();
+    });
+
+    socket.on('simulation:step', (data) => {
+      setIntelItems(prev => [
+        {
+          text: `[Simulation Step ${data.stepNumber}/7] ${data.stepName}: ${data.description || 'Executing'}`,
+          dot: 'info',
+          time: 'just now',
+          timestamp: Date.now()
+        },
+        ...prev
+      ].slice(0, 7));
     });
 
     return () => {
@@ -233,9 +338,30 @@ export default function AdminDashboard() {
       <motion.div className="kpi-grid" variants={itemVariants}>
         {(() => {
           const displayKPIs = [
-            adminKPIs[0],
-            adminKPIs[1],
-            adminKPIs[2],
+            {
+              label: 'Total Sensors',
+              value: generalStats.totalSensors,
+              trend: 'Live Feed',
+              trendDir: 'up',
+              color: 'blue',
+              icon: 'Activity'
+            },
+            {
+              label: 'Transit Nodes',
+              value: generalStats.totalNodes,
+              trend: 'Active',
+              trendDir: 'up',
+              color: 'teal',
+              icon: 'Zap'
+            },
+            {
+              label: 'Active Users',
+              value: generalStats.activeUsers,
+              trend: 'Platform',
+              trendDir: 'up',
+              color: 'emerald',
+              icon: 'Users'
+            },
             {
               label: 'Critical Audits',
               value: auditStats ? auditStats.criticalEvents : 0,

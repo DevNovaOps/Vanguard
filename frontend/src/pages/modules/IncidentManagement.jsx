@@ -5,6 +5,7 @@ import SearchInput from '../../components/common/SearchInput';
 import Modal from '../../components/common/Modal';
 import ChartCard from '../../components/common/ChartCard';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
+import FormattedMarkdown from '../../components/common/FormattedMarkdown';
 import { incidentService } from '../../utils/incidentService';
 import { timeAgo, MaxHeap } from '../../utils/helpers';
 import { AlertCircle, ArrowUpDown } from 'lucide-react';
@@ -228,11 +229,11 @@ export default function IncidentManagement() {
             </div>
             {selectedIncident.id === 'INC-SIM-011' && simulationStore && (
               <div style={{ padding: '1rem', background: 'var(--bg-tertiary)', borderRadius: 'var(--radius-md)', borderLeft: '4px solid var(--color-danger)' }}>
-                <div style={{ fontSize: 'var(--text-xs)', color: '#ef4444', fontWeight: 700, marginBottom: '6px', textTransform: 'uppercase' }}>Simulated Recommendations & RDSO Guidance</div>
-                <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-primary)', marginBottom: '8px', borderBottom: '1px solid var(--border-color)', paddingBottom: '6px', fontWeight: 600 }}>RDSO GUIDANCE:</div>
-                <div style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)', marginBottom: '12px', whiteSpace: 'pre-wrap', lineHeight: 1.4 }}>{simulationStore.rdso_guidance}</div>
-                <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-primary)', marginBottom: '8px', borderBottom: '1px solid var(--border-color)', paddingBottom: '6px', fontWeight: 600 }}>MITIGATION ACTIONS:</div>
-                <div style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)', whiteSpace: 'pre-wrap', lineHeight: 1.4 }}>{simulationStore.mitigation_actions}</div>
+                <div style={{ fontSize: 'var(--text-xs)', color: '#ef4444', fontWeight: 700, marginBottom: '8px', textTransform: 'uppercase' }}>Simulated Recommendations & RDSO Guidance</div>
+                <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-primary)', marginBottom: '6px', borderBottom: '1px solid var(--border-color)', paddingBottom: '4px', fontWeight: 600 }}>RDSO GUIDANCE:</div>
+                <FormattedMarkdown text={simulationStore.rdso_guidance} accentColor="#60a5fa" style={{ marginBottom: '12px' }} />
+                <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-primary)', marginBottom: '6px', borderBottom: '1px solid var(--border-color)', paddingBottom: '4px', fontWeight: 600 }}>MITIGATION ACTIONS:</div>
+                <FormattedMarkdown text={simulationStore.mitigation_actions} accentColor="#34d399" />
               </div>
             )}
           </div>

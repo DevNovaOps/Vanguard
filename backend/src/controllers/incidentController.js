@@ -1,5 +1,5 @@
 import incidentService from '../services/incidentService.js';
-import { validationResult } from 'express-validator';
+
 
 /**
  * @desc    Create a new incident manually or programmatically
@@ -7,13 +7,6 @@ import { validationResult } from 'express-validator';
  * @access  Private
  */
 export const createIncident = async (req, res, next) => {
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-    return res.status(400).json({
-      success: false,
-      message: errors.array().map(err => err.msg).join(', ')
-    });
-  }
 
   try {
     const incident = await incidentService.createIncident(req.body, req);
@@ -75,13 +68,6 @@ export const getIncidentById = async (req, res, next) => {
  * @access  Private
  */
 export const updateIncident = async (req, res, next) => {
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-    return res.status(400).json({
-      success: false,
-      message: errors.array().map(err => err.msg).join(', ')
-    });
-  }
 
   try {
     const incident = await incidentService.updateIncident(req.params.id, req.body, req);

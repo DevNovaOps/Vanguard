@@ -16,7 +16,9 @@ import mitigationRoutes from './routes/mitigationRoutes.js';
 import webhookRoutes from './routes/webhookRoutes.js';
 import reportRoutes from './routes/reportRoutes.js';
 import notificationRoutes from './routes/notificationRoutes.js';
-
+import commandCenterRoutes from './routes/commandCenterRoutes.js';
+import contextRoutes from './routes/contextRoutes.js';
+import { contextIsolationMiddleware } from './middleware/contextIsolationMiddleware.js';
 
 const app = express();
 
@@ -24,6 +26,7 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(contextIsolationMiddleware);
 
 // Morgan request logging in development mode
 if (process.env.NODE_ENV !== 'production') {
@@ -49,6 +52,8 @@ app.use('/api/risk', riskRoutes);
 app.use('/api/agent', aiAgentRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/v1/command-center', commandCenterRoutes);
+app.use('/api/v1/contexts', contextRoutes);
 
 // Health Check Route
 app.get('/', (req, res) => {

@@ -1,4 +1,4 @@
-import { validationResult } from 'express-validator';
+
 import aiAgentService from '../services/aiAgentService.js';
 
 /**
@@ -7,13 +7,6 @@ import aiAgentService from '../services/aiAgentService.js';
  * @access  Private (Admin, SafetyOfficer, Operator)
  */
 export const evaluateTelemetry = async (req, res, next) => {
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-    return res.status(400).json({
-      success: false,
-      message: errors.array().map(err => err.msg).join(', ')
-    });
-  }
 
   try {
     const action = await aiAgentService.evaluateTelemetry(req.body, req);

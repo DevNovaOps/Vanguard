@@ -1,4 +1,4 @@
-import { validationResult } from 'express-validator';
+
 import complianceService from '../services/complianceService.js';
 
 /**
@@ -62,13 +62,6 @@ export const getRuleById = async (req, res, next) => {
  * @access  Private/Admin (Admin only)
  */
 export const createRule = async (req, res, next) => {
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-    return res.status(400).json({
-      success: false,
-      message: errors.array().map(err => err.msg).join(', ')
-    });
-  }
 
   try {
     const rule = await complianceService.createRule(req.body, req);
@@ -95,13 +88,6 @@ export const createRule = async (req, res, next) => {
  * @access  Private/Admin (Admin only)
  */
 export const updateRule = async (req, res, next) => {
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-    return res.status(400).json({
-      success: false,
-      message: errors.array().map(err => err.msg).join(', ')
-    });
-  }
 
   try {
     const rule = await complianceService.updateRule(req.params.id, req.body, req);

@@ -1,5 +1,5 @@
 import jwt from 'jsonwebtoken';
-import User from '../models/User.js';
+import userRepository from '../repositories/userRepository.js';
 
 /**
  * Route protection middleware.
@@ -19,8 +19,8 @@ export const protect = async (req, res, next) => {
       // Decode token payload
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-      // Fetch user profile excluding password field
-      const user = await User.findById(decoded.id).select('-password');
+      // Fetch user profile
+      const user = await userRepository.findById(decoded.id);
 
       if (!user) {
         return res.status(401).json({

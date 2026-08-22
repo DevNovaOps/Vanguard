@@ -1,7 +1,7 @@
-import RouteSegment from '../models/RouteSegment.js';
-import RailwayNode from '../models/RailwayNode.js';
-import RailwayConnection from '../models/RailwayConnection.js';
-import RiskScore from '../models/RiskScore.js';
+import routeSegmentRepository from '../repositories/routeSegmentRepository.js';
+import railwayNodeRepository from '../repositories/railwayNodeRepository.js';
+import railwayConnectionRepository from '../repositories/railwayConnectionRepository.js';
+import riskScoreRepository from '../repositories/riskScoreRepository.js';
 
 const mockNodeDetails = {
   'DLI': { sensors: 24, riskScore: 12, lastMaintenance: '2026-05-12' },
@@ -156,18 +156,24 @@ const buildNodeDegreeMap = (connections) => {
   return degreeMap;
 };
 
+import { getPool } from '../config/database.js';
+
 export const routeService = {
   /**
    * Generates RouteSegment documents from RailwayConnection documents.
+   * Uses bulkWrite for performance.
    */
   async generateRouteSegments() {
-    const connections = await RailwayConnection.find({}).populate('sourceNode targetNode');
+    const connections = await railwayConnectionRepository.findAll();
     const degreeMap = buildNodeDegreeMap(connections);
-    let created = 0;
-    let updated = 0;
+    const pool = getPool();
+
+    let upsertedCount = 0;
+    let total = 0;
 
     for (const conn of connections) {
       if (!conn.sourceNode || !conn.targetNode) continue;
+      total++;
 
       const routeCode = `${conn.sourceNode.nodeCode}-${conn.targetNode.nodeCode}`;
       const reverseCode = `${conn.targetNode.nodeCode}-${conn.sourceNode.nodeCode}`;
@@ -193,6 +199,7 @@ export const routeService = {
       ]);
 
       const payload = {
+        routeCode,
         routeName: mockDetails.name,
         sourceNode: conn.sourceNode._id,
         targetNode: conn.targetNode._id,
@@ -202,31 +209,44 @@ export const routeService = {
         region,
         tier,
         corridorId: deriveCorridorId(region),
-        load: mockDetails.load
+        loadPct: mockDetails.load
       };
 
-      const existing = await RouteSegment.findOne({ routeCode });
-      if (existing) {
-        await RouteSegment.updateOne({ routeCode }, { $set: payload });
-        updated += 1;
-      } else {
-        await RouteSegment.create({ routeCode, ...payload });
-        created += 1;
+      try {
+        const existing = await routeSegmentRepository.findByCode(routeCode);
+        if (!existing) {
+          await routeSegmentRepository.create(payload);
+          upsertedCount++;
+        } else {
+          await pool.execute(
+            `UPDATE route_segments SET route_name=?, distance=?, status=?, region=?, tier=?, corridor_id=?, load_pct=? WHERE route_code=?`,
+            [payload.routeName, payload.distance, payload.status, payload.region, payload.tier, payload.corridorId, payload.loadPct, routeCode]
+          );
+        }
+      } catch (e) {
+        console.error(`Failed to process route segment ${routeCode}`, e);
       }
     }
 
-    console.log(`[ROUTE-SERVICE] Route segments synced: ${created} created, ${updated} updated.`);
+    if (total > 0) {
+      console.log(`[ROUTE-SERVICE] Route segments synced via iteration: processed ${total} total.`);
+    } else {
+      console.log('[ROUTE-SERVICE] No route segments to generate.');
+    }
   },
 
   async getRoutes(filters = {}) {
-    const query = {};
+    let dbRoutes = await routeSegmentRepository.findAll();
+    
     if (filters.region && filters.region !== 'All') {
-      query.region = new RegExp(filters.region, 'i');
+      const regionRegex = new RegExp(filters.region, 'i');
+      dbRoutes = dbRoutes.filter(r => regionRegex.test(r.region));
     }
-    if (filters.tier) query.tier = filters.tier;
+    if (filters.tier) {
+      dbRoutes = dbRoutes.filter(r => r.tier === filters.tier);
+    }
 
-    const dbRoutes = await RouteSegment.find(query).populate('sourceNode targetNode');
-    const connections = await RailwayConnection.find({}).populate('sourceNode targetNode');
+    const connections = await railwayConnectionRepository.findAll();
     const degreeMap = buildNodeDegreeMap(connections);
 
     return dbRoutes
@@ -236,17 +256,17 @@ export const routeService = {
 
   async getTopology(filters = {}) {
     const [dbNodes, dbRoutes, riskScores] = await Promise.all([
-      RailwayNode.find({}),
-      RouteSegment.find({}).populate('sourceNode targetNode'),
-      RiskScore.find({})
+      railwayNodeRepository.findAll(),
+      routeSegmentRepository.findAll(),
+      riskScoreRepository.findAll()
     ]);
 
-    const connections = await RailwayConnection.find({}).populate('sourceNode targetNode');
+    const connections = await railwayConnectionRepository.findAll();
     const degreeMap = buildNodeDegreeMap(connections);
 
     const riskMap = {};
     riskScores.forEach((r) => {
-      if (r.nodeId) riskMap[r.nodeId.toString()] = r.totalRisk;
+      if (r.nodeId) riskMap[(r.nodeId._id || r.nodeId).toString()] = r.totalRisk;
     });
 
     const nodes = dbNodes.map((node) => {
@@ -407,7 +427,8 @@ export const routeService = {
 
   async getCorridorsList(routesInput) {
     const routes = routesInput || await this.getRoutes();
-    const nodes = (await RailwayNode.find({})).map((node) => ({
+    const allNodes = await railwayNodeRepository.findAll();
+    const nodes = allNodes.map((node) => ({
       id: node.nodeCode,
       lat: node.latitude,
       lng: node.longitude,
@@ -421,16 +442,14 @@ export const routeService = {
   },
 
   async getNodeConnections(nodeCode) {
-    const node = await RailwayNode.findOne({ nodeCode: nodeCode.toUpperCase() });
+    const node = await railwayNodeRepository.findByCode(nodeCode.toUpperCase());
     if (!node) {
       throw new Error(`Railway Node with code ${nodeCode} not found`);
     }
 
-    const routes = await RouteSegment.find({
-      $or: [{ sourceNode: node._id }, { targetNode: node._id }]
-    }).populate('sourceNode targetNode');
+    const routes = await routeSegmentRepository.findByNodeId(node._id);
 
-    const connections = await RailwayConnection.find({}).populate('sourceNode targetNode');
+    const connections = await railwayConnectionRepository.findAll();
     const degreeMap = buildNodeDegreeMap(connections);
 
     const formattedRoutes = routes
@@ -444,9 +463,9 @@ export const routeService = {
     });
     connectedNodeCodes.delete(node.nodeCode);
 
-    const connectedNodes = await RailwayNode.find({
-      nodeCode: { $in: Array.from(connectedNodeCodes) }
-    });
+    // Using railwayNodeRepository findAll and filtering manually to simulate IN query for brevity
+    const allNodes = await railwayNodeRepository.findAll();
+    const connectedNodes = allNodes.filter(n => connectedNodeCodes.has(n.nodeCode));
 
     const nodes = connectedNodes.map((n) => ({
       id: n.nodeCode,

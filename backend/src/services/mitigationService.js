@@ -1,8 +1,7 @@
-import Mitigation from '../models/Mitigation.js';
-import Incident from '../models/Incident.js';
-import RailwayNode from '../models/RailwayNode.js';
+import mitigationRepository from '../repositories/mitigationRepository.js';
+import incidentRepository from '../repositories/incidentRepository.js';
+import railwayNodeRepository from '../repositories/railwayNodeRepository.js';
 import { getIO } from '../config/socket.js';
-import mongoose from 'mongoose';
 import auditService from './auditService.js';
 import webhookService from './webhookService.js';
 import notificationService from './notificationService.js';
@@ -39,44 +38,20 @@ export const mitigationService = {
    * Get filtered list of mitigations
    */
   async getAllMitigations(filters = {}) {
-    const query = {};
-    if (filters.status) query.status = filters.status;
-    if (filters.severity) query.severity = filters.severity;
-    if (filters.nodeId) query.nodeId = filters.nodeId;
-    if (filters.executionSource) query.executionSource = filters.executionSource;
-    if (filters.action) query.action = filters.action;
-    if (filters.type) query.type = filters.type;
-    if (filters.incidentId) query.incidentId = filters.incidentId;
-
-    if (filters.search) {
-      query.$or = [
-        { mitigationId: { $regex: filters.search, $options: 'i' } },
-        { executionNotes: { $regex: filters.search, $options: 'i' } },
-        { action: { $regex: filters.search, $options: 'i' } }
-      ];
-    }
-
-    return await Mitigation.find(query)
-      .populate('nodeId')
-      .populate('incidentId')
-      .populate('executedBy', 'name email role')
-      .sort({ createdAt: -1 });
+    return await mitigationRepository.findAll(filters);
   },
 
   /**
    * Get mitigation by ID or Code
    */
   async getMitigationById(id) {
-    const isObjectId = mongoose.isValidObjectId(id);
-    const mitigation = await Mitigation.findOne({
-      $or: [
-        { _id: isObjectId ? id : null },
-        { mitigationId: id }
-      ]
-    })
-      .populate('nodeId')
-      .populate('incidentId')
-      .populate('executedBy', 'name email role');
+    const numId = parseInt(id, 10);
+    let mitigation;
+    if (!isNaN(numId) && String(numId) === String(id)) {
+      mitigation = await mitigationRepository.findById(numId);
+    } else {
+      mitigation = await mitigationRepository.findByMitigationId(id);
+    }
 
     if (!mitigation) {
       const error = new Error(`Mitigation action with ID or Code '${id}' not found`);
@@ -93,14 +68,14 @@ export const mitigationService = {
     const { incidentId, nodeId, action, severity, executionSource, executionNotes, agentActionId, executedBy } = data;
 
     // Verify incident and node exist
-    const node = await RailwayNode.findById(nodeId);
+    const node = await railwayNodeRepository.findById(nodeId);
     if (!node) {
       const error = new Error(`Railway Node with ID ${nodeId} not found`);
       error.statusCode = 404;
       throw error;
     }
 
-    const incident = await Incident.findById(incidentId);
+    const incident = await incidentRepository.findById(incidentId);
     if (!incident) {
       const error = new Error(`Incident with ID ${incidentId} not found`);
       error.statusCode = 404;
@@ -122,7 +97,7 @@ export const mitigationService = {
 
     const resolvedExecutedBy = executedBy || (req && req.user ? req.user._id : null);
 
-    const newMitigation = await Mitigation.create({
+    const populated = await mitigationRepository.create({
       incidentId,
       nodeId,
       action,
@@ -135,22 +110,16 @@ export const mitigationService = {
       executedBy: resolvedExecutedBy
     });
 
-    const populated = await Mitigation.findById(newMitigation._id)
-      .populate('nodeId')
-      .populate('incidentId')
-      .populate('executedBy', 'name email role');
-
     // Auto-update Incident status to 'Mitigating' if it's Open/Investigating
     if (['Open', 'Investigating'].includes(incident.status)) {
-      incident.status = 'Mitigating';
-      await incident.save();
-      emitIncidentSocketEvent('incident:update', incident);
+      const updatedIncident = await incidentRepository.update(incident._id, { status: 'Mitigating' });
+      emitIncidentSocketEvent('incident:update', updatedIncident);
     }
 
     // Trigger Notification
     const notifSeverity = populated.severity === 'Medium' ? 'Warning' : (populated.severity === 'Low' ? 'Info' : populated.severity);
     try {
-      await notificationService.createNotification({
+      await notificationService.create({
         title: `Mitigation Action Created: ${populated.action}`,
         message: `Mitigation action ${populated.mitigationId} (${populated.action}) has been created for node ${node.nodeName}. Severity: ${populated.severity}. Notes: ${populated.executionNotes || 'None'}`,
         type: 'MitigationCreated',
@@ -185,50 +154,32 @@ export const mitigationService = {
   async updateMitigationStatus(id, updateData, req) {
     const { status, executionNotes } = updateData;
 
-    const mitigation = await Mitigation.findOne({
-      $or: [
-        { _id: mongoose.isValidObjectId(id) ? id : null },
-        { mitigationId: id }
-      ]
-    });
-
-    if (!mitigation) {
-      const error = new Error(`Mitigation action with ID or Code '${id}' not found`);
-      error.statusCode = 404;
-      throw error;
-    }
-
-    // Capture previous status for audit logging
+    let mitigation = await this.getMitigationById(id);
     const oldStatus = mitigation.status;
-    mitigation.status = status;
 
+    const updates = { status };
     if (executionNotes !== undefined) {
-      mitigation.executionNotes = executionNotes;
+      updates.executionNotes = executionNotes;
     }
 
     // Adjust startedAt, completedAt, executedAt based on transitions
     if (status === 'InProgress') {
-      mitigation.startedAt = new Date();
+      updates.startedAt = new Date();
     } else if (status === 'Executed') {
-      mitigation.executedAt = new Date();
+      updates.executedAt = new Date();
       if (req?.user) {
-        mitigation.executedBy = req.user._id;
+        updates.executedBy = req.user._id;
       }
     } else if (['Completed', 'Failed', 'Cancelled'].includes(status)) {
-      mitigation.completedAt = new Date();
+      updates.completedAt = new Date();
     }
 
-    await mitigation.save();
-
-    const populated = await Mitigation.findById(mitigation._id)
-      .populate('nodeId')
-      .populate('incidentId')
-      .populate('executedBy', 'name email role');
+    const populated = await mitigationRepository.update(mitigation._id, updates);
 
     // Trigger notification based on status change
     if (status === 'Failed') {
       try {
-        await notificationService.createNotification({
+        await notificationService.create({
           title: `Mitigation Action Failed: ${populated.action}`,
           message: `Mitigation action ${populated.mitigationId} (${populated.action}) failed for node ${populated.nodeId?.nodeName || 'unknown'}. Notes: ${populated.executionNotes || 'None'}`,
           type: 'MitigationFailed',
@@ -243,7 +194,7 @@ export const mitigationService = {
     } else if (status === 'Executed' || status === 'Completed') {
       const notifSeverity = populated.severity === 'Medium' ? 'Warning' : (populated.severity === 'Low' ? 'Info' : populated.severity);
       try {
-        await notificationService.createNotification({
+        await notificationService.create({
           title: `Mitigation Action Executed: ${populated.action}`,
           message: `Mitigation action ${populated.mitigationId} (${populated.action}) has been successfully executed for node ${populated.nodeId?.nodeName || 'unknown'}.`,
           type: 'MitigationExecuted',
@@ -292,18 +243,7 @@ export const mitigationService = {
   async executeMitigation(id, data, req) {
     const { executionNotes } = data;
 
-    const mitigation = await Mitigation.findOne({
-      $or: [
-        { _id: mongoose.isValidObjectId(id) ? id : null },
-        { mitigationId: id }
-      ]
-    });
-
-    if (!mitigation) {
-      const error = new Error(`Mitigation action with ID or Code '${id}' not found`);
-      error.statusCode = 404;
-      throw error;
-    }
+    let mitigation = await this.getMitigationById(id);
 
     if (mitigation.status === 'Completed' || mitigation.status === 'Cancelled') {
       const error = new Error(`Mitigation action is already ${mitigation.status.toLowerCase()}`);
@@ -314,34 +254,30 @@ export const mitigationService = {
     // RBAC: Operator can only execute if they are assigned, or if it's unassigned
     const userRoleLower = (req?.user?.role || '').toLowerCase();
     if (userRoleLower === 'operator') {
-      if (mitigation.executedBy && mitigation.executedBy.toString() !== req.user._id.toString()) {
+      if (mitigation.executedBy && (mitigation.executedBy._id || mitigation.executedBy).toString() !== req.user._id.toString()) {
         const error = new Error('Forbidden access. You are not assigned to execute this mitigation.');
         error.statusCode = 403;
         throw error;
       }
     }
 
-    // Transition state
-    mitigation.status = 'Executed';
-    mitigation.executedAt = new Date();
+    const updates = {
+      status: 'Executed',
+      executedAt: new Date()
+    };
     if (req?.user) {
-      mitigation.executedBy = req.user._id;
+      updates.executedBy = req.user._id;
     }
     if (executionNotes) {
-      mitigation.executionNotes = executionNotes;
+      updates.executionNotes = executionNotes;
     }
 
-    await mitigation.save();
-
-    const populated = await Mitigation.findById(mitigation._id)
-      .populate('nodeId')
-      .populate('incidentId')
-      .populate('executedBy', 'name email role');
+    const populated = await mitigationRepository.update(mitigation._id, updates);
 
     // Trigger Notification
     const notifSeverity = populated.severity === 'Medium' ? 'Warning' : (populated.severity === 'Low' ? 'Info' : populated.severity);
     try {
-      await notificationService.createNotification({
+      await notificationService.create({
         title: `Mitigation Action Executed: ${populated.action}`,
         message: `Mitigation action ${populated.mitigationId} (${populated.action}) has been successfully executed for node ${populated.nodeId?.nodeName || 'unknown'}.`,
         type: 'MitigationExecuted',
@@ -359,7 +295,7 @@ export const mitigationService = {
       req,
       module: 'Mitigation',
       action: 'Mitigation Executed',
-      description: `Executed mitigation ${populated.mitigationId} (${populated.action}) on node ${populated.targetName}`,
+      description: `Executed mitigation ${populated.mitigationId} (${populated.action}) on node ${populated.nodeId?.nodeName || 'unknown'}`,
       severity: 'Info',
       metadata: { mitigationId: populated.mitigationId }
     });
@@ -382,26 +318,7 @@ export const mitigationService = {
    * Compile dashboard metrics
    */
   async getDashboardStats() {
-    const totalMitigations = await Mitigation.countDocuments({});
-    const pendingActions = await Mitigation.countDocuments({ status: 'Pending' });
-    const activeActions = await Mitigation.countDocuments({ status: 'InProgress' });
-    const completedActions = await Mitigation.countDocuments({ status: { $in: ['Completed', 'Executed'] } });
-    const failedActions = await Mitigation.countDocuments({ status: 'Failed' });
-
-    const latestMitigation = await Mitigation.findOne({})
-      .populate('nodeId')
-      .populate('incidentId')
-      .populate('executedBy', 'name email role')
-      .sort({ createdAt: -1 });
-
-    return {
-      totalMitigations,
-      pendingActions,
-      activeActions,
-      completedActions,
-      failedActions,
-      latestMitigation
-    };
+    return await mitigationRepository.getDashboardStats();
   }
 };
 
