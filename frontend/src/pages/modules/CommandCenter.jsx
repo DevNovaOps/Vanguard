@@ -1,12 +1,15 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Activity, Shield, AlertTriangle, Zap, Cloud, Radio, Clock, Thermometer, ChevronUp, ChevronDown, User, Settings, Filter, X, Menu, Bot, Wrench, Volume2, VolumeX, Bell, Map as MapIcon } from 'lucide-react';
+import { Activity, Shield, AlertTriangle, Zap, Cloud, Radio, Clock, Thermometer, ChevronUp, ChevronDown, User, Settings, Filter, X, Menu, Bot, Wrench, Volume2, VolumeX, Bell, Map as MapIcon, Play, Pause, Square, Eye, Crosshair, Train } from 'lucide-react';
 import { useOperationalContext } from '../../contexts/OperationalContext';
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
 import Train3DModel from '../../components/modules/Train3DModel';
 import ReactMarkdown from 'react-markdown';
 import { MAP_PRESETS, MAP_ORDER } from '../../components/modules/digital-twin/MapPresets';
+import { TRAIN_TYPES, TRAIN_FLEET, TRAIN_DISPLAY_ORDER } from '../../components/modules/digital-twin/TrainAssets';
+import { generateSensorData, generateWeatherInsight } from '../../components/modules/digital-twin/SensorEngine';
+import TrainSensorDashboard from '../../components/modules/digital-twin/TrainSensorDashboard';
 
 const NOOP = () => {};
 
@@ -28,7 +31,11 @@ export default function CommandCenter() {
   const [twinState, setTwinState] = useState(null);
   const [workOrders, setWorkOrders] = useState([]);
   const [predictive, setPredictive] = useState([]);
-  const [trainSpeeds, setTrainSpeeds] = useState({ passenger: 0, freight: 0, vandebharat: 0 });
+  const [trainSpeeds, setTrainSpeeds] = useState({});
+  const [trainStates, setTrainStates] = useState({});
+  const [selectedTrainId, setSelectedTrainId] = useState('rajdhani');
+  const [sensorData, setSensorData] = useState(null);
+  const sensorPrevRef = useRef({});
 
   const chatMessages = contextState?.chatMessages?.filter(msg => !msg.text.includes('Environment Alert')) || [];
   const environmentAlerts = contextState?.chatMessages?.filter(msg => msg.text.includes('Environment Alert')) || [];
@@ -41,7 +48,7 @@ export default function CommandCenter() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
   
-  const [rightDrawerTab, setRightDrawerTab] = useState(null); // 'ai' | null
+  const [rightDrawerTab, setRightDrawerTab] = useState(null); // 'ai' | 'sensors' | null
   const [showMaintenanceDrawer, setShowMaintenanceDrawer] = useState(false);
   const [showMapSelector, setShowMapSelector] = useState(false);
   const [showCompareSelector, setShowCompareSelector] = useState(false);
@@ -52,21 +59,43 @@ export default function CommandCenter() {
   const messagesEndRef = useRef(null);
 
   useEffect(() => {
-    // Expose global function for TrainEntity to update real-time speeds
-    // Throttled: only update state when speed changes by >= 1 km/h
-    const lastSpeeds = { passenger: 0, freight: 0, vandebharat: 0 };
+    // Expose global functions for TrainEntity to update real-time speeds and states
+    const lastSpeeds = {};
+    const lastStates = {};
     window.updateTrainSpeed = (id, speed) => {
       const rounded = Math.round(speed);
       if (lastSpeeds[id] !== rounded) {
         lastSpeeds[id] = rounded;
         setTrainSpeeds(prev => {
-          if (prev[id] === rounded) return prev; // no change, skip re-render
+          if (prev[id] === rounded) return prev;
           return { ...prev, [id]: rounded };
         });
       }
     };
-    return () => { delete window.updateTrainSpeed; };
+    window.updateTrainState = (id, state) => {
+      if (lastStates[id] !== state) {
+        lastStates[id] = state;
+        setTrainStates(prev => {
+          if (prev[id] === state) return prev;
+          return { ...prev, [id]: state };
+        });
+      }
+    };
+    return () => { delete window.updateTrainSpeed; delete window.updateTrainState; };
   }, []);
+
+  // ── Sensor Data Generation (updates every 2s) ──
+  useEffect(() => {
+    const timer = setInterval(() => {
+      const data = generateSensorData(selectedTrainId, activeMapId, twinState?.activeEmergency, sensorPrevRef.current);
+      setSensorData(data);
+      // Store flat values for interpolation
+      const flat = {};
+      [...data.engine, ...data.coach].forEach(s => { flat[s.id] = s.value; });
+      sensorPrevRef.current = flat;
+    }, 2000);
+    return () => clearInterval(timer);
+  }, [selectedTrainId, activeMapId, twinState?.activeEmergency]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -134,15 +163,17 @@ export default function CommandCenter() {
       ...twinState,
       activeEmergency: isEmergency ? null : 'EngineFire',
       activeDashboard: isEmergency ? null : 'Engine',
-      trainCommand: isEmergency ? 'resume' : 'emergency'
+      trainCommand: isEmergency ? 'resume' : 'emergency',
+      trainCommands: {}, // clear all per-train commands
     };
     updateContextState(activeContext.id, { twin: newState });
     setTwinState(newState);
   };
 
-  const setTrainCommand = (cmd) => {
+  const setTrainCommand = (trainId, cmd) => {
     if (!twinState) return;
-    const newState = { ...twinState, trainCommand: cmd, activeEmergency: cmd === 'emergency' ? 'EngineFire' : null };
+    const newCommands = { ...(twinState.trainCommands || {}), [trainId]: cmd };
+    const newState = { ...twinState, trainCommands: newCommands };
     updateContextState(activeContext.id, { twin: newState });
     setTwinState(newState);
   };
@@ -155,10 +186,15 @@ export default function CommandCenter() {
 
     const newState = { ...twinState, activeMap: mapId };
     
-    // AI notification about map change
-    const alertText = `Environment Alert: Switched to **${mapConfig.name}** map.\n\n` +
+    // AI notification about map change + insights
+    const insight = generateWeatherInsight(mapId, selectedTrainId);
+    
+    const alertText = `**Environment Alert: Switched to ${mapConfig.name}**\n\n` +
       `🌡️ Ambient: ${mapConfig.ambientTemp}°C | 👁️ Visibility: ${mapConfig.visibility}% | 💨 Wind: ${mapConfig.windSpeed} km/h\n\n` +
-      `${mapConfig.description}`;
+      `* **Reason**: ${insight.reason}\n` +
+      `* **Impact**: ${insight.impact}\n` +
+      `* **Prediction**: ${insight.prediction}\n` +
+      `* **Recommendation**: ${insight.recommendation}`;
     
     const alertMsg = { sender: 'system', text: alertText, timestamp: new Date().toISOString() };
     
@@ -421,23 +457,20 @@ export default function CommandCenter() {
 
           <div style={S.sidebarSectionTitle}>Train Manager</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-             {contexts.filter(c => c.type === 'Train' || c.type === 'Freight').map(c => {
-               // Map context IDs to train internal IDs to fetch independent speed
-               let tId = 'passenger';
-               if (c.name.toLowerCase().includes('freight')) tId = 'freight';
-               if (c.name.toLowerCase().includes('vande')) tId = 'vandebharat';
-               
+             {TRAIN_DISPLAY_ORDER.map(tId => {
+               const config = TRAIN_TYPES[tId];
                const speed = trainSpeeds[tId] || 0;
-               const isActive = activeContext?.id === c.id;
+               const state = trainStates[tId] || 'parked';
+               const isActive = selectedTrainId === tId;
 
-               // Determine status text
-               let statusText = 'Cruising';
-               if (speed === 0) statusText = 'At Station';
-               else if (speed > 0 && speed < 30) statusText = 'Accelerating';
+               // Format status text
+               let statusText = state.charAt(0).toUpperCase() + state.slice(1);
+               if (state === 'cruising' && speed === 0) statusText = 'Stopped';
+               else if (state === 'departing' || state === 'accelerating') statusText = 'Accelerating';
 
                return (
                 <div 
-                  key={c.id} 
+                  key={tId} 
                   style={{ 
                     padding: '10px 12px', background: isActive ? 'rgba(59,130,246,0.1)' : 'rgba(255,255,255,0.02)',
                     border: `1px solid ${isActive ? 'rgba(59,130,246,0.3)' : 'rgba(255,255,255,0.05)'}`,
@@ -445,10 +478,10 @@ export default function CommandCenter() {
                     transition: 'all 0.2s'
                   }}
                 >
-                   <div onClick={() => switchContext(c.id)} style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}>
-                     <span style={{ fontSize: '16px' }}>{c.icon}</span>
+                   <div onClick={() => setSelectedTrainId(tId)} style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}>
+                     <span style={{ fontSize: '16px' }}>{config.icon}</span>
                      <div style={{ flex: 1, overflow: 'hidden' }}>
-                       <div style={{ fontSize: '12px', fontWeight: '600', color: isActive ? '#60a5fa' : '#cbd5e1', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>{c.name}</div>
+                       <div style={{ fontSize: '12px', fontWeight: '600', color: isActive ? '#60a5fa' : '#cbd5e1', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>{config.name}</div>
                        <div style={{ fontSize: '10px', color: '#64748b' }}>Speed: {speed} km/h • {statusText}</div>
                      </div>
                    </div>
@@ -466,10 +499,10 @@ export default function CommandCenter() {
                        </div>
                        {/* Command controls */}
                        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0 8px' }}>
-                         <button onClick={() => setTrainCommand('start')} title="Start" style={{ background: 'transparent', border: 'none', color: '#10b981', cursor: 'pointer', fontSize: '14px' }}>▶</button>
-                         <button onClick={() => setTrainCommand('pause')} title="Pause" style={{ background: 'transparent', border: 'none', color: '#f59e0b', cursor: 'pointer', fontSize: '14px' }}>⏸</button>
-                         <button onClick={() => setTrainCommand('stop')} title="Stop" style={{ background: 'transparent', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: '14px' }}>⏹</button>
-                         <button onClick={() => setTrainCommand('emergency')} title="Emergency Stop" style={{ background: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: '14px' }}>🚨</button>
+                         <button onClick={() => setTrainCommand(tId, 'start')} title="Start" style={{ background: 'transparent', border: 'none', color: '#10b981', cursor: 'pointer', fontSize: '14px' }}>▶</button>
+                         <button onClick={() => setTrainCommand(tId, 'pause')} title="Pause" style={{ background: 'transparent', border: 'none', color: '#f59e0b', cursor: 'pointer', fontSize: '14px' }}>⏸</button>
+                         <button onClick={() => setTrainCommand(tId, 'stop')} title="Stop" style={{ background: 'transparent', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: '14px' }}>⏹</button>
+                         <button onClick={() => setTrainCommand(tId, 'emergency')} title="Emergency Stop" style={{ background: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: '14px' }}>🚨</button>
                        </div>
                      </div>
                    )}
@@ -512,7 +545,7 @@ export default function CommandCenter() {
                     onEnvironmentChange={NOOP} 
                     restoredState={view.state?.twin}
                     onStateCapture={view.isPrimary ? registerStateCapture : NOOP}
-                    contextName={view.ctx.name}
+                    selectedTrainId={selectedTrainId}
                   />
                   <OrbitControls enableZoom={true} enablePan={true} maxPolarAngle={Math.PI / 2} />
                 </Canvas>
@@ -634,11 +667,18 @@ export default function CommandCenter() {
             <Settings size={17} color="#94a3b8" />
           </button>
           <button
-            onClick={() => setRightDrawerTab(rightDrawerTab ? null : 'ai')}
-            style={S.dockBtn(!!rightDrawerTab)}
+            onClick={() => setRightDrawerTab(rightDrawerTab === 'sensors' ? null : 'sensors')}
+            style={S.dockBtn(rightDrawerTab === 'sensors')}
+            title="Sensor Telemetry"
+          >
+            <Activity size={17} color={rightDrawerTab === 'sensors' ? '#60a5fa' : '#94a3b8'} />
+          </button>
+          <button
+            onClick={() => setRightDrawerTab(rightDrawerTab === 'ai' ? null : 'ai')}
+            style={S.dockBtn(rightDrawerTab === 'ai')}
             title="AI Assistant"
           >
-            <Bot size={17} color={rightDrawerTab ? '#60a5fa' : '#94a3b8'} />
+            <Bot size={17} color={rightDrawerTab === 'ai' ? '#60a5fa' : '#94a3b8'} />
           </button>
         </div>
 
@@ -753,7 +793,36 @@ export default function CommandCenter() {
             </motion.div>
           )}
         </AnimatePresence>
-
+        {/* ── SENSOR DASHBOARD FLOATING WIDGET ── */}
+        <AnimatePresence>
+          {rightDrawerTab === 'sensors' && (
+            <motion.div
+              initial={{ opacity: 0, y: 20, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 20, scale: 0.95 }}
+              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+              style={S.aiWidget}
+            >
+              <div style={{ padding: '16px', borderBottom: '1px solid rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(255,255,255,0.02)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <div style={{ width: '32px', height: '32px', borderRadius: '10px', background: 'linear-gradient(135deg, rgba(59,130,246,0.2), rgba(99,102,241,0.2))', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid rgba(59,130,246,0.3)' }}>
+                    <Activity size={16} color="#60a5fa" />
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '13px', fontWeight: '700', color: '#f8fafc', letterSpacing: '0.5px' }}>Sensor Dashboard</div>
+                    <div style={{ fontSize: '10px', color: '#10b981', display: 'flex', alignItems: 'center', gap: '4px' }}><div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#10b981' }} /> Live Telemetry</div>
+                  </div>
+                </div>
+                <button onClick={() => setRightDrawerTab(null)} style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', padding: '4px' }}>
+                  <X size={16} />
+                </button>
+              </div>
+              <div style={{ flex: 1, padding: '16px', overflowY: 'auto' }}>
+                <TrainSensorDashboard selectedTrainId={selectedTrainId} sensorData={sensorData} />
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </div>
   );
