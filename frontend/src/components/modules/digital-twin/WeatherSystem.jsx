@@ -133,6 +133,20 @@ export default function WeatherSystem() {
       hemiIntensity: 0.5,
       preset: 'dawn',
       particles: null
+    },
+    urban: {
+      skyColor: '#94a3b8',
+      fogColor: '#9ca3af',
+      fogNear: 80,
+      fogFar: 1200,
+      sunPosition: [40, 60, -30],
+      ambientIntensity: 0.55,
+      directionalIntensity: 1.0,
+      hemiSky: '#cbd5e1',
+      hemiGround: '#6b7280',
+      hemiIntensity: 0.4,
+      preset: 'dawn',
+      particles: null
     }
   };
 

@@ -1,11 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Activity, Shield, AlertTriangle, Zap, Cloud, Radio, Clock, Thermometer, ChevronUp, ChevronDown, User, Settings, Filter, X, Menu, Bot, Wrench, Volume2, VolumeX, Bell } from 'lucide-react';
+import { Activity, Shield, AlertTriangle, Zap, Cloud, Radio, Clock, Thermometer, ChevronUp, ChevronDown, User, Settings, Filter, X, Menu, Bot, Wrench, Volume2, VolumeX, Bell, Map as MapIcon } from 'lucide-react';
 import { useOperationalContext } from '../../contexts/OperationalContext';
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
 import Train3DModel from '../../components/modules/Train3DModel';
 import ReactMarkdown from 'react-markdown';
+import { MAP_PRESETS, MAP_ORDER } from '../../components/modules/digital-twin/MapPresets';
+
+const NOOP = () => {};
 
 export default function CommandCenter() {
   const { 
@@ -30,7 +33,8 @@ export default function CommandCenter() {
   const chatMessages = contextState?.chatMessages?.filter(msg => !msg.text.includes('Environment Alert')) || [];
   const environmentAlerts = contextState?.chatMessages?.filter(msg => msg.text.includes('Environment Alert')) || [];
   
-  const currentEnv = twinState?.currentEnvironment || 'Plains';
+  const activeMapId = twinState?.activeMap || 'sunny';
+  const activeMapConfig = MAP_PRESETS[activeMapId] || MAP_PRESETS.sunny;
   const alertCount = contextState?.incidents?.length || 0;
 
   const [prompt, setPrompt] = useState('');
@@ -39,7 +43,7 @@ export default function CommandCenter() {
   
   const [rightDrawerTab, setRightDrawerTab] = useState(null); // 'ai' | null
   const [showMaintenanceDrawer, setShowMaintenanceDrawer] = useState(false);
-  const [showWeatherSelector, setShowWeatherSelector] = useState(false);
+  const [showMapSelector, setShowMapSelector] = useState(false);
   const [showCompareSelector, setShowCompareSelector] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   
@@ -49,8 +53,17 @@ export default function CommandCenter() {
 
   useEffect(() => {
     // Expose global function for TrainEntity to update real-time speeds
+    // Throttled: only update state when speed changes by >= 1 km/h
+    const lastSpeeds = { passenger: 0, freight: 0, vandebharat: 0 };
     window.updateTrainSpeed = (id, speed) => {
-      setTrainSpeeds(prev => ({ ...prev, [id]: Math.round(speed) }));
+      const rounded = Math.round(speed);
+      if (lastSpeeds[id] !== rounded) {
+        lastSpeeds[id] = rounded;
+        setTrainSpeeds(prev => {
+          if (prev[id] === rounded) return prev; // no change, skip re-render
+          return { ...prev, [id]: rounded };
+        });
+      }
     };
     return () => { delete window.updateTrainSpeed; };
   }, []);
@@ -67,7 +80,11 @@ export default function CommandCenter() {
   useEffect(() => {
     if (!contextState) return;
     setSummary(contextState.summary);
-    setTwinState(contextState.twin);
+    // Only sync twin state if not already set (initial load or context switch)
+    // Don't overwrite user-initiated changes (map switch, speed adjust, etc.)
+    if (!twinState && contextState.twin) {
+      setTwinState({ ...contextState.twin, trainCommand: null }); // Clear previous commands
+    }
     setWorkOrders(contextState.workOrders || []);
     setPredictive(contextState.predictive || []);
   }, [contextState]);
@@ -117,31 +134,50 @@ export default function CommandCenter() {
       ...twinState,
       activeEmergency: isEmergency ? null : 'EngineFire',
       activeDashboard: isEmergency ? null : 'Engine',
-      train: { ...twinState.train, speed: isEmergency ? 112 : 0 }
+      trainCommand: isEmergency ? 'resume' : 'emergency'
     };
     updateContextState(activeContext.id, { twin: newState });
     setTwinState(newState);
   };
 
-  const handleEnvironmentChange = (newEnv) => {
-    if (twinState && twinState.currentEnvironment !== newEnv) {
-      const newState = { ...twinState, currentEnvironment: newEnv };
-      updateContextState(activeContext.id, { twin: newState });
-      setTwinState(newState);
-      
-      // Notify only without spamming AI chat
-      const warningText = `Environment Alert: Entering ${newEnv}`;
-      const alertMsg = { sender: 'system', text: warningText, timestamp: new Date().toISOString() };
-      
-      updateContextState(activeContext.id, {
-        chatMessages: [...(contextState.chatMessages || []), alertMsg]
-      });
-      
-      if (voiceEnabled && window.speechSynthesis) {
-         // Voice only for severe things, but let's just make a soft beep for environment changes
-         // (Omitted standard speech synthesis here to comply with point 4)
-      }
-    }
+  const setTrainCommand = (cmd) => {
+    if (!twinState) return;
+    const newState = { ...twinState, trainCommand: cmd, activeEmergency: cmd === 'emergency' ? 'EngineFire' : null };
+    updateContextState(activeContext.id, { twin: newState });
+    setTwinState(newState);
+  };
+
+  // ── Map Switching (replaces old overrideWeather) ──
+  const switchMap = (mapId) => {
+    if (!twinState) return;
+    const mapConfig = MAP_PRESETS[mapId];
+    if (!mapConfig) return;
+
+    const newState = { ...twinState, activeMap: mapId };
+    
+    // AI notification about map change
+    const alertText = `Environment Alert: Switched to **${mapConfig.name}** map.\n\n` +
+      `🌡️ Ambient: ${mapConfig.ambientTemp}°C | 👁️ Visibility: ${mapConfig.visibility}% | 💨 Wind: ${mapConfig.windSpeed} km/h\n\n` +
+      `${mapConfig.description}`;
+    
+    const alertMsg = { sender: 'system', text: alertText, timestamp: new Date().toISOString() };
+    
+    updateContextState(activeContext.id, {
+      twin: newState,
+      chatMessages: [...(contextState.chatMessages || []), alertMsg]
+    });
+    setTwinState(newState);
+    setShowMapSelector(false);
+  };
+
+  // ── Speed Adjustment (+/- 10 km/h) ──
+  const adjustSpeed = (delta) => {
+    if (!twinState) return;
+    const current = twinState.speedDelta || 0;
+    const newDelta = Math.max(-80, Math.min(80, current + delta));
+    const newState = { ...twinState, speedDelta: newDelta };
+    updateContextState(activeContext.id, { twin: newState });
+    setTwinState(newState);
   };
 
   const changeCamera = (view) => {
@@ -149,14 +185,6 @@ export default function CommandCenter() {
     const newState = { ...twinState, cameraView: view };
     updateContextState(activeContext.id, { twin: newState });
     setTwinState(newState);
-  };
-
-  const overrideWeather = (mode) => {
-    if (!twinState) return;
-    const newState = { ...twinState, weatherOverride: mode };
-    updateContextState(activeContext.id, { twin: newState });
-    setTwinState(newState);
-    setShowWeatherSelector(false);
   };
 
   const toggleVoice = () => {
@@ -173,7 +201,7 @@ export default function CommandCenter() {
   const S = {
     // ── Layout ──
     container: {
-      display: 'flex', flexDirection: 'column', height: '100vh',
+      display: 'flex', flexDirection: 'column', height: '100%',
       background: '#020617', color: '#f8fafc',
       fontFamily: "'Inter', -apple-system, sans-serif",
       overflow: 'hidden'
@@ -273,6 +301,18 @@ export default function CommandCenter() {
           </div>
           
           <div style={{ height: '24px', width: '1px', background: 'rgba(255,255,255,0.1)' }} />
+          
+          {/* ── Active Map Badge ── */}
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: '6px',
+            background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.2)',
+            borderRadius: '8px', padding: '4px 10px', fontSize: '12px', color: '#60a5fa', fontWeight: '600'
+          }}>
+            <span>{activeMapConfig.icon}</span>
+            <span>{activeMapConfig.name}</span>
+            <span style={{ fontSize: '10px', color: '#64748b' }}>| {activeMapConfig.ambientTemp}°C</span>
+          </div>
+          
           <div style={{ position: 'relative' }}>
             <button 
               onClick={() => setShowCompareSelector(!showCompareSelector)} 
@@ -373,13 +413,13 @@ export default function CommandCenter() {
             <div style={S.kpiCard('#06b6d4')}>
               <Cloud size={14} style={S.kpiIcon} />
               <div>
-                <div style={S.kpiValue}>32<span style={{ fontSize: '11px', color: '#64748b' }}>°C</span></div>
-                <div style={S.kpiLabel}>Weather</div>
+                <div style={S.kpiValue}>{activeMapConfig.ambientTemp}<span style={{ fontSize: '11px', color: '#64748b' }}>°C</span></div>
+                <div style={S.kpiLabel}>{activeMapConfig.name}</div>
               </div>
             </div>
           </div>
 
-          <div style={S.sidebarSectionTitle}>Active Trains</div>
+          <div style={S.sidebarSectionTitle}>Train Manager</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
              {contexts.filter(c => c.type === 'Train' || c.type === 'Freight').map(c => {
                // Map context IDs to train internal IDs to fetch independent speed
@@ -388,23 +428,51 @@ export default function CommandCenter() {
                if (c.name.toLowerCase().includes('vande')) tId = 'vandebharat';
                
                const speed = trainSpeeds[tId] || 0;
+               const isActive = activeContext?.id === c.id;
+
+               // Determine status text
+               let statusText = 'Cruising';
+               if (speed === 0) statusText = 'At Station';
+               else if (speed > 0 && speed < 30) statusText = 'Accelerating';
 
                return (
                 <div 
                   key={c.id} 
-                  onClick={() => switchContext(c.id)}
                   style={{ 
-                    padding: '10px 12px', background: activeContext?.id === c.id ? 'rgba(59,130,246,0.1)' : 'rgba(255,255,255,0.02)',
-                    border: `1px solid ${activeContext?.id === c.id ? 'rgba(59,130,246,0.3)' : 'rgba(255,255,255,0.05)'}`,
-                    borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px',
+                    padding: '10px 12px', background: isActive ? 'rgba(59,130,246,0.1)' : 'rgba(255,255,255,0.02)',
+                    border: `1px solid ${isActive ? 'rgba(59,130,246,0.3)' : 'rgba(255,255,255,0.05)'}`,
+                    borderRadius: '8px', display: 'flex', flexDirection: 'column', gap: '10px',
                     transition: 'all 0.2s'
                   }}
                 >
-                   <span style={{ fontSize: '16px' }}>{c.icon}</span>
-                   <div style={{ flex: 1, overflow: 'hidden' }}>
-                     <div style={{ fontSize: '12px', fontWeight: '600', color: activeContext?.id === c.id ? '#60a5fa' : '#cbd5e1', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>{c.name}</div>
-                     <div style={{ fontSize: '10px', color: '#64748b' }}>Speed: {speed} km/h</div>
+                   <div onClick={() => switchContext(c.id)} style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}>
+                     <span style={{ fontSize: '16px' }}>{c.icon}</span>
+                     <div style={{ flex: 1, overflow: 'hidden' }}>
+                       <div style={{ fontSize: '12px', fontWeight: '600', color: isActive ? '#60a5fa' : '#cbd5e1', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>{c.name}</div>
+                       <div style={{ fontSize: '10px', color: '#64748b' }}>Speed: {speed} km/h • {statusText}</div>
+                     </div>
                    </div>
+                   
+                   {/* Expanded Controls for Active Train */}
+                   {isActive && (
+                     <div style={{ marginTop: '4px', borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '8px' }}>
+                       {/* Speed controls */}
+                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', marginBottom: '8px' }}>
+                         <button onClick={() => adjustSpeed(-10)} title="Reduce Speed" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#94a3b8', cursor: 'pointer', borderRadius: '6px', padding: '3px 8px', fontSize: '12px' }}>⏪</button>
+                         <span style={{ fontSize: '11px', color: '#94a3b8', fontFamily: "'JetBrains Mono', monospace", minWidth: '50px', textAlign: 'center' }}>
+                           {twinState?.speedDelta > 0 ? '+' : ''}{twinState?.speedDelta || 0}
+                         </span>
+                         <button onClick={() => adjustSpeed(10)} title="Increase Speed" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#94a3b8', cursor: 'pointer', borderRadius: '6px', padding: '3px 8px', fontSize: '12px' }}>⏩</button>
+                       </div>
+                       {/* Command controls */}
+                       <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0 8px' }}>
+                         <button onClick={() => setTrainCommand('start')} title="Start" style={{ background: 'transparent', border: 'none', color: '#10b981', cursor: 'pointer', fontSize: '14px' }}>▶</button>
+                         <button onClick={() => setTrainCommand('pause')} title="Pause" style={{ background: 'transparent', border: 'none', color: '#f59e0b', cursor: 'pointer', fontSize: '14px' }}>⏸</button>
+                         <button onClick={() => setTrainCommand('stop')} title="Stop" style={{ background: 'transparent', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: '14px' }}>⏹</button>
+                         <button onClick={() => setTrainCommand('emergency')} title="Emergency Stop" style={{ background: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: '14px' }}>🚨</button>
+                       </div>
+                     </div>
+                   )}
                 </div>
                );
              })}
@@ -414,13 +482,12 @@ export default function CommandCenter() {
         {/* RIGHT AREA (85%) - DIGITAL TWIN VIEWS */}
         <div style={{ display: 'flex', flex: 1, position: 'relative' }}>
           {[
-            { isPrimary: true, ctx: activeContext, state: contextState, alerts: alertCount, env: currentEnv },
+            { isPrimary: true, ctx: activeContext, state: contextState, alerts: alertCount },
             ...(compareContextId ? [{ 
               isPrimary: false, 
               ctx: contexts.find(c => c.id === compareContextId), 
               state: compareContextState, 
               alerts: compareContextState?.incidents?.length || 0,
-              env: compareContextState?.currentEnv || 'Plains'
             }] : [])
           ].filter(v => v.ctx).map((view, idx) => (
             <div key={view.ctx.id} style={{ flex: 1, display: 'flex', flexDirection: 'column', position: 'relative', borderRight: idx === 0 && compareContextId ? '1px solid rgba(255,255,255,0.1)' : 'none' }}>
@@ -442,9 +509,9 @@ export default function CommandCenter() {
                 >
                   <Train3DModel 
                     twinState={view.isPrimary ? twinState : null} 
-                    onEnvironmentChange={view.isPrimary ? handleEnvironmentChange : () => {}} 
+                    onEnvironmentChange={NOOP} 
                     restoredState={view.state?.twin}
-                    onStateCapture={view.isPrimary ? registerStateCapture : () => {}}
+                    onStateCapture={view.isPrimary ? registerStateCapture : NOOP}
                     contextName={view.ctx.name}
                   />
                   <OrbitControls enableZoom={true} enablePan={true} maxPolarAngle={Math.PI / 2} />
@@ -501,32 +568,51 @@ export default function CommandCenter() {
 
           <div style={S.dockDivider} />
 
-          {/* Utility Controls */}
-          <button style={S.dockBtn(false)} title="Power Map"
-            onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.06)'}
-            onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-          >⚡</button>
-          
+          {/* ── MAP SELECTOR (replaces old weather selector) ── */}
           <div style={{ position: 'relative' }}>
-            <button onClick={() => setShowWeatherSelector(!showWeatherSelector)} style={S.dockBtn(showWeatherSelector || twinState?.weatherOverride)} title="Weather Override"
-              onMouseEnter={e => { if(!showWeatherSelector) e.currentTarget.style.background = 'rgba(255,255,255,0.06)'}}
-              onMouseLeave={e => { if(!showWeatherSelector && !twinState?.weatherOverride) e.currentTarget.style.background = 'transparent'}}
-            >🌦️</button>
-            {showWeatherSelector && (
-              <div style={{ position: 'absolute', bottom: '50px', left: '50%', transform: 'translateX(-50%)', background: 'rgba(15,23,42,0.95)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', padding: '8px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                {[
-                  { id: null, label: 'Auto (Env)' },
-                  { id: 'sunny', label: 'Sunny' },
-                  { id: 'rain', label: 'Rain' },
-                  { id: 'storm', label: 'Storm' },
-                  { id: 'snow', label: 'Snow' },
-                  { id: 'fog', label: 'Fog' },
-                  { id: 'desert', label: 'Desert' },
-                  { id: 'forest', label: 'Forest' },
-                  { id: 'coastal', label: 'Coastal' }
-                ].map(w => (
-                  <button key={w.label} onClick={() => overrideWeather(w.id)} style={{ background: twinState?.weatherOverride === w.id || (w.id === null && !twinState?.weatherOverride) ? 'rgba(59,130,246,0.2)' : 'transparent', border: 'none', color: 'white', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', textAlign: 'left', whiteSpace: 'nowrap' }}>{w.label}</button>
-                ))}
+            <button onClick={() => setShowMapSelector(!showMapSelector)} style={S.dockBtn(showMapSelector)} title="Select Map"
+              onMouseEnter={e => { if(!showMapSelector) e.currentTarget.style.background = 'rgba(255,255,255,0.06)'}}
+              onMouseLeave={e => { if(!showMapSelector) e.currentTarget.style.background = 'transparent'}}
+            >
+              <MapIcon size={17} color={showMapSelector ? '#60a5fa' : '#94a3b8'} />
+            </button>
+            {showMapSelector && (
+              <div style={{
+                position: 'absolute', bottom: '50px', left: '50%', transform: 'translateX(-50%)',
+                background: 'rgba(15,23,42,0.95)', border: '1px solid rgba(255,255,255,0.1)',
+                borderRadius: '14px', padding: '10px', display: 'flex', flexDirection: 'column', gap: '2px',
+                minWidth: '200px', backdropFilter: 'blur(20px)',
+                boxShadow: '0 20px 40px rgba(0,0,0,0.5)'
+              }}>
+                <div style={{ fontSize: '10px', color: '#64748b', padding: '4px 10px', fontWeight: 'bold', letterSpacing: '1px', textTransform: 'uppercase' }}>Select Railway Map</div>
+                {MAP_ORDER.map(mapId => {
+                  const mc = MAP_PRESETS[mapId];
+                  const isActive = activeMapId === mapId;
+                  return (
+                    <button
+                      key={mapId}
+                      onClick={() => switchMap(mapId)}
+                      style={{
+                        background: isActive ? 'rgba(59,130,246,0.15)' : 'transparent',
+                        border: isActive ? '1px solid rgba(59,130,246,0.3)' : '1px solid transparent',
+                        color: isActive ? '#60a5fa' : '#cbd5e1',
+                        padding: '8px 12px', borderRadius: '8px', cursor: 'pointer',
+                        fontSize: '12px', textAlign: 'left', whiteSpace: 'nowrap',
+                        display: 'flex', alignItems: 'center', gap: '10px',
+                        transition: 'all 0.15s'
+                      }}
+                      onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; }}
+                      onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = 'transparent'; }}
+                    >
+                      <span style={{ fontSize: '16px', width: '24px', textAlign: 'center' }}>{mc.icon}</span>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontWeight: '600' }}>{mc.name}</div>
+                        <div style={{ fontSize: '10px', color: '#64748b', marginTop: '1px' }}>{mc.ambientTemp}°C • {mc.weather}</div>
+                      </div>
+                      {isActive && <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#60a5fa' }} />}
+                    </button>
+                  );
+                })}
               </div>
             )}
           </div>

@@ -3,11 +3,12 @@ import * as THREE from 'three';
 
 // Calculate BoundingBox & BoundingSphere, center pivot, normalize scale
 export function useModelBounds(gltf, targetLength = null, baseRotation = [0, 0, 0]) {
+  const [rx, ry, rz] = baseRotation;
   return useMemo(() => {
     if (!gltf || !gltf.scene) return null;
     const clone = gltf.scene.clone(true);
     
-    clone.rotation.set(...baseRotation);
+    clone.rotation.set(rx, ry, rz);
     clone.scale.setScalar(1);
     clone.position.set(0, 0, 0);
 
@@ -44,5 +45,5 @@ export function useModelBounds(gltf, targetLength = null, baseRotation = [0, 0, 
       max: finalBox.max,
       scale 
     };
-  }, [gltf, targetLength, baseRotation]);
+  }, [gltf, targetLength, rx, ry, rz]);
 }
