@@ -47,7 +47,8 @@ export default function CommandCenter() {
     registerStateCapture,
     contexts,
     compareContextId,
-    compareContextState
+    compareContextState,
+    switchContext
   } = useOperationalContext();
 
   // ── Data State ──
@@ -248,8 +249,18 @@ export default function CommandCenter() {
       borderLeft: `3px solid ${accentColor}`, transition: 'all 0.2s'
     }),
     kpiIcon: { color: '#64748b', flexShrink: 0 },
-    kpiValue: { fontSize: '16px', fontWeight: '700', fontFamily: "'JetBrains Mono', monospace", color: '#f8fafc', lineHeight: 1 },
+    kpiValue: { fontSize: '15px', fontWeight: '700', fontFamily: "'JetBrains Mono', monospace", color: '#f8fafc', lineHeight: 1 },
     kpiLabel: { fontSize: '10px', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px', lineHeight: 1 },
+    // ── Sidebar (Train Manager) ──
+    sidebar: {
+      width: '15%', minWidth: '240px', maxWidth: '300px', display: 'flex', flexDirection: 'column',
+      background: 'rgba(10, 15, 30, 0.95)', borderRight: '1px solid rgba(255,255,255,0.05)',
+      padding: '16px', overflowY: 'auto'
+    },
+    sidebarSectionTitle: {
+      fontSize: '11px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase',
+      letterSpacing: '1px', marginBottom: '12px', marginTop: '20px'
+    },
     // ── Canvas Container ──
     canvasWrap: {
       flex: 1, position: 'relative', overflow: 'hidden'
@@ -392,93 +403,114 @@ export default function CommandCenter() {
       </div>
 
             {/* ════════════════════════════════════════════
-          VIEWS WRAPPER (Split Screen Support)
+          MAIN LAYOUT WITH SIDEBAR (85% Digital Twin)
       ════════════════════════════════════════════ */}
       <div style={{ display: 'flex', flex: 1, width: '100%', position: 'relative', overflow: 'hidden' }}>
-        {[
-          { isPrimary: true, ctx: activeContext, state: contextState, alerts: alertCount, env: currentEnv },
-          ...(compareContextId ? [{ 
-            isPrimary: false, 
-            ctx: contexts.find(c => c.id === compareContextId), 
-            state: compareContextState, 
-            alerts: compareContextState?.incidents?.length || 0,
-            env: compareContextState?.currentEnv || 'Plains'
-          }] : [])
-        ].filter(v => v.ctx).map((view, idx) => (
-          <div key={view.ctx.id} style={{ flex: 1, display: 'flex', flexDirection: 'column', position: 'relative', borderRight: idx === 0 && compareContextId ? '1px solid rgba(255,255,255,0.1)' : 'none' }}>
-            {/* KPI BAR */}
-            <div style={S.kpiBar}>
-              <div style={S.kpiCard('#10b981')}>
-                <Shield size={16} style={S.kpiIcon} />
-                <div>
-                  <div style={S.kpiValue}>98.2<span style={{ fontSize: '11px', color: '#64748b' }}>%</span></div>
-                  <div style={S.kpiLabel}>Train Health</div>
-                </div>
-              </div>
-              <div style={S.kpiCard('#3b82f6')}>
-                <Activity size={16} style={S.kpiIcon} />
-                <div>
-                  <div style={S.kpiValue}>97.5<span style={{ fontSize: '11px', color: '#64748b' }}>%</span></div>
-                  <div style={S.kpiLabel}>Bridge</div>
-                </div>
-              </div>
-              <div style={S.kpiCard('#10b981')}>
-                <Radio size={16} style={S.kpiIcon} />
-                <div>
-                  <div style={S.kpiValue}>Normal</div>
-                  <div style={S.kpiLabel}>Track</div>
-                </div>
-              </div>
-              <div style={S.kpiCard('#f59e0b')}>
-                <Zap size={16} style={S.kpiIcon} />
-                <div>
-                  <div style={S.kpiValue}>25.0<span style={{ fontSize: '11px', color: '#64748b' }}>kV</span></div>
-                  <div style={S.kpiLabel}>Power</div>
-                </div>
-              </div>
-              <div style={S.kpiCard(view.alerts > 0 ? '#ef4444' : '#10b981')}>
-                <AlertTriangle size={16} style={{ ...S.kpiIcon, color: view.alerts > 0 ? '#f87171' : '#64748b' }} />
-                <div>
-                  <div style={{ ...S.kpiValue, color: view.alerts > 0 ? '#f87171' : '#f8fafc' }}>{view.alerts}</div>
-                  <div style={S.kpiLabel}>Alerts</div>
-                </div>
-              </div>
-              <div style={S.kpiCard('#06b6d4')}>
-                <Cloud size={16} style={S.kpiIcon} />
-                <div>
-                  <div style={S.kpiValue}>32<span style={{ fontSize: '11px', color: '#64748b' }}>°C</span></div>
-                  <div style={S.kpiLabel}>Weather</div>
-                </div>
+        
+        {/* LEFT SIDEBAR (15%) - TRAIN MANAGER & COMPACT KPIs */}
+        <div style={S.sidebar}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '24px' }}>
+            <Activity size={18} color="#3b82f6" />
+            <span style={{ fontSize: '14px', fontWeight: '700', color: '#f8fafc', letterSpacing: '0.5px' }}>Asset Manager</span>
+          </div>
+
+          <div style={{ ...S.sidebarSectionTitle, marginTop: 0 }}>Compact KPIs</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <div style={S.kpiCard('#10b981')}>
+              <Shield size={14} style={S.kpiIcon} />
+              <div>
+                <div style={S.kpiValue}>{summary?.overallHealth || '98.2%'}</div>
+                <div style={S.kpiLabel}>Sys Health</div>
               </div>
             </div>
-
-            {/* CANVAS WRAP */}
-            <div style={S.canvasWrap}>
-              {!view.isPrimary && (
-                <div style={{ position: 'absolute', top: 12, right: 12, zIndex: 10, background: 'rgba(59, 130, 246, 0.2)', padding: '4px 12px', borderRadius: '12px', border: '1px solid rgba(59,130,246,0.5)', color: '#60a5fa', fontSize: '11px', fontWeight: 'bold' }}>
-                  COMPARING: {view.ctx.name}
-                </div>
-              )}
-              
-              <Canvas
-                key={`digital-twin-${view.ctx.id}`}
-                camera={{ position: [0, 5, 10], fov: 45 }}
-                style={{ width: '100%', height: '100%' }}
-                dpr={[1, 1.5]}
-                performance={{ min: 0.5 }}
-              >
-                <Train3DModel 
-                  twinState={view.isPrimary ? twinState : null} 
-                  onEnvironmentChange={view.isPrimary ? handleEnvironmentChange : () => {}} 
-                  restoredState={view.state?.twin}
-                  onStateCapture={view.isPrimary ? registerStateCapture : () => {}}
-                  contextName={view.ctx.name}
-                />
-                <OrbitControls enableZoom={true} enablePan={true} maxPolarAngle={Math.PI / 2} />
-              </Canvas>
+            <div style={S.kpiCard(alertCount > 0 ? '#ef4444' : '#10b981')}>
+              <AlertTriangle size={14} style={{ ...S.kpiIcon, color: alertCount > 0 ? '#f87171' : '#64748b' }} />
+              <div>
+                <div style={{ ...S.kpiValue, color: alertCount > 0 ? '#f87171' : '#f8fafc' }}>{alertCount}</div>
+                <div style={S.kpiLabel}>Alerts</div>
+              </div>
+            </div>
+            <div style={S.kpiCard('#f59e0b')}>
+              <Zap size={14} style={S.kpiIcon} />
+              <div>
+                <div style={S.kpiValue}>25.0<span style={{ fontSize: '11px', color: '#64748b' }}>kV</span></div>
+                <div style={S.kpiLabel}>Power</div>
+              </div>
+            </div>
+            <div style={S.kpiCard('#06b6d4')}>
+              <Cloud size={14} style={S.kpiIcon} />
+              <div>
+                <div style={S.kpiValue}>32<span style={{ fontSize: '11px', color: '#64748b' }}>°C</span></div>
+                <div style={S.kpiLabel}>Weather</div>
+              </div>
             </div>
           </div>
-        ))}
+
+          <div style={S.sidebarSectionTitle}>Active Trains</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+             {contexts.filter(c => c.type === 'Train' || c.type === 'Freight').map(c => (
+                <div 
+                  key={c.id} 
+                  onClick={() => switchContext(c.id)}
+                  style={{ 
+                    padding: '10px 12px', background: activeContext?.id === c.id ? 'rgba(59,130,246,0.1)' : 'rgba(255,255,255,0.02)',
+                    border: `1px solid ${activeContext?.id === c.id ? 'rgba(59,130,246,0.3)' : 'rgba(255,255,255,0.05)'}`,
+                    borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px',
+                    transition: 'all 0.2s'
+                  }}
+                >
+                   <span style={{ fontSize: '16px' }}>{c.icon}</span>
+                   <div style={{ flex: 1, overflow: 'hidden' }}>
+                     <div style={{ fontSize: '12px', fontWeight: '600', color: activeContext?.id === c.id ? '#60a5fa' : '#cbd5e1', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>{c.name}</div>
+                     <div style={{ fontSize: '10px', color: '#64748b' }}>Speed: {c.id === activeContext?.id ? (twinState?.speed || 112) : 0} km/h</div>
+                   </div>
+                </div>
+             ))}
+          </div>
+        </div>
+
+        {/* RIGHT AREA (85%) - DIGITAL TWIN VIEWS */}
+        <div style={{ display: 'flex', flex: 1, position: 'relative' }}>
+          {[
+            { isPrimary: true, ctx: activeContext, state: contextState, alerts: alertCount, env: currentEnv },
+            ...(compareContextId ? [{ 
+              isPrimary: false, 
+              ctx: contexts.find(c => c.id === compareContextId), 
+              state: compareContextState, 
+              alerts: compareContextState?.incidents?.length || 0,
+              env: compareContextState?.currentEnv || 'Plains'
+            }] : [])
+          ].filter(v => v.ctx).map((view, idx) => (
+            <div key={view.ctx.id} style={{ flex: 1, display: 'flex', flexDirection: 'column', position: 'relative', borderRight: idx === 0 && compareContextId ? '1px solid rgba(255,255,255,0.1)' : 'none' }}>
+              
+              {/* CANVAS WRAP */}
+              <div style={S.canvasWrap}>
+                {!view.isPrimary && (
+                  <div style={{ position: 'absolute', top: 12, right: 12, zIndex: 10, background: 'rgba(59, 130, 246, 0.2)', padding: '4px 12px', borderRadius: '12px', border: '1px solid rgba(59,130,246,0.5)', color: '#60a5fa', fontSize: '11px', fontWeight: 'bold' }}>
+                    COMPARING: {view.ctx.name}
+                  </div>
+                )}
+                
+                <Canvas
+                  key={`digital-twin-${view.ctx.id}`}
+                  camera={{ position: [0, 5, 10], fov: 45 }}
+                  style={{ width: '100%', height: '100%' }}
+                  dpr={[1, 1.5]}
+                  performance={{ min: 0.5 }}
+                >
+                  <Train3DModel 
+                    twinState={view.isPrimary ? twinState : null} 
+                    onEnvironmentChange={view.isPrimary ? handleEnvironmentChange : () => {}} 
+                    restoredState={view.state?.twin}
+                    onStateCapture={view.isPrimary ? registerStateCapture : () => {}}
+                    contextName={view.ctx.name}
+                  />
+                  <OrbitControls enableZoom={true} enablePan={true} maxPolarAngle={Math.PI / 2} />
+                </Canvas>
+              </div>
+            </div>
+          ))}
+        </div>
 
         {/* ── FLOATING BOTTOM DOCK ── */}
         <div style={S.dock}>

@@ -35,7 +35,7 @@ const SensorTag = ({ position, label, value, unit, status, onClick, icon }) => {
   );
 };
 
-export default function SensorOverlays({ locoPosition, trackZ, railHeight }) {
+export default function SensorOverlays({ locoPosition = [0,0,0], trackZ = 0, railHeight = 0, isLocal = false, isInfra = false, trainType = 'passenger' }) {
   const { setActiveDashboard, activeEmergency, currentEnvironment } = useDigitalTwin();
 
   // Simulated oscillating values
@@ -106,54 +106,76 @@ export default function SensorOverlays({ locoPosition, trackZ, railHeight }) {
 
   return (
     <group>
-      {/* ENGINE SENSORS (Relative to Train) */}
-      <group position={locoPosition}>
-        <SensorTag position={[-5, 5, 2]} icon="🌡" value={data.engineTemp.toFixed(0)} unit="°C"
-          status={data.engineTemp > 120 ? 'critical' : data.engineTemp > 90 ? 'warning' : 'healthy'}
-          onClick={() => setActiveDashboard('Engine')} />
-        <SensorTag position={[-5, 6.5, 2]} icon="⚡" value={data.enginePwr.toFixed(0)} unit="kW"
-          status="healthy" onClick={() => setActiveDashboard('Engine')} />
-        <SensorTag position={[-15, 2, 2]} icon="📳" value={data.bearingVib.toFixed(2)} unit="mm/s"
-          status={data.bearingVib > 8 ? 'critical' : data.bearingVib > 5 ? 'warning' : 'healthy'}
-          onClick={() => setActiveDashboard('Bearing')} />
-        <SensorTag position={[-15, 1, 2]} icon="🌡" value={data.bearingTemp.toFixed(0)} unit="°C"
-          status={data.bearingTemp > 90 ? 'critical' : 'healthy'}
-          onClick={() => setActiveDashboard('Bearing')} />
-        <SensorTag position={[-25, 8, 2]} icon="📡" value={data.gpsSignal.toFixed(0)} unit="%"
-          status={data.gpsSignal < 30 ? 'critical' : data.gpsSignal < 60 ? 'warning' : 'healthy'}
-          onClick={() => {}} />
-      </group>
+      {/* TRAIN SPECIFIC SENSORS (Moves with train if isLocal=true) */}
+      {isLocal && (
+        <group position={locoPosition}>
+          {/* LOCOMOTIVE SENSORS */}
+          <SensorTag position={[-5, 5, 2]} icon="🌡" value={data.engineTemp.toFixed(0)} unit="°C"
+            status={data.engineTemp > 120 ? 'critical' : data.engineTemp > 90 ? 'warning' : 'healthy'}
+            onClick={() => setActiveDashboard('Engine')} />
+          <SensorTag position={[-5, 6.5, 2]} icon="⚡" value={data.enginePwr.toFixed(0)} unit="kW"
+            status="healthy" onClick={() => setActiveDashboard('Engine')} />
+          <SensorTag position={[-15, 2, 2]} icon="📳" value={data.bearingVib.toFixed(2)} unit="mm/s"
+            status={data.bearingVib > 8 ? 'critical' : data.bearingVib > 5 ? 'warning' : 'healthy'}
+            onClick={() => setActiveDashboard('Bearing')} />
+            
+          {/* PASSENGER COACH SENSORS */}
+          {trainType !== 'freight' && (
+            <>
+              <SensorTag position={[-45, 6, 2]} icon="❄️" value="22" unit="°C" status="healthy" onClick={() => {}} />
+              <SensorTag position={[-45, 3, 2]} icon="🚪" value="Closed" unit="" status="healthy" onClick={() => {}} />
+            </>
+          )}
 
-      {/* TRACK SENSORS */}
-      <SensorTag position={[0, railHeight, trackZ + 2]} icon="🛤️" value={data.trackStrain.toFixed(0)} unit="με"
-        status={data.trackStrain > 800 ? 'critical' : 'healthy'}
-        onClick={() => setActiveDashboard('Track')} />
-      <SensorTag position={[-10, railHeight, trackZ + 2]} icon="📳" value={data.trackVib.toFixed(1)} unit="mm/s"
-        status={data.trackVib > 10 ? 'critical' : 'healthy'}
-        onClick={() => setActiveDashboard('Track')} />
+          {/* FREIGHT WAGON SENSORS */}
+          {trainType === 'freight' && (
+            <>
+              <SensorTag position={[-35, 4, 2]} icon="⚖️" value="78" unit="Ton" status="healthy" onClick={() => {}} />
+              <SensorTag position={[-35, 2, 2]} icon="🌡" value={data.bearingTemp.toFixed(0)} unit="°C" status="healthy" onClick={() => {}} />
+            </>
+          )}
 
-      {/* BRIDGE SENSORS */}
-      <SensorTag position={[BRIDGE_X, railHeight - 5, trackZ + 6]} icon="🛡️" value={data.bridgeHealth.toFixed(1)} unit="%"
-        status="healthy" onClick={() => setActiveDashboard('Bridge')} />
-      <SensorTag position={[BRIDGE_X + 15, railHeight, trackZ + 6]} icon="📳" value={data.bridgeVib.toFixed(2)} unit="mm/s"
-        status="healthy" onClick={() => setActiveDashboard('Bridge')} />
+          <SensorTag position={[-25, 8, 2]} icon="📡" value={data.gpsSignal.toFixed(0)} unit="%"
+            status={data.gpsSignal < 30 ? 'critical' : data.gpsSignal < 60 ? 'warning' : 'healthy'}
+            onClick={() => {}} />
+        </group>
+      )}
 
-      {/* TUNNEL SENSORS */}
-      <SensorTag position={[TUNNEL_X, railHeight + 8, trackZ + 6]} icon="💨" value={data.tunnelGas.toFixed(3)} unit="ppm"
-        status="healthy" onClick={() => setActiveDashboard('Tunnel')} />
-      <SensorTag position={[TUNNEL_X + 15, railHeight + 8, trackZ + 6]} icon="🔥" value={data.tunnelSmoke.toFixed(0)} unit="%"
-        status="healthy" onClick={() => setActiveDashboard('Tunnel')} />
+      {/* INFRASTRUCTURE SENSORS (Stationary) */}
+      {isInfra && (
+        <group>
+          {/* TRACK SENSORS */}
+          <SensorTag position={[0, railHeight, trackZ + 2]} icon="🛤️" value={data.trackStrain.toFixed(0)} unit="με"
+            status={data.trackStrain > 800 ? 'critical' : 'healthy'}
+            onClick={() => setActiveDashboard('Track')} />
+          <SensorTag position={[-10, railHeight, trackZ + 2]} icon="📳" value={data.trackVib.toFixed(1)} unit="mm/s"
+            status={data.trackVib > 10 ? 'critical' : 'healthy'}
+            onClick={() => setActiveDashboard('Track')} />
 
-      {/* WEATHER STATION */}
-      <SensorTag position={[STATION_X - 40, railHeight + 15, trackZ + 15]} icon="🌬️" value={data.weatherWind.toFixed(1)} unit="km/h"
-        status="healthy" onClick={() => setActiveDashboard('Weather')} />
+          {/* BRIDGE SENSORS */}
+          <SensorTag position={[BRIDGE_X, railHeight - 5, trackZ + 6]} icon="🛡️" value={data.bridgeHealth.toFixed(1)} unit="%"
+            status="healthy" onClick={() => setActiveDashboard('Bridge')} />
+          <SensorTag position={[BRIDGE_X + 15, railHeight, trackZ + 6]} icon="📳" value={data.bridgeVib.toFixed(2)} unit="mm/s"
+            status="healthy" onClick={() => setActiveDashboard('Bridge')} />
 
-      {/* TRANSFORMER / YARD */}
-      <SensorTag position={[STATION_X + 20, railHeight + 10, trackZ - 5]} icon="⚡" value={data.voltage?.toFixed(2) || data.oheVolt.toFixed(2)} unit="kV"
-        status={data.oheVolt < 24 ? 'warning' : 'healthy'}
-        onClick={() => setActiveDashboard('Power')} />
-      <SensorTag position={[STATION_X + 20, railHeight + 12, trackZ - 5]} icon="🔋" value={data.ohePwr.toFixed(1)} unit="MW"
-        status="healthy" onClick={() => setActiveDashboard('Power')} />
+          {/* TUNNEL SENSORS */}
+          <SensorTag position={[TUNNEL_X, railHeight + 8, trackZ + 6]} icon="💨" value={data.tunnelGas.toFixed(3)} unit="ppm"
+            status="healthy" onClick={() => setActiveDashboard('Tunnel')} />
+          <SensorTag position={[TUNNEL_X + 15, railHeight + 8, trackZ + 6]} icon="🔥" value={data.tunnelSmoke.toFixed(0)} unit="%"
+            status="healthy" onClick={() => setActiveDashboard('Tunnel')} />
+
+          {/* WEATHER STATION */}
+          <SensorTag position={[STATION_X - 40, railHeight + 15, trackZ + 15]} icon="🌬️" value={data.weatherWind.toFixed(1)} unit="km/h"
+            status="healthy" onClick={() => setActiveDashboard('Weather')} />
+
+          {/* TRANSFORMER / YARD */}
+          <SensorTag position={[STATION_X + 20, railHeight + 10, trackZ - 5]} icon="⚡" value={data.voltage?.toFixed(2) || data.oheVolt.toFixed(2)} unit="kV"
+            status={data.oheVolt < 24 ? 'warning' : 'healthy'}
+            onClick={() => setActiveDashboard('Power')} />
+          <SensorTag position={[STATION_X + 20, railHeight + 12, trackZ - 5]} icon="🔋" value={data.ohePwr.toFixed(1)} unit="MW"
+            status="healthy" onClick={() => setActiveDashboard('Power')} />
+        </group>
+      )}
     </group>
   );
 }

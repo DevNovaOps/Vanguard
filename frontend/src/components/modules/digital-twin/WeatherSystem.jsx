@@ -91,6 +91,48 @@ export default function WeatherSystem() {
       hemiIntensity: 0.08,
       preset: 'night',
       particles: null
+    },
+    desert: {
+      skyColor: '#fde68a',
+      fogColor: '#fcd34d',
+      fogNear: 50,
+      fogFar: 800,
+      sunPosition: [100, 100, 0],
+      ambientIntensity: 0.8,
+      directionalIntensity: 1.5,
+      hemiSky: '#fef3c7',
+      hemiGround: '#d97706',
+      hemiIntensity: 0.6,
+      preset: 'dawn',
+      particles: null
+    },
+    forest: {
+      skyColor: '#bbf7d0',
+      fogColor: '#86efac',
+      fogNear: 10,
+      fogFar: 500,
+      sunPosition: [30, 80, -30],
+      ambientIntensity: 0.5,
+      directionalIntensity: 1.0,
+      hemiSky: '#dcfce3',
+      hemiGround: '#14532d',
+      hemiIntensity: 0.5,
+      preset: 'forest',
+      particles: null
+    },
+    coastal: {
+      skyColor: '#bae6fd',
+      fogColor: '#7dd3fc',
+      fogNear: 100,
+      fogFar: 1500,
+      sunPosition: [-50, 60, 50],
+      ambientIntensity: 0.7,
+      directionalIntensity: 1.2,
+      hemiSky: '#e0f2fe',
+      hemiGround: '#0369a1',
+      hemiIntensity: 0.5,
+      preset: 'dawn',
+      particles: null
     }
   };
 
