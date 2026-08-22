@@ -17,10 +17,11 @@ function SceneContent({ onEnvironmentChange, contextName }) {
   const lastEnvRef = useRef('Plains');
   
   const isVandeBharat = contextName && contextName.toLowerCase().includes('vande bharat');
+  const isFreightTrain = contextName && contextName.toLowerCase().includes('freight');
   
-  const locoGltf = useGLTF(isVandeBharat ? '/vande_bharat_express.glb' : '/wap_7_new_design_low_poly.glb');
+  const locoGltf = useGLTF(isVandeBharat ? '/vande_bharat_express.glb' : (isFreightTrain ? '/wag-12.glb' : '/wap_7_new_design_low_poly.glb'));
   const trackGltf = useGLTF('/indian_railway_seane_scan_to_lowpoly.glb');
-  const coachGltf = useGLTF('/coach.glb');
+  const coachGltf = useGLTF(isFreightTrain ? '/eanos_open_wagon.glb' : '/coach.glb');
 
   const track = useModelBounds(trackGltf, 150, [0, Math.PI / 2, 0]);
   const loco = useModelBounds(locoGltf, isVandeBharat ? 150 : 22, isVandeBharat ? [0, 0, 0] : [0, -Math.PI / 2, 0]);
@@ -262,6 +263,8 @@ export default function Train3DModel({ twinState, onEnvironmentChange, restoredS
 
 useGLTF.preload('/vande_bharat_express.glb');
 useGLTF.preload('/wap_7_new_design_low_poly.glb');
+useGLTF.preload('/wag-12.glb');
 useGLTF.preload('/indian_railway_seane_scan_to_lowpoly.glb');
 useGLTF.preload('/coach.glb');
+useGLTF.preload('/eanos_open_wagon.glb');
 useGLTF.preload('/city.glb');
