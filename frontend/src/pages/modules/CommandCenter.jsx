@@ -17,7 +17,8 @@ export default function CommandCenter() {
     contexts,
     compareContextId,
     compareContextState,
-    switchContext
+    switchContext,
+    toggleCompareContext
   } = useOperationalContext();
 
   const [summary, setSummary] = useState(null);
@@ -39,6 +40,7 @@ export default function CommandCenter() {
   const [rightDrawerTab, setRightDrawerTab] = useState(null); // 'ai' | null
   const [showMaintenanceDrawer, setShowMaintenanceDrawer] = useState(false);
   const [showWeatherSelector, setShowWeatherSelector] = useState(false);
+  const [showCompareSelector, setShowCompareSelector] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   
   const [voiceEnabled, setVoiceEnabled] = useState(true);
@@ -271,10 +273,28 @@ export default function CommandCenter() {
           </div>
           
           <div style={{ height: '24px', width: '1px', background: 'rgba(255,255,255,0.1)' }} />
-          
-          <button style={S.headerBtn}>
-            <Filter size={14} /> Filter Grid
-          </button>
+          <div style={{ position: 'relative' }}>
+            <button 
+              onClick={() => setShowCompareSelector(!showCompareSelector)} 
+              style={{ ...S.headerBtn, background: compareContextId ? 'rgba(59,130,246,0.2)' : 'rgba(255,255,255,0.03)' }}
+            >
+              <Filter size={14} /> Compare Grid {compareContextId && ' (Active)'}
+            </button>
+            {showCompareSelector && (
+              <div style={{ position: 'absolute', top: '40px', left: 0, background: 'rgba(15,23,42,0.95)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', padding: '8px', display: 'flex', flexDirection: 'column', gap: '4px', zIndex: 100, minWidth: '150px' }}>
+                <div style={{ fontSize: '11px', color: '#64748b', padding: '4px 8px', fontWeight: 'bold' }}>Compare with:</div>
+                {contexts.filter(c => c.id !== activeContext?.id).map(c => (
+                  <button 
+                    key={c.id} 
+                    onClick={() => { toggleCompareContext(c.id); setShowCompareSelector(false); }} 
+                    style={{ background: compareContextId === c.id ? 'rgba(59,130,246,0.2)' : 'transparent', border: 'none', color: 'white', padding: '8px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', textAlign: 'left', display: 'flex', alignItems: 'center', gap: '8px' }}
+                  >
+                    <span>{c.icon}</span> {c.name}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>

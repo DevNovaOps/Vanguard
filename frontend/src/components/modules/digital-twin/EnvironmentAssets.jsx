@@ -113,7 +113,7 @@ function OvalTunnel({ position, trackZ, railHeight }) {
       </mesh>
       
       {/* Mountain Covering */}
-      <mesh position={[200, railHeight + 5, trackZ]} receiveShadow castShadow>
+      <mesh position={[200, railHeight + 5, trackZ]} rotation={[0, 0, Math.PI / 2]} receiveShadow castShadow>
         <cylinderGeometry args={[25, 30, 400, 8, 1, false, 0, Math.PI]} />
         <meshStandardMaterial color="#57534e" roughness={1} />
       </mesh>
