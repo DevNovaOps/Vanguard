@@ -121,15 +121,11 @@ const OvalTunnel = React.memo(function OvalTunnel({ position, trackZ, railHeight
   return (
     <group position={position}>
       {/* Tunnel bore */}
-      <mesh position={[200, railHeight - 2, trackZ]} castShadow receiveShadow>
+      <mesh position={[0, railHeight - 2, trackZ]} castShadow receiveShadow>
         <tubeGeometry args={[curve, 20, 16, 16, false]} />
         <meshStandardMaterial color={wallColor} roughness={0.9} side={THREE.DoubleSide} />
       </mesh>
-      {/* Mountain covering */}
-      <mesh position={[200, railHeight + 5, trackZ]} rotation={[0, 0, Math.PI / 2]} receiveShadow castShadow>
-        <cylinderGeometry args={[25, 30, 400, 8, 1, false, 0, Math.PI]} />
-        <meshStandardMaterial color={rockColor} roughness={1} />
-      </mesh>
+      {/* Mountain covering removed as per user request */}
       {/* Tunnel portals (arches at both ends) */}
       {[0, 400].map(x => (
         <mesh key={x} position={[x, railHeight + 5, trackZ]} rotation={[0, x === 0 ? Math.PI / 2 : -Math.PI / 2, 0]} castShadow>
@@ -682,7 +678,7 @@ export default function EnvironmentAssets({ trackZ, railHeight, trackSizeX }) {
 
       {/* Animated River (underneath bridge) */}
       <AnimatedRiver
-        position={[BRIDGE_X, railHeight - 28, trackZ]}
+        position={[BRIDGE_X, -4.5, trackZ]}
         width={2500}
         length={300}
         color={mc.river.color}

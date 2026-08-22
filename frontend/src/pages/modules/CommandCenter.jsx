@@ -237,10 +237,16 @@ export default function CommandCenter() {
   const S = {
     // ── Layout ──
     container: {
-      display: 'flex', flexDirection: 'column', height: '100%',
+      position: 'absolute',
+      top: '64px',
+      left: 0,
+      right: 0,
+      bottom: 0,
+      display: 'flex', flexDirection: 'column',
       background: '#020617', color: '#f8fafc',
       fontFamily: "'Inter', -apple-system, sans-serif",
-      overflow: 'hidden'
+      overflow: 'hidden',
+      zIndex: 10
     },
     // ── Header ──
     header: {
@@ -279,7 +285,7 @@ export default function CommandCenter() {
     canvasWrap: { flex: 1, position: 'relative', overflow: 'hidden' },
     // ── Floating Dock ──
     dock: {
-      position: 'absolute', bottom: '32px', left: '50%', transform: 'translateX(-50%)',
+      position: 'absolute', bottom: '80px', left: '50%', transform: 'translateX(-50%)',
       background: 'rgba(15, 23, 42, 0.85)', backdropFilter: 'blur(20px)',
       border: '1px solid rgba(255,255,255,0.1)', borderRadius: '24px',
       padding: '8px', display: 'flex', alignItems: 'center', gap: '8px', zIndex: 100,

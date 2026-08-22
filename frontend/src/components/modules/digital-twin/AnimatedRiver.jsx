@@ -69,17 +69,14 @@ export default function AnimatedRiver({
       receiveShadow
       geometry={geometry}
     >
-      <meshPhysicalMaterial
+      <meshStandardMaterial
         ref={matRef}
         color={frozen ? '#b0d4e8' : color}
         transparent
-        opacity={frozen ? 0.95 : opacity}
-        roughness={frozen ? 0.6 : 0.08}
-        metalness={frozen ? 0.1 : 0.15}
-        transmission={frozen ? 0 : 0.85}
-        ior={1.33}
+        opacity={frozen ? 0.95 : Math.max(0.6, opacity)}
+        roughness={frozen ? 0.6 : 0.1}
+        metalness={frozen ? 0.1 : 0.6}
         side={THREE.DoubleSide}
-        envMapIntensity={frozen ? 0.3 : 1.2}
       />
     </mesh>
   );

@@ -54,6 +54,7 @@ const TrainEntity = React.memo(function TrainEntity({
     stationStopDone: false,
   });
   const prevCommand = useRef(null);
+  const prevEmergency = useRef(false);
 
   useFrame((state, delta) => {
     if (!trainRef.current || !locoModel) return;
@@ -81,9 +82,10 @@ const TrainEntity = React.memo(function TrainEntity({
       prevCommand.current = cmd;
     }
 
-    if (activeEmergency) {
+    if (activeEmergency && !prevEmergency.current) {
       w.state = 'emergency';
     }
+    prevEmergency.current = !!activeEmergency;
 
     // ── Workflow State Machine ──
     let targetSpeed = baseTargetSpeed;
