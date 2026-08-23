@@ -42,9 +42,13 @@ Vanguard ARC is an enterprise-grade railway safety intelligence platform that fu
 
 </div>
 
-### 📊 Project Presentation
+<div align="center">
 
-**[📥 Download Vanguard AI Rail Presentation (Part 1)](./Vanguard_AI_Rail_part1.pptx)**
+# 📊 Project Presentation
+
+## **[📥 Download Vanguard AI Rail Presentation (Part 1)](./Vanguard_AI_Rail_part1.pptx)**
+
+</div>
 
 ---
 
