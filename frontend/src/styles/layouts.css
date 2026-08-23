@@ -443,6 +443,14 @@
   margin: 0 auto;
 }
 
+.full-page-content {
+  padding: 0;
+  width: 100%;
+  height: calc(100vh - var(--navbar-height, 64px));
+  margin: 0;
+  overflow: hidden;
+}
+
 .page-header {
   display: flex;
   align-items: center;

@@ -10,6 +10,7 @@ import { MAP_PRESETS, MAP_ORDER } from '../../components/modules/digital-twin/Ma
 import { TRAIN_TYPES, TRAIN_FLEET, TRAIN_DISPLAY_ORDER } from '../../components/modules/digital-twin/TrainAssets';
 import { generateSensorData, generateWeatherInsight } from '../../components/modules/digital-twin/SensorEngine';
 import TrainSensorDashboard from '../../components/modules/digital-twin/TrainSensorDashboard';
+import { api } from '../../utils/api';
 
 const NOOP = () => {};
 
@@ -98,8 +99,13 @@ export default function CommandCenter() {
   }, [selectedTrainId, activeMapId, twinState?.activeEmergency]);
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [chatMessages, rightDrawerTab]);
+    if (messagesEndRef.current) {
+      const container = messagesEndRef.current.parentElement;
+      if (container) {
+        container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
+      }
+    }
+  }, [contextState?.chatMessages?.length, rightDrawerTab]);
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
@@ -123,32 +129,28 @@ export default function CommandCenter() {
     
     const userMsg = { sender: 'user', text: prompt, timestamp: new Date().toISOString() };
     const newChat = [...(contextState.chatMessages || []), userMsg];
-    updateContextState(activeContext.id, { chatMessages: newChat });
+    updateContextState({ chatMessages: newChat });
     setPrompt('');
     setIsProcessing(true);
 
     try {
-      const response = await fetch('/api/context/agent', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ contextId: activeContext.id, prompt })
-      });
-      const data = await response.json();
+      const response = await api.post('/api/v1/command-center/chat', { query: prompt });
+      const data = response.data || {};
       
-      const agentMsg = { sender: 'agent', text: data.reply, timestamp: new Date().toISOString() };
-      updateContextState(activeContext.id, { 
+      const replyText = data.executive_summary || data.retrieval_results || data.reasoning || "Analysis complete.";
+      const agentMsg = { sender: 'agent', text: replyText, timestamp: new Date().toISOString() };
+      
+      updateContextState({ 
         chatMessages: [...newChat, agentMsg],
-        incidents: data.stateUpdates?.incidents || contextState.incidents,
-        twin: { ...contextState.twin, ...data.stateUpdates?.twin }
       });
       
       if (voiceEnabled && window.speechSynthesis) {
-        const utterance = new SpeechSynthesisUtterance(data.reply);
+        const utterance = new SpeechSynthesisUtterance(replyText);
         window.speechSynthesis.speak(utterance);
       }
     } catch (err) {
       console.error(err);
-      updateContextState(activeContext.id, { 
+      updateContextState({ 
         chatMessages: [...newChat, { sender: 'agent', text: 'Sorry, the AI agent is currently offline.' }] 
       });
     } finally {
@@ -166,7 +168,7 @@ export default function CommandCenter() {
       trainCommand: isEmergency ? 'resume' : 'emergency',
       trainCommands: {}, // clear all per-train commands
     };
-    updateContextState(activeContext.id, { twin: newState });
+    updateContextState({ twin: newState });
     setTwinState(newState);
   };
 
@@ -174,7 +176,7 @@ export default function CommandCenter() {
     if (!twinState) return;
     const newCommands = { ...(twinState.trainCommands || {}), [trainId]: cmd };
     const newState = { ...twinState, trainCommands: newCommands };
-    updateContextState(activeContext.id, { twin: newState });
+    updateContextState({ twin: newState });
     setTwinState(newState);
   };
 
@@ -198,7 +200,7 @@ export default function CommandCenter() {
     
     const alertMsg = { sender: 'system', text: alertText, timestamp: new Date().toISOString() };
     
-    updateContextState(activeContext.id, {
+    updateContextState({
       twin: newState,
       chatMessages: [...(contextState.chatMessages || []), alertMsg]
     });
@@ -212,14 +214,14 @@ export default function CommandCenter() {
     const current = twinState.speedDelta || 0;
     const newDelta = Math.max(-80, Math.min(80, current + delta));
     const newState = { ...twinState, speedDelta: newDelta };
-    updateContextState(activeContext.id, { twin: newState });
+    updateContextState({ twin: newState });
     setTwinState(newState);
   };
 
   const changeCamera = (view) => {
     if (!twinState) return;
     const newState = { ...twinState, cameraView: view };
-    updateContextState(activeContext.id, { twin: newState });
+    updateContextState({ twin: newState });
     setTwinState(newState);
   };
 
@@ -237,16 +239,10 @@ export default function CommandCenter() {
   const S = {
     // ── Layout ──
     container: {
-      position: 'absolute',
-      top: '64px',
-      left: 0,
-      right: 0,
-      bottom: 0,
-      display: 'flex', flexDirection: 'column',
+      display: 'flex', flexDirection: 'column', height: '100%',
       background: '#020617', color: '#f8fafc',
       fontFamily: "'Inter', -apple-system, sans-serif",
-      overflow: 'hidden',
-      zIndex: 10
+      overflow: 'hidden'
     },
     // ── Header ──
     header: {
@@ -302,8 +298,8 @@ export default function CommandCenter() {
     dockDivider: { width: '1px', height: '24px', background: 'rgba(255,255,255,0.1)', margin: '0 4px' },
     // ── Floating AI Widget ──
     aiWidget: {
-      position: 'absolute', bottom: '90px', right: '32px',
-      width: '380px', height: '550px', background: 'rgba(10, 15, 30, 0.95)',
+      position: 'absolute', bottom: '32px', right: '32px',
+      width: '380px', height: '550px', maxHeight: 'calc(100% - 64px)', background: 'rgba(10, 15, 30, 0.95)',
       backdropFilter: 'blur(24px)', border: '1px solid rgba(59,130,246,0.2)',
       borderRadius: '16px', display: 'flex', flexDirection: 'column', zIndex: 100,
       boxShadow: '0 25px 50px rgba(0,0,0,0.5), 0 0 30px rgba(59,130,246,0.1)'
@@ -740,9 +736,9 @@ export default function CommandCenter() {
               </div>
 
               {/* Chat Feed */}
-              <div style={{ flex: 1, padding: '16px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div style={{ flex: 1, padding: '16px', overflowY: 'auto', display: 'block' }}>
                 {chatMessages.map((msg, i) => (
-                  <div key={i} style={{ display: 'flex', gap: '8px', flexDirection: msg.sender === 'user' ? 'row-reverse' : 'row' }}>
+                  <div key={i} style={{ display: 'flex', gap: '8px', flexDirection: msg.sender === 'user' ? 'row-reverse' : 'row', marginBottom: '16px' }}>
                     <div style={{
                       width: '24px', height: '24px', borderRadius: '50%', flexShrink: 0,
                       background: msg.sender === 'user' ? 'linear-gradient(135deg, #3b82f6, #6366f1)' : 'rgba(255,255,255,0.05)',
@@ -755,9 +751,9 @@ export default function CommandCenter() {
                       maxWidth: '85%', padding: '10px 14px', borderRadius: '12px',
                       background: msg.sender === 'user' ? 'rgba(59, 130, 246, 0.15)' : 'rgba(255,255,255,0.03)',
                       border: msg.sender === 'user' ? '1px solid rgba(59, 130, 246, 0.3)' : '1px solid rgba(255,255,255,0.05)',
-                      color: '#cbd5e1', fontSize: '12px', lineHeight: '1.6'
+                      color: '#cbd5e1', fontSize: '12px', lineHeight: '1.6', wordBreak: 'break-word', overflowWrap: 'anywhere'
                     }}>
-                      <ReactMarkdown>{msg.text}</ReactMarkdown>
+                      <ReactMarkdown>{msg.text ? msg.text.replace(/\(Source:.*?\)/gsi, '').replace(/csvinc[\s:]*data[\s:]*[a-zA-Z0-9_\-\.\:]+(?:\)|\b)/gsi, '').replace(/[0-9]+\.csv::[a-zA-Z0-9_]+/gsi, '').replace(/,\s*\)/g, ')') : ''}</ReactMarkdown>
                     </div>
                   </div>
                 ))}

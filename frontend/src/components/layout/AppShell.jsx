@@ -53,7 +53,7 @@ export default function AppShell() {
           sidebarCollapsed={sidebarCollapsed}
           onMobileMenuOpen={() => setMobileOpen(true)}
         />
-        <div className="page-content">
+        <div className={location.pathname.startsWith('/command-center') ? 'full-page-content' : 'page-content'}>
           <AnimatePresence mode="wait">
             <motion.div
               key={location.pathname}
@@ -61,6 +61,7 @@ export default function AppShell() {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -8 }}
               transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+              style={location.pathname.startsWith('/command-center') ? { height: 'calc(100vh - var(--navbar-height, 64px))' } : {}}
             >
               <Outlet />
             </motion.div>
